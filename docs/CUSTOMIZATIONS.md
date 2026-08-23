@@ -300,7 +300,7 @@ Likely areas include:
 - `workers/durableObject/index.ts` data interfaces/queries if schema changes
 - configuration (`CATCH_ALL_MAILBOX` or equivalent)
 - config API and mailbox-picker auto-creation
-- UI display/filtering if original-recipient visibility is added
+- UI display/filtering and catch-all mailbox deletion protection
 - search predicates for original envelope recipients
 - tests for recipient resolution
 

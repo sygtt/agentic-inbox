@@ -49,6 +49,22 @@ test("delivers an existing configured mailbox directly", () => {
 	});
 });
 
+test("delivers a direct mailbox even when the optional catch-all is malformed", () => {
+	const result = resolveMailboxRoute({
+		envelopeRecipient: "support@example.com",
+		configuredAddresses: ["support@example.com"],
+		configuredDomains: ["example.com"],
+		catchAllMailbox: "not-an-email",
+		knownMailboxes: mailboxSet("support@example.com"),
+	});
+
+	assert.deepEqual(result, {
+		kind: "direct",
+		storageMailbox: "support@example.com",
+		envelopeRecipient: "support@example.com",
+	});
+});
+
 test("routes an unknown alias to the registered catch-all mailbox", () => {
 	const result = resolveMailboxRoute({
 		envelopeRecipient: "shop@example.com",

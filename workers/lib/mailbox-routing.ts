@@ -107,6 +107,25 @@ export function resolveMailboxRoute({
 		};
 	}
 
+	const isAllowListed =
+		!hasConfiguredAllowList || configuredSet.has(envelopeRecipient);
+	const envelopeMailboxExists = knownMailboxes.has(envelopeRecipient);
+
+	if (isAllowListed && envelopeMailboxExists) {
+		return {
+			kind: "direct",
+			storageMailbox: envelopeRecipient,
+			envelopeRecipient,
+		};
+	}
+
+	if (configuredSet.has(envelopeRecipient) && !envelopeMailboxExists) {
+		return {
+			kind: "reject",
+			reason: `Configured mailbox "${envelopeRecipient}" is not registered`,
+		};
+	}
+
 	const catchAllMailbox = rawCatchAllMailbox
 		? normalizeEmailAddress(rawCatchAllMailbox)
 		: null;
@@ -124,25 +143,6 @@ export function resolveMailboxRoute({
 		return {
 			kind: "reject",
 			reason: `CATCH_ALL_MAILBOX domain "${catchAllMailbox.split("@")[1]}" is not configured`,
-		};
-	}
-
-	const isAllowListed =
-		!hasConfiguredAllowList || configuredSet.has(envelopeRecipient);
-	const envelopeMailboxExists = knownMailboxes.has(envelopeRecipient);
-
-	if (isAllowListed && envelopeMailboxExists) {
-		return {
-			kind: "direct",
-			storageMailbox: envelopeRecipient,
-			envelopeRecipient,
-		};
-	}
-
-	if (configuredSet.has(envelopeRecipient) && !envelopeMailboxExists) {
-		return {
-			kind: "reject",
-			reason: `Configured mailbox "${envelopeRecipient}" is not registered`,
 		};
 	}
 

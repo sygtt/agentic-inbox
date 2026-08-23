@@ -192,7 +192,7 @@ export default function HomeRoute() {
 										{account.email}
 									</div>
 								</div>
-								{!isConfigured && (
+								{!isConfigured && account.email.toLowerCase() !== catchAllMailbox.toLowerCase() && (
 									<Button
 										variant="ghost"
 										size="sm"

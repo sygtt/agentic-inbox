@@ -246,6 +246,8 @@ The mailbox creation API permits the configured catch-all address in addition to
 
 The config API exposes the catch-all mailbox to the home screen, which includes it in the mailbox picker and auto-creation flow. Search queries match `envelope_recipient` for both free-text and `to:` searches.
 
+The home screen protects the configured catch-all mailbox from deletion. When only catch-all routing is configured, other explicitly created mailboxes remain manageable.
+
 The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
 
 If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
