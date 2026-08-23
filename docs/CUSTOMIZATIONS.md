@@ -312,7 +312,7 @@ Planned concept:
 CATCH_ALL_MAILBOX
 ```
 
-The production address must not be hard-coded into reusable source.
+The production address must not be hard-coded into reusable source. Supply it through a deployment-specific Worker secret or local development variable instead.
 
 Committed examples should use `all@example.com`.
 
