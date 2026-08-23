@@ -61,6 +61,7 @@ npm run dev
 
 1. Set your domain in `wrangler.jsonc`
 2. Create an R2 bucket named `agentic-inbox`: `wrangler r2 bucket create agentic-inbox`
+3. Optional: set `CATCH_ALL_MAILBOX` to a registered mailbox such as `all@example.com` to store mail sent to unknown aliases. Leave it empty to reject unknown SMTP envelope recipients.
 
 ### Deploy
 

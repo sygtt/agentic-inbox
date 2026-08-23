@@ -20,6 +20,10 @@ import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
+import {
+	normalizeEmailAddress,
+	resolveMailboxRoute,
+} from "./lib/mailbox-routing";
 
 type AppContext = Context<MailboxContext>;
 
@@ -345,26 +349,54 @@ async function streamToArrayBuffer(stream: ReadableStream, streamSize: number) {
 	return result;
 }
 
-async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env: Env, ctx: ExecutionContext) {
+export interface InboundEmailEvent {
+	readonly raw: ReadableStream<Uint8Array>;
+	readonly rawSize: number;
+	readonly to: string;
+}
+
+async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionContext) {
 	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
 	const parsedEmail = await new PostalMime().parse(rawEmail);
 
-	if (!parsedEmail.to?.length || !parsedEmail.to[0].address) throw new Error("received email with empty to");
-
 	const allowedAddresses = ((env.EMAIL_ADDRESSES ?? []) as string[]).map((a) => a.toLowerCase());
-	const allRecipients = parsedEmail.to.map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
+	const allRecipients = (parsedEmail.to || []).map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
 	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 
-	let mailboxId: string | undefined;
-	if (allowedAddresses.length > 0) {
-		mailboxId = allRecipients.find((addr) => allowedAddresses.includes(addr));
-		if (!mailboxId) { console.log(`Ignoring email: no recipient matches EMAIL_ADDRESSES.`); return; }
-	} else { mailboxId = allRecipients[0]; }
-	if (!mailboxId) throw new Error("received email with no valid recipient address");
+	// Resolve from the SMTP envelope recipient, not from visible To headers.
+	// The latter may be absent for Bcc deliveries or differ because of aliases
+	// and forwarding.
+	const candidateMailboxes = new Set<string>();
+	const envelopeRecipient = normalizeEmailAddress(event.to);
+	if (envelopeRecipient) candidateMailboxes.add(envelopeRecipient);
+	const catchAllMailbox = normalizeEmailAddress(env.CATCH_ALL_MAILBOX);
+	if (catchAllMailbox) candidateMailboxes.add(catchAllMailbox);
+
+	const knownMailboxes = new Set<string>();
+	for (const candidate of candidateMailboxes) {
+		if (await env.BUCKET.head(`mailboxes/${candidate}.json`)) {
+			knownMailboxes.add(candidate);
+		}
+	}
+
+	const route = resolveMailboxRoute({
+		envelopeRecipient: event.to,
+		configuredAddresses: allowedAddresses,
+		configuredDomains: (env.DOMAINS || "").split(","),
+		catchAllMailbox: env.CATCH_ALL_MAILBOX,
+		knownMailboxes,
+	});
+	if (route.kind === "reject") {
+		throw new Error(`Inbound email rejected: ${route.reason}`);
+	}
+
+	const mailboxId = route.storageMailbox;
+	if (route.kind === "catch-all") {
+		console.log(`Routing ${route.envelopeRecipient} to catch-all mailbox ${mailboxId}`);
+	}
 
 	const messageId = crypto.randomUUID();
-	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
 
@@ -395,6 +427,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 	await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
 		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
+		envelope_recipient: route.envelopeRecipient,
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
 		date: new Date().toISOString(), // uses receive time, not the email's Date header
 		body: parsedEmail.html || parsedEmail.text || "",
