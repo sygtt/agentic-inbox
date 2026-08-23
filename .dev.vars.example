@@ -2,5 +2,5 @@
 POLICY_AUD=your-access-policy-audience-tag
 TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 
-# Optional. Set this in local vars to route unknown recipients during development.
+# Optional. Set this in wrangler.jsonc or local vars to route unknown recipients.
 # CATCH_ALL_MAILBOX=all@example.com

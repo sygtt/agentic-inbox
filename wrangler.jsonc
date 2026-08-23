@@ -14,8 +14,9 @@
 		// TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.
 		// The worker now fails closed outside local development if Access is not configured.
 		"DOMAINS": "sygtt.cc",
-		"EMAIL_ADDRESSES": []
-		// CATCH_ALL_MAILBOX is deployment-specific; supply it as a secret or local variable.
+		"EMAIL_ADDRESSES": [],
+		// Optional mailbox for unknown SMTP envelope recipients. Leave empty to reject them.
+		"CATCH_ALL_MAILBOX": "all@sygtt.cc"
 	},
 	"send_email": [
 		{

@@ -164,8 +164,6 @@ The repository contains `.dev.vars.example` with placeholders for Cloudflare Acc
 ```text
 POLICY_AUD=your-access-policy-audience-tag
 TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-# Optional local catch-all mailbox
-# CATCH_ALL_MAILBOX=all@example.com
 ```
 
 If a local task needs the file, copy it rather than editing the example with real credentials:
@@ -204,14 +202,6 @@ Before changing it, determine whether the requested setting is:
 2. deployment-specific/private configuration.
 
 Prefer keeping production-specific values out of committed reusable logic.
-
-`CATCH_ALL_MAILBOX` is deployment-specific. Set it as a production Worker secret with:
-
-```bash
-npx wrangler secret put CATCH_ALL_MAILBOX
-```
-
-For local development, set it in `.dev.vars`. Do not commit the production mailbox address.
 
 ### Existing deployment-specific divergence
 
