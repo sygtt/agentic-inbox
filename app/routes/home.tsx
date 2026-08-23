@@ -42,7 +42,7 @@ export default function HomeRoute() {
 
 	const domains = configData?.domains ?? [];
 	const emailAddresses = configData?.emailAddresses ?? [];
-	const catchAllMailbox = configData?.catchAllMailbox ?? "";
+	const catchAllMailbox = (configData?.catchAllMailbox ?? "").trim().toLowerCase();
 	const configuredMailboxAddresses = useMemo(
 		() => [...new Set([...emailAddresses, ...(catchAllMailbox ? [catchAllMailbox] : [])])],
 		[emailAddresses, catchAllMailbox],
