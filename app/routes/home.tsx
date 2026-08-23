@@ -14,6 +14,7 @@ import {
 } from "@cloudflare/kumo";
 import { EnvelopeIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router";
 import api from "~/services/api";
@@ -23,6 +24,8 @@ import {
 	useMailboxes,
 } from "~/queries/mailboxes";
 import { queryKeys } from "~/queries/keys";
+
+const CatchAllMailboxSchema = z.string().trim().toLowerCase().email();
 
 export function meta() {
 	return [{ title: "Agentic Inbox" }];
@@ -42,7 +45,8 @@ export default function HomeRoute() {
 
 	const domains = configData?.domains ?? [];
 	const emailAddresses = configData?.emailAddresses ?? [];
-	const catchAllMailbox = (configData?.catchAllMailbox ?? "").trim().toLowerCase();
+	const parsedCatchAllMailbox = CatchAllMailboxSchema.safeParse(configData?.catchAllMailbox);
+	const catchAllMailbox = parsedCatchAllMailbox.success ? parsedCatchAllMailbox.data : "";
 	const configuredMailboxAddresses = useMemo(
 		() => [...new Set([...emailAddresses, ...(catchAllMailbox ? [catchAllMailbox] : [])])],
 		[emailAddresses, catchAllMailbox],
