@@ -427,7 +427,7 @@ This explicit operator-review boundary is desirable and should remain unless a s
 
 ## Unknown recipient without catch-all is rejected
 
-Unknown inbound recipients are explicitly rejected with the Email Worker `setReject()` API when no registered catch-all mailbox is configured. This avoids silently discarding or misrouting mail. Genuine storage failures remain retryable processing errors.
+Unknown inbound recipients are explicitly rejected with the Email Worker `setReject()` API when no registered catch-all mailbox is configured. This avoids silently discarding or misrouting mail. Genuine storage failures remain retryable processing errors. The mailbox creation API also permits the configured catch-all address when `EMAIL_ADDRESSES` is a non-empty allow-list.
 
 A non-empty `EMAIL_ADDRESSES` allow-list remains restrictive even when all of its entries are malformed, so configuration errors fail closed rather than enabling direct delivery to registered mailboxes.
 

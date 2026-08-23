@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeEmailAddress, resolveMailboxRoute } from "../workers/lib/mailbox-routing.ts";
+import {
+	isMailboxCreationAllowed,
+	normalizeEmailAddress,
+	resolveMailboxRoute,
+} from "../workers/lib/mailbox-routing.ts";
 
 const mailboxSet = (...mailboxes: string[]) => new Set(mailboxes);
 
@@ -8,6 +12,25 @@ test("normalizes valid addresses and rejects malformed values", () => {
 	assert.equal(normalizeEmailAddress("  Alias@Example.com "), "alias@example.com");
 	assert.equal(normalizeEmailAddress("not-an-email"), null);
 	assert.equal(normalizeEmailAddress(undefined), null);
+});
+
+test("allows the configured catch-all mailbox through the creation allow-list", () => {
+	assert.equal(
+		isMailboxCreationAllowed(
+			"all@example.com",
+			["support@example.com"],
+			"all@example.com",
+		),
+		true,
+	);
+	assert.equal(
+		isMailboxCreationAllowed(
+			"other@example.com",
+			["support@example.com"],
+			"all@example.com",
+		),
+		false,
+	);
 });
 
 test("delivers an existing configured mailbox directly", () => {

@@ -39,6 +39,25 @@ export function normalizeEmailAddress(value: unknown): string | null {
 	return parsed.success ? parsed.data : null;
 }
 
+/**
+ * Allow the configured catch-all mailbox to be registered even when
+ * EMAIL_ADDRESSES is a non-empty explicit mailbox allow-list.
+ */
+export function isMailboxCreationAllowed(
+	rawEmail: unknown,
+	rawConfiguredAddresses: readonly unknown[],
+	rawCatchAllMailbox?: unknown,
+): boolean {
+	const email = normalizeEmailAddress(rawEmail);
+	if (!email) return false;
+	if (rawConfiguredAddresses.length === 0) return true;
+
+	const configuredAddresses = rawConfiguredAddresses
+		.map(normalizeEmailAddress)
+		.filter((address): address is string => address !== null);
+	return configuredAddresses.includes(email) || normalizeEmailAddress(rawCatchAllMailbox) === email;
+}
+
 export class MailboxRoutingError extends Error {
 	readonly reason: string;
 

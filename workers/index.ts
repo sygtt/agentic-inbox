@@ -22,6 +22,7 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import {
 	MailboxRoutingError,
+	isMailboxCreationAllowed,
 	normalizeEmailAddress,
 	resolveMailboxRoute,
 } from "./lib/mailbox-routing";
@@ -107,9 +108,9 @@ app.get("/api/v1/mailboxes", async (c) => {
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
 	const email = rawEmail.toLowerCase();
-	const allowedAddresses = (c.env.EMAIL_ADDRESSES ?? []) as string[];
-	if (allowedAddresses.length > 0 && !allowedAddresses.map((a) => a.toLowerCase()).includes(email)) {
-		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES" }, 403);
+	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
+	if (!isMailboxCreationAllowed(email, configuredAddresses, c.env.CATCH_ALL_MAILBOX)) {
+		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES or CATCH_ALL_MAILBOX" }, 403);
 	}
 	const key = `mailboxes/${email}.json`;
 	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);

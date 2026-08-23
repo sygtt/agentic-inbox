@@ -242,6 +242,8 @@ When `EMAIL_ADDRESSES` is configured, addresses in that list retain direct-mailb
 
 A non-empty `EMAIL_ADDRESSES` value remains restrictive even if its entries are malformed; invalid configuration cannot disable the allow-list by normalization alone.
 
+The mailbox creation API permits the configured catch-all address in addition to an explicit `EMAIL_ADDRESSES` allow-list, so a fresh environment can register the catch-all mailbox before receiving mail.
+
 The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
 
 If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
