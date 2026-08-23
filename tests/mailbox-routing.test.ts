@@ -69,6 +69,21 @@ test("rejects unknown recipients when catch-all routing is disabled", () => {
 	assert.equal(result.kind, "reject");
 });
 
+test("does not treat an invalid non-empty allow-list as disabled", () => {
+	const result = resolveMailboxRoute({
+		envelopeRecipient: "support@example.com",
+		configuredAddresses: ["not-an-email"],
+		configuredDomains: ["example.com"],
+		catchAllMailbox: "",
+		knownMailboxes: mailboxSet("support@example.com"),
+	});
+
+	assert.deepEqual(result, {
+		kind: "reject",
+		reason: 'Recipient "support@example.com" is not configured',
+	});
+});
+
 test("rejects a configured mailbox that is not registered", () => {
 	const result = resolveMailboxRoute({
 		envelopeRecipient: "support@example.com",

@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
+import { MailboxRoutingError } from "./lib/mailbox-routing";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
 
@@ -118,9 +119,15 @@ export default {
 		try {
 			await receiveEmail(event, env, ctx);
 		} catch (e) {
+			if (e instanceof MailboxRoutingError) {
+				console.warn("Rejecting incoming email:", e.reason);
+				event.setReject(e.reason);
+				return;
+			}
+
 			console.error("Failed to process incoming email:", (e as Error).message, (e as Error).stack);
-			// Re-throw so Cloudflare's email routing can retry delivery or bounce the message.
-			// Swallowing the error would silently drop the email.
+			// Re-throw genuine processing failures so Cloudflare's email routing can
+			// retry delivery. Swallowing them would silently drop the email.
 			throw e;
 		}
 	},

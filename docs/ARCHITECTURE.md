@@ -223,11 +223,11 @@ Inbound mail enters through the Worker `email()` handler in `workers/app.ts`, wh
 
 Current flow:
 
-1. Reject invalid or oversized raw message streams.
-2. Parse the message with `postal-mime`.
-3. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
-4. Resolve the mailbox from the SMTP envelope recipient and the optional `CATCH_ALL_MAILBOX` setting.
-5. Confirm the selected storage mailbox registry object exists in R2.
+1. Resolve the mailbox from the SMTP envelope recipient and the optional `CATCH_ALL_MAILBOX` setting.
+2. Confirm the selected storage mailbox registry object exists in R2, or explicitly reject a routing policy failure with `setReject()`.
+3. Reject invalid or oversized raw message streams.
+4. Parse the message with `postal-mime`.
+5. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
 6. Resolve the mailbox Durable Object.
 7. Store attachment blobs in R2.
 8. Compute threading information.
@@ -240,9 +240,11 @@ The SMTP envelope recipient is the source of truth for routing. Visible `To`, `C
 
 When `EMAIL_ADDRESSES` is configured, addresses in that list retain direct-mailbox behavior. Unknown or non-allow-listed recipients are routed to the registered `CATCH_ALL_MAILBOX` when it is configured. When catch-all is empty, unknown recipients are rejected so they are not silently stored in an unrelated mailbox.
 
+A non-empty `EMAIL_ADDRESSES` value remains restrictive even if its entries are malformed; invalid configuration cannot disable the allow-list by normalization alone.
+
 The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
 
-If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, inbound processing fails and the Worker rethrows the error to the Email Routing system.
+If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
 
 ## Threading
 

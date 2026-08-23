@@ -21,6 +21,7 @@ import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import {
+	MailboxRoutingError,
 	normalizeEmailAddress,
 	resolveMailboxRoute,
 } from "./lib/mailbox-routing";
@@ -356,13 +357,7 @@ export interface InboundEmailEvent {
 }
 
 async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionContext) {
-	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
-	const parsedEmail = await new PostalMime().parse(rawEmail);
-
-	const allowedAddresses = ((env.EMAIL_ADDRESSES ?? []) as string[]).map((a) => a.toLowerCase());
-	const allRecipients = (parsedEmail.to || []).map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
-	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
-	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
+	const configuredAddresses = (env.EMAIL_ADDRESSES ?? []) as unknown[];
 
 	// Resolve from the SMTP envelope recipient, not from visible To headers.
 	// The latter may be absent for Bcc deliveries or differ because of aliases
@@ -382,14 +377,20 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 
 	const route = resolveMailboxRoute({
 		envelopeRecipient: event.to,
-		configuredAddresses: allowedAddresses,
+		configuredAddresses,
 		configuredDomains: (env.DOMAINS || "").split(","),
 		catchAllMailbox: env.CATCH_ALL_MAILBOX,
 		knownMailboxes,
 	});
 	if (route.kind === "reject") {
-		throw new Error(`Inbound email rejected: ${route.reason}`);
+		throw new MailboxRoutingError(route.reason);
 	}
+
+	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
+	const parsedEmail = await new PostalMime().parse(rawEmail);
+	const allRecipients = (parsedEmail.to || []).map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
+	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
+	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 
 	const mailboxId = route.storageMailbox;
 	if (route.kind === "catch-all") {

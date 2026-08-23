@@ -39,6 +39,16 @@ export function normalizeEmailAddress(value: unknown): string | null {
 	return parsed.success ? parsed.data : null;
 }
 
+export class MailboxRoutingError extends Error {
+	readonly reason: string;
+
+	constructor(reason: string) {
+		super(reason);
+		this.name = "MailboxRoutingError";
+		this.reason = reason;
+	}
+}
+
 /**
  * Resolve the storage mailbox without changing the original SMTP recipient.
  *
@@ -66,6 +76,7 @@ export function resolveMailboxRoute({
 		.map(normalizeEmailAddress)
 		.filter((address): address is string => address !== null);
 	const configuredSet = new Set(configuredAddresses);
+	const hasConfiguredAllowList = rawConfiguredAddresses.length > 0;
 	const configuredDomains = (configuredDomainsInput ?? [])
 		.map((domain) => String(domain).trim().toLowerCase())
 		.filter(Boolean);
@@ -98,7 +109,7 @@ export function resolveMailboxRoute({
 	}
 
 	const isAllowListed =
-		configuredSet.size === 0 || configuredSet.has(envelopeRecipient);
+		!hasConfiguredAllowList || configuredSet.has(envelopeRecipient);
 	const envelopeMailboxExists = knownMailboxes.has(envelopeRecipient);
 
 	if (isAllowListed && envelopeMailboxExists) {
@@ -133,7 +144,7 @@ export function resolveMailboxRoute({
 
 	return {
 		kind: "reject",
-		reason: configuredSet.size > 0
+		reason: hasConfiguredAllowList
 			? `Recipient "${envelopeRecipient}" is not configured`
 			: `Mailbox "${envelopeRecipient}" is not registered and catch-all routing is disabled`,
 	};
