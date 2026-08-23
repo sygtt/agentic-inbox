@@ -10,7 +10,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    cloudflare({
+      viteEnvironment: { name: "ssr" },
+      // Keep local development independent of Cloudflare login and remote bindings.
+      remoteBindings: false,
+      persistState: { path: ".wrangler/state" },
+    }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

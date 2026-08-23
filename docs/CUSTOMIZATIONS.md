@@ -204,11 +204,11 @@ Do **not** perform that cleanup incidentally during unrelated feature work becau
 
 ---
 
-# Planned customizations
+# Recently implemented customizations
 
 ## Catch-all mailbox aggregation
 
-**Status:** Planned
+**Status:** Active
 
 ### Why
 
@@ -226,7 +226,7 @@ Unknown recipient addresses should remain useful for compartmentalization and le
 
 ### Desired behavior
 
-Introduce a configurable catch-all mailbox, conceptually:
+Introduce a configurable catch-all mailbox:
 
 ```text
 CATCH_ALL_MAILBOX=all@example.com
@@ -239,7 +239,7 @@ Routing rules should behave as follows:
 3. Preserve the **original SMTP envelope recipient** separately from the storage mailbox identity.
 4. Preserve the visible `To`, `Cc`, and other parsed headers unchanged.
 5. Do not automatically create a new mailbox for every unknown alias.
-6. If catch-all is disabled, retain a clearly defined safe fallback behavior rather than silently routing to an unrelated mailbox.
+6. If catch-all is disabled, reject unknown recipients rather than silently routing them to an unrelated mailbox.
 
 Conceptually:
 
@@ -267,18 +267,16 @@ SMTP envelope recipient: shop@example.com
 
 ### Critical design requirement: envelope recipient
 
-Current upstream-derived inbound logic primarily resolves mailboxes using addresses parsed from the visible message headers.
+The implementation resolves mailboxes using the Cloudflare Email Worker event's SMTP envelope recipient, while retaining the visible recipient headers as message metadata.
 
-That is insufficient for robust catch-all behavior because the SMTP envelope recipient may differ from visible `To` headers, especially with:
+This is required because the SMTP envelope recipient may differ from visible `To` headers, especially with:
 
 - aliases
 - Bcc deliveries
 - forwarding
 - mailing systems that rewrite visible headers
 
-The implementation should use the Cloudflare Email Worker event's actual envelope recipient as the deterministic routing input.
-
-Do not implement catch-all merely by taking `parsedEmail.to[0]` and replacing it with the catch-all address.
+Do not implement catch-all by taking `parsedEmail.to[0]` and replacing it with the catch-all address.
 
 ### Original recipient storage
 
@@ -288,14 +286,7 @@ The catch-all mailbox must retain enough information to answer:
 
 Do not destroy this information by rewriting the existing `recipient` field to the catch-all mailbox address.
 
-Before implementation, decide explicitly whether to:
-
-1. add a dedicated persisted envelope-recipient field, or
-2. preserve it in another clearly queryable, durable structure.
-
-A dedicated field is generally easier to reason about, but it requires an additive Durable Object schema migration.
-
-The final design should be chosen after inspecting the current upstream state at implementation time.
+The implementation adds a dedicated nullable `emails.envelope_recipient` column through an additive Durable Object migration.
 
 ### Main affected areas
 
@@ -308,32 +299,32 @@ Likely areas include:
 - `workers/durableObject/migrations.ts` if schema changes
 - `workers/durableObject/index.ts` data interfaces/queries if schema changes
 - configuration (`CATCH_ALL_MAILBOX` or equivalent)
-- UI display/filtering if original-recipient visibility is added
+- config API and mailbox-picker auto-creation
+- UI display/filtering and catch-all mailbox deletion protection
+- search predicates for original envelope recipients
 - tests for recipient resolution
 
 The implementation should minimize the number of upstream files modified where practical.
 
 ### Configuration involved
 
-Planned concept:
+Configuration concept:
 
 ```text
 CATCH_ALL_MAILBOX
 ```
 
-The production address must not be hard-coded into reusable source.
+The production catch-all address is configured in `wrangler.jsonc`; generic examples should continue to use `all@example.com`.
 
 Committed examples should use `all@example.com`.
 
 ### Persistence / migration implications
 
-Potentially yes.
+Yes. Migration `9_add_envelope_recipient` adds the nullable column and preserves existing mailbox data.
 
-If a dedicated envelope-recipient column is added, use an additive migration and preserve compatibility with existing mailbox Durable Objects.
+Existing messages retain `NULL` because their SMTP envelope recipient was not previously available to the application.
 
-Do not assume existing databases are empty.
-
-### Required validation
+### Validation performed and required
 
 At minimum cover:
 
@@ -349,7 +340,7 @@ At minimum cover:
 - attachment handling remains correct
 - auto-draft trigger targets the storage mailbox intentionally
 
-Also run:
+The focused routing tests run with the repository's `npm test` script. Also run:
 
 ```bash
 npm run typecheck
@@ -358,7 +349,7 @@ npm run build
 
 ### AI-agent interaction question
 
-When an unknown alias is stored in the catch-all mailbox, the current architecture would naturally trigger the `EmailAgent` associated with the **storage mailbox**.
+When an unknown alias is stored in the catch-all mailbox, the `EmailAgent` associated with the **storage mailbox** is triggered.
 
 That is probably desirable, but the implementation must make the distinction explicit:
 
@@ -436,11 +427,11 @@ The normal Email Agent tool set creates drafts but does not directly send email.
 
 This explicit operator-review boundary is desirable and should remain unless a separate, intentionally designed automation feature changes it.
 
-## Unknown recipient is currently ignored when mailbox does not exist
+## Unknown recipient without catch-all is rejected
 
-Current inbound behavior checks for the mailbox registry object and ignores delivery to a mailbox that has not been created.
+Unknown inbound recipients are explicitly rejected with the Email Worker `setReject()` API when no registered catch-all mailbox is configured. This avoids silently discarding or misrouting mail. Genuine storage failures remain retryable processing errors. The mailbox creation API also permits the configured catch-all address when `EMAIL_ADDRESSES` is a non-empty allow-list.
 
-This is inherited behavior and is the specific behavior the planned catch-all customization intends to replace for unknown aliases.
+A non-empty `EMAIL_ADDRESSES` allow-list remains restrictive even when all of its entries are malformed, so configuration errors fail closed rather than enabling direct delivery to registered mailboxes.
 
 ## Outbound delivery is asynchronous
 

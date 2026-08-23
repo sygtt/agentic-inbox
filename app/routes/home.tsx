@@ -14,7 +14,8 @@ import {
 } from "@cloudflare/kumo";
 import { EnvelopeIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router";
 import api from "~/services/api";
 import {
@@ -23,6 +24,8 @@ import {
 	useMailboxes,
 } from "~/queries/mailboxes";
 import { queryKeys } from "~/queries/keys";
+
+const CatchAllMailboxSchema = z.string().trim().toLowerCase().email();
 
 export function meta() {
 	return [{ title: "Agentic Inbox" }];
@@ -42,6 +45,12 @@ export default function HomeRoute() {
 
 	const domains = configData?.domains ?? [];
 	const emailAddresses = configData?.emailAddresses ?? [];
+	const parsedCatchAllMailbox = CatchAllMailboxSchema.safeParse(configData?.catchAllMailbox);
+	const catchAllMailbox = parsedCatchAllMailbox.success ? parsedCatchAllMailbox.data : "";
+	const configuredMailboxAddresses = useMemo(
+		() => [...new Set([...emailAddresses, ...(catchAllMailbox ? [catchAllMailbox] : [])])],
+		[emailAddresses, catchAllMailbox],
+	);
 
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [newPrefix, setNewPrefix] = useState("");
@@ -67,11 +76,11 @@ export default function HomeRoute() {
 	const autoCreateDone = useRef(false);
 	useEffect(() => {
 		if (autoCreateDone.current) return;
-		if (emailAddresses.length === 0 || !mailboxesFetched) return;
+		if (configuredMailboxAddresses.length === 0 || !mailboxesFetched) return;
 		const existingEmails = new Set(
 			mailboxes.map((m) => m.email.toLowerCase()),
 		);
-		const toCreate = emailAddresses.filter(
+		const toCreate = configuredMailboxAddresses.filter(
 			(addr) => !existingEmails.has(addr.toLowerCase()),
 		);
 		if (toCreate.length === 0) {
@@ -87,7 +96,7 @@ export default function HomeRoute() {
 			}),
 		).then(() => { if (!cancelled) refetchMailboxes(); });
 		return () => { cancelled = true; };
-	}, [emailAddresses, mailboxes, refetchMailboxes]);
+	}, [configuredMailboxAddresses, mailboxes, mailboxesFetched, refetchMailboxes]);
 
 	const handleCreate = async (e: FormEvent) => {
 		e.preventDefault();
@@ -130,7 +139,7 @@ export default function HomeRoute() {
 
 	const isConfigured = emailAddresses.length > 0;
 	const accounts = isConfigured
-		? emailAddresses.map((addr) => ({
+		? configuredMailboxAddresses.map((addr) => ({
 				id: addr,
 				email: addr,
 				name: addr.split("@")[0] || addr,
@@ -187,7 +196,7 @@ export default function HomeRoute() {
 										{account.email}
 									</div>
 								</div>
-								{!isConfigured && (
+								{!isConfigured && account.email.toLowerCase() !== catchAllMailbox.toLowerCase() && (
 									<Button
 										variant="ghost"
 										size="sm"

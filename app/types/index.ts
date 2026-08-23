@@ -30,6 +30,7 @@ export interface Email {
 	subject: string;
 	sender: string;
 	recipient: string;
+	envelope_recipient?: string | null;
 	cc?: string;
 	bcc?: string;
 	date: string;

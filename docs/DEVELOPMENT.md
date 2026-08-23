@@ -123,6 +123,7 @@ Current scripts include:
 npm run dev
 npm run build
 npm run preview
+npm test
 npm run typecheck
 npm run cf-typegen
 npm run deploy
@@ -133,6 +134,8 @@ npm run deploy
 Starts the React Router development server through Vite with the Cloudflare Vite plugin.
 
 The plugin is configured in `vite.config.ts` with a Cloudflare SSR environment, so Worker bindings and server-side code can run in the Cloudflare-compatible development environment.
+
+Local development disables remote bindings and persists local Durable Object/R2-compatible state under `.wrangler/state`. It does not require `wrangler login`. The local `EMAIL` binding is not a real production delivery path; use focused tests or an explicitly authorized integration test for sending and Email Routing.
 
 ### `npm run build`
 
@@ -256,9 +259,13 @@ When debugging send behavior, inspect Worker logs as well as the recipient mailb
 
 ## Local testing strategy
 
-The repository currently has no general `npm test` script in `package.json`.
+The repository uses Node's built-in test runner for deterministic routing tests:
 
-Do not invent a passing test result.
+```bash
+npm test
+```
+
+The test script uses Node's built-in TypeScript stripping support and does not add a test framework dependency.
 
 For every change, at minimum run:
 

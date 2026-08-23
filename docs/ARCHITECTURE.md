@@ -169,6 +169,7 @@ Stores message metadata and body content, including:
 
 - sender
 - recipient
+- SMTP envelope recipient, when received through Email Routing
 - cc / bcc
 - subject
 - received/saved timestamp
@@ -190,7 +191,7 @@ Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, and query indexes.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, and the nullable SMTP envelope-recipient column.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -222,39 +223,34 @@ Inbound mail enters through the Worker `email()` handler in `workers/app.ts`, wh
 
 Current flow:
 
-1. Reject invalid or oversized raw message streams.
-2. Parse the message with `postal-mime`.
-3. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
-4. Select a mailbox ID.
-5. Confirm a matching mailbox registry object exists in R2.
+1. Resolve the mailbox from the SMTP envelope recipient and the optional `CATCH_ALL_MAILBOX` setting.
+2. Confirm the selected storage mailbox registry object exists in R2, or explicitly reject a routing policy failure with `setReject()`.
+3. Reject invalid or oversized raw message streams.
+4. Parse the message with `postal-mime`.
+5. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
 6. Resolve the mailbox Durable Object.
 7. Store attachment blobs in R2.
 8. Compute threading information.
-9. Store the email in the mailbox SQLite database.
+9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
 10. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
 
-### Important current limitation: recipient resolution
+### Recipient resolution and catch-all behavior
 
-The current inbound implementation resolves the mailbox from the parsed message's visible recipient headers, primarily the first `To` address when `EMAIL_ADDRESSES` is empty.
+The SMTP envelope recipient is the source of truth for routing. Visible `To`, `Cc`, and `Bcc` headers remain message metadata and are not rewritten.
 
-It does **not** currently use the SMTP envelope recipient as the mailbox-resolution source of truth.
+When `EMAIL_ADDRESSES` is configured, addresses in that list retain direct-mailbox behavior. Unknown or non-allow-listed recipients are routed to the registered `CATCH_ALL_MAILBOX` when it is configured. When catch-all is empty, unknown recipients are rejected so they are not silently stored in an unrelated mailbox.
 
-This matters for:
+A non-empty `EMAIL_ADDRESSES` value remains restrictive even if its entries are malformed; invalid configuration cannot disable the allow-list by normalization alone.
 
-- catch-all routing
-- Bcc-only deliveries
-- aliases where the visible `To` header differs from the envelope recipient
-- preserving the actual address Cloudflare Email Routing delivered
+The mailbox creation API permits the configured catch-all address in addition to an explicit `EMAIL_ADDRESSES` allow-list, so a fresh environment can register the catch-all mailbox before receiving mail.
 
-A future catch-all implementation should use the Cloudflare Email Worker envelope recipient for deterministic routing while still preserving visible headers separately.
+The config API exposes the catch-all mailbox to the home screen, which includes it in the mailbox picker and auto-creation flow. Search queries match `envelope_recipient` for both free-text and `to:` searches.
 
-Do not overwrite or discard original recipient provenance when adding catch-all behavior.
+The home screen protects the configured catch-all mailbox from deletion. When only catch-all routing is configured, other explicitly created mailboxes remain manageable.
 
-### Unknown mailbox behavior
+The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
 
-If no corresponding `mailboxes/<mailbox-id>.json` exists, the current implementation logs the condition and ignores the message rather than creating a mailbox automatically.
-
-This is the main behavior that a future catch-all customization is expected to change.
+If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
 
 ## Threading
 
