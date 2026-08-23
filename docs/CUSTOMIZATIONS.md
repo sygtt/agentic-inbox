@@ -299,14 +299,16 @@ Likely areas include:
 - `workers/durableObject/migrations.ts` if schema changes
 - `workers/durableObject/index.ts` data interfaces/queries if schema changes
 - configuration (`CATCH_ALL_MAILBOX` or equivalent)
+- config API and mailbox-picker auto-creation
 - UI display/filtering if original-recipient visibility is added
+- search predicates for original envelope recipients
 - tests for recipient resolution
 
 The implementation should minimize the number of upstream files modified where practical.
 
 ### Configuration involved
 
-Planned concept:
+Configuration concept:
 
 ```text
 CATCH_ALL_MAILBOX

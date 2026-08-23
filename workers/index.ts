@@ -95,7 +95,8 @@ app.get("/api/v1/config", (c) => {
 	const domainsRaw = c.env.DOMAINS || "";
 	const domains = domainsRaw.split(",").map((d) => d.trim()).filter(Boolean);
 	const emailAddresses = c.env.EMAIL_ADDRESSES ?? [];
-	return c.json({ domains, emailAddresses });
+	const catchAllMailbox = c.env.CATCH_ALL_MAILBOX || null;
+	return c.json({ domains, emailAddresses, catchAllMailbox });
 });
 
 // -- Mailboxes ------------------------------------------------------
