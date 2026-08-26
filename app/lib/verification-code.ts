@@ -4,11 +4,12 @@
 
 const CODE_PATTERN = /(?<!\d)\d{4,8}(?!\d)/g;
 const CONTEXT_PATTERNS = [
-	/\b(?:auth(?:entication|enticate)?|confirmation|security|verification)\s+(?:code|number)\b/i,
-	/\b(?:auth|login|one[-\s]?time|otp|pass(?:code|word)|sign[-\s]?in)\s+(?:code|password)\b/i,
-	/\b(?:code|passcode)\s*(?:is|:)\s*\d/i,
-	/\b(?:use|enter|input|type)\b[\s\S]{0,30}\b(?:verify|confirm|authenticate)\b/i,
-	/\b(?:verify|confirm|authenticate)\b[\s\S]{0,30}\b(?:use|enter|input|type|with|using)\b/i,
+	/\b(?:auth(?:entication|enticate)?|confirmation|security|verification)\s+(?:code|number)\b[\s\S]{0,24}__CODE__/i,
+	/\b(?:auth|login|one[-\s]?time|otp|pass(?:code|word)|sign[-\s]?in)\s+(?:code|password)\b[\s\S]{0,24}__CODE__/i,
+	/\b(?:code|passcode)\s*(?:is|:)\s*__CODE__/i,
+	/__CODE__\s+(?:is|=)\s+(?:your\s+)?(?:auth(?:entication)?|confirmation|security|verification)\s+(?:code|number)\b/i,
+	/\b(?:use|enter|input|type)\s+__CODE__\s+(?:to\s+)?(?:verify|confirm|authenticate)\b/i,
+	/\b(?:verify|confirm|authenticate)\s+(?:with|using)\s+__CODE__/i,
 ];
 const CONTEXT_RADIUS = 80;
 
@@ -35,26 +36,16 @@ export function extractVerificationCode(
 		.filter(Boolean)
 		.join(" ");
 
-	let bestMatch: { code: string; distance: number } | null = null;
 	for (const match of text.matchAll(CODE_PATTERN)) {
 		const start = match.index ?? 0;
 		const end = start + match[0].length;
 		const contextStart = Math.max(0, start - CONTEXT_RADIUS);
-		const context = text.slice(
-			contextStart,
+		const context = `${text.slice(contextStart, start)}__CODE__${text.slice(
+			end,
 			Math.min(text.length, end + CONTEXT_RADIUS),
-		);
-		const distances = CONTEXT_PATTERNS.flatMap((pattern) => {
-			const contextMatch = pattern.exec(context);
-			return contextMatch?.index == null
-				? []
-				: [Math.abs(contextStart + contextMatch.index - start)];
-		});
-		const distance = Math.min(...distances);
-		if (Number.isFinite(distance) && (!bestMatch || distance < bestMatch.distance)) {
-			bestMatch = { code: match[0], distance };
-		}
+		)}`;
+		if (CONTEXT_PATTERNS.some((pattern) => pattern.test(context))) return match[0];
 	}
 
-	return bestMatch?.code ?? null;
+	return null;
 }
