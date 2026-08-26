@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stripHtmlToText } from "../workers/lib/email-content.ts";
+import { createEmailSnippet, stripHtmlToText } from "../workers/lib/email-content.ts";
 
 test("preserves text-only angle brackets and entities", () => {
 	assert.equal(
@@ -18,4 +18,8 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("<script>alert(1)</script><p>Safe</p>"), "Safe");
 	assert.equal(stripHtmlToText("<p>Hello<p>World"), "Hello World");
 	assert.equal(stripHtmlToText("<p>&copy; &mdash; &rsquo; &hellip;</p>"), "© — ’ …");
+});
+
+test("does not split a Unicode code point at the snippet boundary", () => {
+	assert.equal(createEmailSnippet("x".repeat(299) + "😀z"), "x".repeat(299) + "😀");
 });
