@@ -42,11 +42,13 @@ test("preserves angle brackets in plain text and decodes HTML entities", () => {
 		"Payment failed",
 	);
 	assert.equal(createEmailSnippet("1 <2 and 3 > 0"), "1 <2 and 3 > 0");
+	assert.equal(createEmailSnippet("See <https://example.com/path> now"), "See <https://example.com/path> now");
 	assert.equal(createEmailSnippet("<head><template><div>Hidden</div></template></head><body>Visible</body>"), "Visible");
 	assert.equal(createEmailSnippet("<template>outer<template>inner</template>still hidden</template><p>Visible</p>"), "Visible");
 	assert.equal(createEmailSnippet('<template><!-- <template> --></template><p>Visible</p>'), "Visible");
 	assert.equal(createEmailSnippet('<template><div title="<template>">Hidden</div></template><p>Visible</p>'), "Visible");
 	assert.equal(createEmailSnippet("<template><script>const token = '<template>';</script></template><p>Visible</p>"), "Visible");
+	assert.equal(createEmailSnippet('<script>const markup = "<script>";</script><p>Visible</p>'), "Visible");
 	assert.equal(createEmailSnippet("<p>Hello</p/><p>World</p>"), "Hello World");
 });
 

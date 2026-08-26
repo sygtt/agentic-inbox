@@ -38,6 +38,50 @@ A useful entry should include:
 
 # Active customizations
 
+## Email content normalization for list and agent text
+
+**Status:** Active
+
+### Why
+
+Email list snippets and agent-facing plain text should remain readable when
+stored content contains HTML markup, while text-only messages must retain
+ordinary angle brackets and URLs.
+
+### Behavior
+
+- HTML tags, comments, scripts, styles, and templates are removed before list snippets are truncated.
+- Whitespace and HTML entities are normalized for readable text.
+- Text-only content is preserved when it contains email addresses or URLs in angle brackets.
+- The original database body and browser/API rendering semantics are unchanged.
+
+### Main affected areas
+
+- `workers/lib/email-content.ts`
+- `workers/lib/email-helpers.ts`
+- `workers/durableObject/index.ts`
+- `workers/agent/index.ts`
+- `workers/lib/ai.ts`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+None. Snippets are derived at read time; no normalized-body column or schema
+migration is added.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to mailbox list projections or plain-text email
+helpers may conflict with this shared normalizer.
+
+### Removal / replacement condition
+
+Remove the local normalizer when upstream provides equivalent safe handling for
+HTML and text-only content across list, agent, and reply paths.
+
 ## AI-oriented repository governance
 
 **Status:** Active

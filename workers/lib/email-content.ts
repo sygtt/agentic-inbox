@@ -52,7 +52,9 @@ function readTagName(html: string, start: number) {
 	while (isTagNameChar(html[index])) index++;
 	if (index === nameStart) return null;
 	const next = html[index];
-	if (closing ? next !== ">" && next !== "/" && !/\s/.test(next || "") : next !== ">" && next !== "/" && !/\s/.test(next || "")) {
+	const afterSlash = html[index + 1];
+	if (next === "/" && afterSlash !== ">" && !/\s/.test(afterSlash || "")) return null;
+	if (next !== ">" && next !== "/" && !/\s/.test(next || "")) {
 		return null;
 	}
 
@@ -140,7 +142,7 @@ function findRawElementClosingTag(html: string, start: number, name: string) {
 
 		const end = findTagEnd(html, index);
 		if (end === -1) return null;
-		if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
+		if (!tag.closing && tag.name !== name && (tag.name === "script" || tag.name === "style")) {
 			const closingTag = findRawElementClosingTag(html, end + 1, tag.name);
 			if (!closingTag) return null;
 			index = closingTag.end + 1;
