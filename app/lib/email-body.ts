@@ -54,11 +54,13 @@ export function linkifyPlainText(text: string): string {
 
 const VOID_HTML_TAG_PATTERN =
 	/<!--[\s\S]*?-->|<\/?(?:area|base|br|col|embed|hr|img|link|meta|param|source|track|wbr)(?:\s[^<>]*)?\/?\>/i;
+const MALFORMED_LINK_TAG_PATTERN = /<a\b[^<>]*\bhref\s*=/i;
 const PAIRED_HTML_TAG_PATTERN =
 	/<([a-z][a-z0-9-]*)(?:\s[^<>]*)?>[\s\S]*?<\/\1\s*>/i;
 
 export function prepareEmailBody(body: string): string {
 	return VOID_HTML_TAG_PATTERN.test(body) ||
+		MALFORMED_LINK_TAG_PATTERN.test(body) ||
 		PAIRED_HTML_TAG_PATTERN.test(body)
 		? body
 		: linkifyPlainText(body);

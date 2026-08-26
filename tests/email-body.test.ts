@@ -41,6 +41,10 @@ test("escapes plain text before linkifying it", () => {
 		prepareEmailBody("Set <input name=email> to https://example.com"),
 		'Set &lt;input name=email&gt; to <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
 	);
+	assert.equal(
+		prepareEmailBody('<a href="https://example.com/verify">Verify now'),
+		'<a href="https://example.com/verify">Verify now',
+	);
 });
 
 test("keeps existing HTML for the normal sanitization path", () => {
