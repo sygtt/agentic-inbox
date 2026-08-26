@@ -33,6 +33,9 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("<center>First</center><center>Second</center>"), "First Second");
 	assert.equal(stripHtmlToText("<script>hidden</script/><p>Safe</p>"), "Safe");
 	assert.equal(stripHtmlToText("<script>hidden</script ignored><p>Safe</p>"), "Safe");
+	assert.equal(stripHtmlToText("<img alt=\"Payment failed\">"), "Payment failed");
+	assert.equal(stripHtmlToText("1 <2 and 3 > 0"), "1 <2 and 3 > 0");
+	assert.equal(stripHtmlToText("<head><template><div>Hidden</div></template></head><body>Visible</body>"), "Visible");
 });
 
 test("does not split a Unicode code point at the snippet boundary", () => {
