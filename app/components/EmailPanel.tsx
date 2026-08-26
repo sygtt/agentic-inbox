@@ -109,6 +109,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	};
 
 	const handleSendDraft = async (draftMsg?: Email) => {
+		if (isDeleting) return;
 		let target = draftMsg || email;
 		if (!mailboxId || !currentMailbox) return;
 		setIsSending(true);

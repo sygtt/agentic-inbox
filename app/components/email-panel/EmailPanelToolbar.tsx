@@ -81,6 +81,7 @@ export default function EmailPanelToolbar({
 						icon={<PaperPlaneTiltIcon size={16} />}
 						onClick={onSendDraft}
 						loading={isSending}
+						disabled={isDeleting}
 					>
 						{isSending ? "Sending..." : "Send"}
 					</Button>

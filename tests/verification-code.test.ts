@@ -24,6 +24,10 @@ test("does not label an arbitrary number as a verification code", () => {
 	assert.equal(extractVerificationCode("Verify your account", "The event occurred on August 26, 2026."), null);
 	assert.equal(extractVerificationCode("", "Use the link below to verify your account. Copyright 2026."), null);
 	assert.equal(extractVerificationCode("", "Your verification code expires in 2026. The code is 654321."), "654321");
+	assert.equal(
+		extractVerificationCode("Your verification code", "2026 annual notice. Your code is 654321."),
+		"654321",
+	);
 });
 
 test("chooses the code closest to its verification context", () => {

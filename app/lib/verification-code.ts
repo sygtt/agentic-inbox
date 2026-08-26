@@ -25,17 +25,7 @@ function toSearchText(value: string): string {
 		.trim();
 }
 
-/** Return the first nearby 4–8 digit number that has verification context. */
-export function extractVerificationCode(
-	subject?: string | null,
-	body?: string | null,
-): string | null {
-	const text = [subject, body]
-		.filter((value): value is string => Boolean(value))
-		.map(toSearchText)
-		.filter(Boolean)
-		.join(" ");
-
+function findContextualCode(text: string): string | null {
 	for (const match of text.matchAll(CODE_PATTERN)) {
 		const start = match.index ?? 0;
 		const end = start + match[0].length;
@@ -47,5 +37,18 @@ export function extractVerificationCode(
 		if (CONTEXT_PATTERNS.some((pattern) => pattern.test(context))) return match[0];
 	}
 
+	return null;
+}
+
+/** Return the first nearby 4–8 digit number that has verification context. */
+export function extractVerificationCode(
+	subject?: string | null,
+	body?: string | null,
+): string | null {
+	for (const value of [subject, body]) {
+		if (!value) continue;
+		const code = findContextualCode(toSearchText(value));
+		if (code) return code;
+	}
 	return null;
 }
