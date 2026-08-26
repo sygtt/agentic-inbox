@@ -13,6 +13,9 @@ import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
+import { stripHtmlToText } from "./email-content";
+
+export { stripHtmlToText } from "./email-content";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -172,21 +175,6 @@ export function textToHtml(text: string): string {
 	if (!text) return "";
 	const escaped = escapeHtml(text).replace(/\n/g, "<br>");
 	return `<div style="white-space:pre-wrap">${escaped}</div>`;
-}
-
-/**
- * Strip HTML tags and normalize whitespace to produce plain text.
- * Removes <style> and <script> blocks first to avoid injecting their
- * content into the output.
- */
-export function stripHtmlToText(html: string): string {
-	if (!html) return "";
-	return html
-		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-		.replace(/<[^>]+>/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
 }
 
 /**
