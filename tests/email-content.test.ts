@@ -41,6 +41,9 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("1 <2 and 3 > 0"), "1 <2 and 3 > 0");
 	assert.equal(stripHtmlToText("<head><template><div>Hidden</div></template></head><body>Visible</body>"), "Visible");
 	assert.equal(stripHtmlToText("<template>outer<template>inner</template>still hidden</template><p>Visible</p>"), "Visible");
+	assert.equal(stripHtmlToText('<template><!-- <template> --></template><p>Visible</p>'), "Visible");
+	assert.equal(stripHtmlToText('<template><div title="<template>">Hidden</div></template><p>Visible</p>'), "Visible");
+	assert.equal(stripHtmlToText("<template><script>const token = '<template>';</script></template><p>Visible</p>"), "Visible");
 	assert.equal(stripHtmlToText("<p>Hello</p/><p>World</p>"), "Hello World");
 });
 
