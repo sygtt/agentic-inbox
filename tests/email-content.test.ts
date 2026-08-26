@@ -16,4 +16,6 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 		"Hello A & B",
 	);
 	assert.equal(stripHtmlToText("<script>alert(1)</script><p>Safe</p>"), "Safe");
+	assert.equal(stripHtmlToText("<p>Hello<p>World"), "Hello World");
+	assert.equal(stripHtmlToText("<p>&copy; &mdash; &rsquo; &hellip;</p>"), "© — ’ …");
 });
