@@ -47,7 +47,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const { data: currentMailbox } = useMailbox(mailboxId) as {
 		data?: Mailbox;
 	};
-	const { closePanel, startCompose } = useUIStore();
+	const { closePanel, startCompose, setSendingEmail } = useUIStore();
 	const toastManager = useKumoToastManager();
 	const [isSending, setIsSending] = useState(false);
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
@@ -113,6 +113,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		if (isDeleting || isSendingEmail) return;
 		let target = draftMsg || email;
 		if (!mailboxId || !currentMailbox) return;
+		setSendingEmail(true);
 		setIsSending(true);
 		try {
 			if (!target.recipient || !target.subject) { try { const fresh = await api.getEmail(mailboxId, target.id) as Email; if (fresh) target = fresh; } catch {} }
@@ -138,7 +139,10 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		} catch (err) {
 			const message = (err instanceof Error ? err.message : null) || "Failed to send email.";
 			toastManager.add({ title: message, variant: "error" });
-		} finally { setIsSending(false); }
+		} finally {
+			setSendingEmail(false);
+			setIsSending(false);
+		}
 	};
 
 	const hasThread = allMessages.length > 1;

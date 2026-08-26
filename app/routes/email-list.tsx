@@ -152,6 +152,7 @@ export default function EmailListRoute() {
 		clearEmailSelection,
 		closePanel,
 		startCompose,
+		isSendingEmail: isDraftSending,
 	} = useUIStore();
 	const [page, setPage] = useState(1);
 	const toastManager = useKumoToastManager();
@@ -162,7 +163,8 @@ export default function EmailListRoute() {
 	const deleteEmail = useDeleteEmail();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
-	const isSendingEmail = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSendingEmail = isDraftSending || isSendingMutation;
 
 	const params = useMemo(
 		() => ({
