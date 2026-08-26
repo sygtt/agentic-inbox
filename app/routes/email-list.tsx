@@ -216,6 +216,7 @@ export default function EmailListRoute() {
 	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if (deletingEmailId !== null) return;
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
@@ -438,9 +439,9 @@ export default function EmailListRoute() {
 													variant="ghost"
 													shape="square"
 													size="sm"
-													icon={<TrashIcon size={14} />}
-													onClick={(e) => handleDelete(e, email.id)}
-													disabled={deletingEmailId === email.id}
+															icon={<TrashIcon size={14} />}
+															onClick={(e) => handleDelete(e, email.id)}
+															disabled={deletingEmailId !== null}
 													aria-label="Delete"
 												/>
 											</Tooltip>
