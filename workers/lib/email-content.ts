@@ -58,6 +58,9 @@ function looksLikeHtml(body: string): boolean {
 
 function findRawElementClosingTag(html: string, start: number, name: string) {
 	for (let index = start; index < html.length; index++) {
+		if (name === "head" && readTagName(html, index)?.name === "body") {
+			return { end: index - 1, name, closing: true };
+		}
 		if (html[index] !== "<" || html[index + 1] !== "/") continue;
 		const nameStart = index + 2;
 		let nameEnd = nameStart;

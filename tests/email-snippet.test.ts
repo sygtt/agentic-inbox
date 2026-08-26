@@ -30,6 +30,7 @@ test("preserves angle brackets in plain text and decodes HTML entities", () => {
 	assert.equal(createEmailSnippet("<p><span>Hello</span>, world</p>"), "Hello, world");
 	assert.equal(createEmailSnippet("<p>inter<wbr>national <font>mail</font><nobr>box</nobr></p>"), "international mailbox");
 	assert.equal(createEmailSnippet("<head><title>Account alert</title></head><body>Actual message</body>"), "Actual message");
+	assert.equal(createEmailSnippet("<head><title>Alert</title><body>Actual message</body>"), "Actual message");
 	assert.equal(createEmailSnippet("<center>First</center><center>Second</center>"), "First Second");
 });
 
