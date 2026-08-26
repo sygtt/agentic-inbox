@@ -152,7 +152,7 @@ export default function ComposePanel() {
 				{/* Footer actions */}
 				<div className="mt-auto px-4 py-3 border-t border-kumo-line bg-kumo-fill/30 shrink-0 md:px-6">
 					<div className="flex items-center justify-between">
-						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending}>
+						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending || isDeleting}>
 							Discard
 						</Button>
 						<div className="flex items-center gap-2">
