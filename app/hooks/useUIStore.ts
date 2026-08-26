@@ -55,10 +55,19 @@ export const useUIStore = create<UIState>((set, get) => ({
 
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
 	clearEmailSelection: (id) =>
-		set((state) => ({
-			selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
-			_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
-		})),
+		set((state) => {
+			const composeDependsOnEmail = state.composeOptions.originalEmail?.id === id;
+			return {
+				selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
+				_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
+				...(composeDependsOnEmail
+					? {
+							isComposing: false,
+							composeOptions: { mode: "new" as const, originalEmail: null },
+						}
+					: {}),
+			};
+		}),
 
 	startCompose: (options) =>
 		set((state) => {
