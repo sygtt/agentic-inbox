@@ -81,13 +81,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="UTF-8" />
 				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+				<link rel="manifest" href="/manifest.webmanifest" />
+				<meta name="theme-color" content="#ffffff" />
+				<meta name="mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<link
 					rel="icon"
 					type="image/x-icon"
 					href="/favicon.ico"
 					sizes="48x48 32x32 16x16"
 				/>
-				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+				<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 				<title>Agentic Inbox</title>
 				<Meta />
 				<Links />

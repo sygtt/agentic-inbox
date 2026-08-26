@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Pagination, Tooltip } from "@cloudflare/kumo";
+import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
 	ArrowBendUpLeftIcon,
@@ -153,6 +153,8 @@ export default function EmailListRoute() {
 		startCompose,
 	} = useUIStore();
 	const [page, setPage] = useState(1);
+	const [deletingEmailId, setDeletingEmailId] = useState<string | null>(null);
+	const toastManager = useKumoToastManager();
 
 	const queryClient = useQueryClient();
 	const updateEmail = useUpdateEmail();
@@ -210,14 +212,22 @@ export default function EmailListRoute() {
 			});
 	};
 
-	const handleDelete = (e: React.MouseEvent, emailId: string) => {
+	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
-			deleteEmail.mutate({ mailboxId, id: emailId });
-			if (selectedEmailId === emailId) closePanel();
+			setDeletingEmailId(emailId);
+			try {
+				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
+				toastManager.add({ title: "Email deleted" });
+				if (selectedEmailId === emailId) closePanel();
+			} catch {
+				toastManager.add({ title: "Failed to delete email", variant: "error" });
+			} finally {
+				setDeletingEmailId(null);
+			}
 		}
 	};
 
@@ -403,7 +413,7 @@ export default function EmailListRoute() {
 									</div>
 
 										{/* Hover actions */}
-										<div className="hidden group-hover:flex items-center shrink-0">
+										<div className="flex md:hidden md:group-hover:flex items-center shrink-0">
 											<Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
 												<Button
 													variant="ghost"
@@ -429,6 +439,7 @@ export default function EmailListRoute() {
 													size="sm"
 													icon={<TrashIcon size={14} />}
 													onClick={(e) => handleDelete(e, email.id)}
+													disabled={deletingEmailId === email.id}
 													aria-label="Delete"
 												/>
 											</Tooltip>

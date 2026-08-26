@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
+import VerificationCodeAction from "~/components/VerificationCodeAction";
 import {
 	formatDetailDate,
 	formatShortDate,
@@ -160,6 +161,7 @@ export default function ThreadMessage({
 				</div>
 
 				<div className="md:ml-[42px]">
+					<VerificationCodeAction subject={email.subject} body={email.body} />
 					<EmailIframe
 						body={rewriteInlineImages(
 							email.body || "",

@@ -4,6 +4,7 @@
 
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
+import VerificationCodeAction from "~/components/VerificationCodeAction";
 import { formatDetailDate, rewriteInlineImages } from "~/lib/utils";
 import type { Email } from "~/types";
 
@@ -41,6 +42,8 @@ export default function SingleMessageView({
 					</span>
 				</div>
 			</div>
+
+			<VerificationCodeAction subject={email.subject} body={email.body} />
 
 			<div className="flex-1 min-h-0">
 				<EmailIframe
