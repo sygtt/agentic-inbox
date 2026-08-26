@@ -220,6 +220,11 @@ export default function EmailListRoute() {
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
+			const currentUI = useUIStore.getState();
+			const composeDependsOnEmail =
+				currentUI.composeOptions.originalEmail?.id === emailId ||
+				currentUI.composeOptions.draftEmail?.id === emailId;
+			if (composeDependsOnEmail) clearEmailSelection(emailId);
 			try {
 				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 				toastManager.add({ title: "Email deleted" });
