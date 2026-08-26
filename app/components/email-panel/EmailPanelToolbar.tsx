@@ -26,6 +26,7 @@ interface EmailPanelToolbarProps {
 	mailboxId?: string;
 	isDraftFolder: boolean;
 	isSending: boolean;
+	isDeleting: boolean;
 	moveToFolders: Folder[];
 	lastReceivedMessage?: Email;
 	onBack: () => void;
@@ -46,6 +47,7 @@ export default function EmailPanelToolbar({
 	mailboxId,
 	isDraftFolder,
 	isSending,
+	isDeleting,
 	moveToFolders,
 	onBack,
 	onSendDraft,
@@ -176,6 +178,7 @@ export default function EmailPanelToolbar({
 						size="sm"
 						icon={<TrashIcon size={18} />}
 						onClick={onDelete}
+						disabled={isDeleting}
 						aria-label="Delete"
 					/>
 				</Tooltip>

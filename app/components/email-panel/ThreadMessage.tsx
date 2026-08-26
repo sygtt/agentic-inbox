@@ -29,6 +29,7 @@ interface ThreadMessageProps {
 	isLast: boolean;
 	isDraft?: boolean;
 	isSending?: boolean;
+	isDeleting?: boolean;
 	isExpanded: boolean;
 	onToggleExpand: () => void;
 	onSendDraft?: () => void;
@@ -61,6 +62,7 @@ export default function ThreadMessage({
 	isLast,
 	isDraft,
 	isSending,
+	isDeleting,
 	isExpanded,
 	onToggleExpand,
 	onSendDraft,
@@ -186,7 +188,7 @@ export default function ThreadMessage({
 								icon={<PaperPlaneTiltIcon size={14} />}
 								onClick={onSendDraft}
 								loading={isSending}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								{isSending ? "Sending..." : "Send"}
 							</Button>
@@ -197,7 +199,7 @@ export default function ThreadMessage({
 								size="sm"
 								icon={<PencilSimpleIcon size={14} />}
 								onClick={onEditDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								Edit
 							</Button>
@@ -208,7 +210,7 @@ export default function ThreadMessage({
 								size="sm"
 								icon={<TrashIcon size={14} />}
 								onClick={onDeleteDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								Discard
 							</Button>

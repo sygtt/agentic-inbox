@@ -207,6 +207,7 @@ export function useMarkThreadRead() {
 export function useDeleteEmail() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
+		mutationKey: ["deleteEmail"],
 		mutationFn: ({
 			mailboxId,
 			id,

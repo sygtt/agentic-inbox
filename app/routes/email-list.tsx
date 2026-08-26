@@ -16,7 +16,7 @@ import {
 	TrashIcon,
 	TrayIcon,
 } from "@phosphor-icons/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
@@ -154,13 +154,13 @@ export default function EmailListRoute() {
 		startCompose,
 	} = useUIStore();
 	const [page, setPage] = useState(1);
-	const [deletingEmailId, setDeletingEmailId] = useState<string | null>(null);
 	const toastManager = useKumoToastManager();
 
 	const queryClient = useQueryClient();
 	const updateEmail = useUpdateEmail();
 	const markThreadRead = useMarkThreadRead();
 	const deleteEmail = useDeleteEmail();
+	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
 
 	const params = useMemo(
 		() => ({
@@ -216,19 +216,16 @@ export default function EmailListRoute() {
 	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (deletingEmailId !== null) return;
+		if (isDeleting) return;
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
-			setDeletingEmailId(emailId);
 			try {
 				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 				toastManager.add({ title: "Email deleted" });
 				clearEmailSelection(emailId);
 			} catch {
 				toastManager.add({ title: "Failed to delete email", variant: "error" });
-			} finally {
-				setDeletingEmailId(null);
 			}
 		}
 	};
@@ -441,7 +438,7 @@ export default function EmailListRoute() {
 													size="sm"
 															icon={<TrashIcon size={14} />}
 															onClick={(e) => handleDelete(e, email.id)}
-															disabled={deletingEmailId !== null}
+															disabled={isDeleting}
 													aria-label="Delete"
 												/>
 											</Tooltip>
