@@ -26,6 +26,8 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("<p>Inter<strong>nation</strong>al</p>"), "International");
 	assert.equal(stripHtmlToText("<p><span>Hello</span>, world</p>"), "Hello, world");
 	assert.equal(stripHtmlToText("<p>inter<wbr>national <font>mail</font><nobr>box</nobr></p>"), "international mailbox");
+	assert.equal(stripHtmlToText("<head><title>Account alert</title></head><body>Actual message</body>"), "Actual message");
+	assert.equal(stripHtmlToText("<center>First</center><center>Second</center>"), "First Second");
 });
 
 test("does not split a Unicode code point at the snippet boundary", () => {

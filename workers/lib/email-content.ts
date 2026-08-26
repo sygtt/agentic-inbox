@@ -10,8 +10,10 @@ const TEXT_BOUNDARY_TAGS = new Set([
 	"figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head",
 	"header", "hgroup", "hr", "html", "legend", "li", "main", "nav", "ol",
 	"option", "p", "pre", "script", "section", "style", "table", "tbody",
-	"td", "tfoot", "th", "thead", "tr", "ul",
+	"td", "tfoot", "th", "thead", "tr", "ul", "center",
 ]);
+
+const HIDDEN_TAGS = new Set(["head", "script", "style", "title"]);
 
 function isTagNameChar(char: string | undefined): boolean {
 	return !!char && /[a-z0-9:-]/i.test(char);
@@ -110,7 +112,7 @@ function stripHtmlTags(html: string): string {
 
 			const separator = tag.name === "" || TEXT_BOUNDARY_TAGS.has(tag.name) ? " " : "";
 			parts.push(html.slice(textStart, tagStart), separator);
-			if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
+			if (!tag.closing && HIDDEN_TAGS.has(tag.name)) {
 				const closingTag = findRawElementClosingTag(html, index + 1, tag.name);
 				if (!closingTag) return parts.join("");
 				index = closingTag.end;
