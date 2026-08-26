@@ -233,6 +233,7 @@ export function useMoveEmail() {
 export function useSaveDraft() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
+		mutationKey: ["saveDraft"],
 		mutationFn: ({
 			mailboxId,
 			draft,

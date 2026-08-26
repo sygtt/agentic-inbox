@@ -161,6 +161,7 @@ export default function EmailListRoute() {
 	const markThreadRead = useMarkThreadRead();
 	const deleteEmail = useDeleteEmail();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 
 	const params = useMemo(
 		() => ({
@@ -216,7 +217,7 @@ export default function EmailListRoute() {
 	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (isDeleting) return;
+		if (isDeleting || isSavingDraft) return;
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
@@ -443,7 +444,7 @@ export default function EmailListRoute() {
 													size="sm"
 															icon={<TrashIcon size={14} />}
 															onClick={(e) => handleDelete(e, email.id)}
-															disabled={isDeleting}
+															disabled={isDeleting || isSavingDraft}
 													aria-label="Delete"
 												/>
 											</Tooltip>
