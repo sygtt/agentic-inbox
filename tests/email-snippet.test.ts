@@ -17,6 +17,8 @@ test("preserves angle brackets in plain text and decodes HTML entities", () => {
 		"Use x < y and Email <foo@example.com> now",
 	);
 	assert.equal(createEmailSnippet("<p>A&nbsp;&amp;&nbsp;B</p>"), "A & B");
+	assert.equal(createEmailSnippet("Show &lt;b&gt; literally"), "Show &lt;b&gt; literally");
+	assert.equal(createEmailSnippet("<strong>Hello</strong><blockquote>Quoted</blockquote>"), "Hello Quoted");
 });
 
 test("keeps plain-text snippets readable and truncates normalized text", () => {

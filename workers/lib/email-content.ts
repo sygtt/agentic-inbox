@@ -2,7 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-const HTML_TAG_PATTERN = /<!doctype\b|<\/?(?:a|article|body|br|div|footer|h[1-6]|head|header|hr|html|img|li|main|meta|ol|p|pre|section|span|style|table|td|th|title|tr|ul)\b[^>]*>/i;
+const PAIRED_HTML_TAG_PATTERN = /<([a-z][\w:-]*)\b[^>]*>[\s\S]*?<\/\1\s*>/i;
+const HTML_FRAGMENT_PATTERN = /<!doctype\b|<!--[\s\S]*?-->|<\/?(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b[^>]*\/?>/i;
 
 const HTML_ENTITIES: Record<string, string> = {
 	amp: "&",
@@ -35,14 +36,17 @@ function decodeHtmlEntities(text: string): string {
 export function stripHtmlToText(body: string): string {
 	if (!body) return "";
 
-	const text = HTML_TAG_PATTERN.test(body)
+	// ponytail: without a persisted MIME marker, paired/void-tag detection is
+	// the smallest safe discriminator; ambiguous paired prose is the ceiling.
+	const isHtml = PAIRED_HTML_TAG_PATTERN.test(body) || HTML_FRAGMENT_PATTERN.test(body);
+	const text = isHtml
 		? body
 				.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
 				.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
 				.replace(/<[^>]+>/g, " ")
 		: body;
 
-	return decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
+	return (isHtml ? decodeHtmlEntities(text) : text).replace(/\s+/g, " ").trim();
 }
 
 /** Normalize stored body content before exposing it as a list snippet. */
