@@ -4,41 +4,17 @@
 
 import { decodeHTML } from "entities";
 
-const HTML_CLOSING_TAG_PATTERN = /<\/[a-z][\w:-]*\s*>/i;
-const HTML_FRAGMENT_PATTERN = /<!doctype\b|<!--[\s\S]*?-->|<\/?(?:area|base|br|col|colgroup|dd|embed|hr|img|input|li|link|meta|option|param|source|tbody|td|tfoot|th|thead|track|tr|dt|p|rp|rt|wbr)\b[^>]*\/?>/i;
-
-function findTagEnd(html: string, start: number): number {
-	let quote = "";
-	for (let i = start; i < html.length; i++) {
-		const char = html[i];
-		if (quote) {
-			if (char === quote) quote = "";
-		} else if (char === '"' || char === "'") {
-			quote = char;
-		} else if (char === ">") {
-			return i;
-		}
-	}
-	return -1;
-}
-
 function isTagNameChar(char: string | undefined): boolean {
 	return !!char && /[a-z0-9:-]/i.test(char);
 }
 
-function parseHtmlTag(html: string, start: number): { end: number; name: string; closing: boolean } | null {
+function readTagName(html: string, start: number) {
 	if (html[start] !== "<") return null;
-	if (html.startsWith("<!--", start)) {
-		const end = html.indexOf("-->", start + 4);
-		return end === -1 ? null : { end: end + 2, name: "", closing: false };
-	}
-
 	let index = start + 1;
 	const closing = html[index] === "/";
 	if (closing) index++;
 	if (html[index] === "!" || html[index] === "?") {
-		const end = findTagEnd(html, index);
-		return end === -1 ? null : { end, name: "", closing: false };
+		return { name: "", closing: false, index };
 	}
 
 	const nameStart = index;
@@ -49,17 +25,36 @@ function parseHtmlTag(html: string, start: number): { end: number; name: string;
 		return null;
 	}
 
-	const end = findTagEnd(html, index);
-	return end === -1 ? null : { end, name: html.slice(nameStart, index).toLowerCase(), closing };
+	return { name: html.slice(nameStart, index).toLowerCase(), closing, index };
+}
+
+function getTagInfo(html: string, start: number, end: number) {
+	if (html.startsWith("<!--", start)) {
+		return html.slice(end - 2, end + 1) === "-->" ? { name: "", closing: false } : null;
+	}
+	const tag = readTagName(html, start);
+	return tag && (tag.index <= end) ? { name: tag.name, closing: tag.closing } : null;
+}
+
+function looksLikeHtml(body: string): boolean {
+	for (let index = 0; index < body.length; index++) {
+		if (body[index] !== "<") continue;
+		if (body.startsWith("<!--", index)) return true;
+		if (readTagName(body, index)) return true;
+	}
+	return false;
 }
 
 function findRawElementClosingTag(html: string, start: number, name: string) {
-	for (let index = start; index < html.length; ) {
-		const tagStart = html.indexOf("<", index);
-		if (tagStart === -1) return null;
-		const tag = parseHtmlTag(html, tagStart);
-		if (tag?.closing && tag.name === name) return tag;
-		index = tagStart + 1;
+	for (let index = start; index < html.length; index++) {
+		if (html[index] !== "<" || html[index + 1] !== "/") continue;
+		const nameStart = index + 2;
+		let nameEnd = nameStart;
+		while (isTagNameChar(html[nameEnd])) nameEnd++;
+		if (html.slice(nameStart, nameEnd).toLowerCase() !== name) continue;
+		let end = nameEnd;
+		while (/\s/.test(html[end] || "")) end++;
+		if (html[end] === ">") return { end, name, closing: true };
 	}
 	return null;
 }
@@ -67,25 +62,56 @@ function findRawElementClosingTag(html: string, start: number, name: string) {
 function stripHtmlTags(html: string): string {
 	const parts: string[] = [];
 	let textStart = 0;
-	for (let index = 0; index < html.length; ) {
-		const tag = parseHtmlTag(html, index);
-		if (!tag) {
-			index++;
+	let tagStart = -1;
+	let comment = false;
+	let quote = "";
+
+	for (let index = 0; index < html.length; index++) {
+		if (tagStart === -1) {
+			if (html[index] !== "<") continue;
+			if (html.startsWith("<!--", index)) {
+				tagStart = index;
+				comment = true;
+			} else if (readTagName(html, index)) {
+				tagStart = index;
+			}
 			continue;
 		}
 
-		parts.push(html.slice(textStart, index), " ");
-		if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
-			const closingTag = findRawElementClosingTag(html, tag.end + 1, tag.name);
-			if (!closingTag) return parts.join("");
-			index = closingTag.end + 1;
-			textStart = index;
+		if (comment) {
+			if (!html.startsWith("-->", index)) continue;
+			parts.push(html.slice(textStart, tagStart), " ");
+			index += 2;
+			textStart = index + 1;
+			tagStart = -1;
+			comment = false;
 			continue;
 		}
-		index = tag.end + 1;
-		textStart = index;
+
+		if (quote) {
+			if (html[index] === quote) quote = "";
+		} else if (html[index] === '"' || html[index] === "'") {
+			quote = html[index];
+		} else if (html[index] === ">") {
+			const tag = getTagInfo(html, tagStart, index);
+			if (!tag) {
+				tagStart = -1;
+				continue;
+			}
+
+			parts.push(html.slice(textStart, tagStart), " ");
+			if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
+				const closingTag = findRawElementClosingTag(html, index + 1, tag.name);
+				if (!closingTag) return parts.join("");
+				index = closingTag.end;
+			}
+			textStart = index + 1;
+			tagStart = -1;
+			quote = "";
+		}
 	}
 
+	// Preserve malformed/incomplete tags and their surrounding text.
 	parts.push(html.slice(textStart));
 	return parts.join("");
 }
@@ -96,13 +122,9 @@ export function stripHtmlToText(body: string): string {
 
 	// ponytail: without a persisted MIME marker, paired/void-tag detection is
 	// the smallest safe discriminator; ambiguous paired prose is the ceiling.
-	const isHtml = HTML_CLOSING_TAG_PATTERN.test(body) || HTML_FRAGMENT_PATTERN.test(body);
+	const isHtml = looksLikeHtml(body);
 	const text = isHtml
-		? stripHtmlTags(
-				body
-					.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-					.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ""),
-			)
+		? stripHtmlTags(body)
 		: body;
 
 	return (isHtml ? decodeHTML(text) : text).replace(/\s+/g, " ").trim();
