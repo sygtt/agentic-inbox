@@ -116,26 +116,51 @@ function looksLikeHtml(body: string): boolean {
 
 function findRawElementClosingTag(html: string, start: number, name: string) {
 	let depth = 1;
-	for (let index = start; index < html.length; index++) {
-		if (name === "head") {
-			const tag = readTagName(html, index);
-			if (tag && !tag.closing && !HEAD_CONTENT_TAGS.has(tag.name)) {
-				return { end: index - 1, name, closing: true };
-			}
+	const rawText = name === "script" || name === "style";
+	for (let index = start; index < html.length;) {
+		if (!rawText && html.startsWith("<!--", index)) {
+			const commentEnd = html.indexOf("-->", index + 4);
+			if (commentEnd === -1) return null;
+			index = commentEnd + 3;
+			continue;
 		}
-		if (html[index] !== "<") continue;
+		if (html[index] !== "<") {
+			index++;
+			continue;
+		}
+
 		const tag = readTagName(html, index);
-		if (!tag || tag.name !== name) continue;
-		if (!tag.closing && name !== "template") continue;
+		if (!tag) {
+			index++;
+			continue;
+		}
+		if (name === "head" && !tag.closing && !HEAD_CONTENT_TAGS.has(tag.name)) {
+			return { end: index - 1, name, closing: true };
+		}
+
 		const end = findTagEnd(html, index);
 		if (end === -1) return null;
+		if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
+			const closingTag = findRawElementClosingTag(html, end + 1, tag.name);
+			if (!closingTag) return null;
+			index = closingTag.end + 1;
+			continue;
+		}
+		if (tag.name !== name) {
+			index = end + 1;
+			continue;
+		}
+		if (!tag.closing && name !== "template") {
+			index = end + 1;
+			continue;
+		}
 		if (tag.closing) {
 			depth--;
 			if (depth === 0) return { end, name, closing: true };
 		} else {
 			depth++;
 		}
-		index = end;
+		index = end + 1;
 	}
 	return null;
 }
