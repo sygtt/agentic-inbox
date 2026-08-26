@@ -10,11 +10,16 @@ const TEXT_BOUNDARY_TAGS = new Set([
 	"figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head",
 	"header", "hgroup", "hr", "html", "legend", "li", "main", "nav", "ol",
 	"option", "p", "pre", "script", "section", "style", "table", "tbody",
-	"td", "tfoot", "th", "thead", "tr", "ul", "center",
+	"td", "tfoot", "th", "thead", "tr", "ul", "center", "img",
 ]);
 
-const HIDDEN_TAGS = new Set(["head", "script", "style", "title"]);
-const HEAD_CONTENT_TAGS = new Set(["base", "link", "meta", "noscript", "script", "style", "template", "title"]);
+const HIDDEN_TAGS = new Set(["head", "script", "style", "template", "title"]);
+const HEAD_CONTENT_TAGS = new Set(["base", "link", "meta", "noscript", "script", "style", "title"]);
+const IMAGE_ALT_PATTERN = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+
+function isTagNameStart(char: string | undefined): boolean {
+	return !!char && /[a-z]/i.test(char);
+}
 
 function isTagNameChar(char: string | undefined): boolean {
 	return !!char && /[a-z0-9:-]/i.test(char);
@@ -29,6 +34,7 @@ function readTagName(html: string, start: number) {
 		return { name: "", closing: false, index };
 	}
 
+	if (!isTagNameStart(html[index])) return null;
 	const nameStart = index;
 	while (isTagNameChar(html[index])) index++;
 	if (index === nameStart) return null;
@@ -38,6 +44,11 @@ function readTagName(html: string, start: number) {
 	}
 
 	return { name: html.slice(nameStart, index).toLowerCase(), closing, index };
+}
+
+function extractImageAlt(html: string, start: number, end: number): string | null {
+	const match = html.slice(start + 1, end).match(IMAGE_ALT_PATTERN);
+	return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
 }
 
 function getTagInfo(html: string, start: number, end: number) {
@@ -117,7 +128,8 @@ function stripHtmlTags(html: string): string {
 			}
 
 			const separator = tag.name === "" || TEXT_BOUNDARY_TAGS.has(tag.name) ? " " : "";
-			parts.push(html.slice(textStart, tagStart), separator);
+			const alt = tag.name === "img" && !tag.closing ? extractImageAlt(html, tagStart, index) : null;
+			parts.push(html.slice(textStart, tagStart), alt === null ? separator : " " + alt + " ");
 			if (!tag.closing && HIDDEN_TAGS.has(tag.name)) {
 				const closingTag = findRawElementClosingTag(html, index + 1, tag.name);
 				if (!closingTag) return parts.join("");

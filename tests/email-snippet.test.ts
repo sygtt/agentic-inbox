@@ -36,6 +36,9 @@ test("preserves angle brackets in plain text and decodes HTML entities", () => {
 	assert.equal(createEmailSnippet("<center>First</center><center>Second</center>"), "First Second");
 	assert.equal(createEmailSnippet("<script>hidden</script/><p>Safe</p>"), "Safe");
 	assert.equal(createEmailSnippet("<script>hidden</script ignored><p>Safe</p>"), "Safe");
+	assert.equal(createEmailSnippet("<img alt=\"Payment failed\">"), "Payment failed");
+	assert.equal(createEmailSnippet("1 <2 and 3 > 0"), "1 <2 and 3 > 0");
+	assert.equal(createEmailSnippet("<head><template><div>Hidden</div></template></head><body>Visible</body>"), "Visible");
 });
 
 test("does not split a Unicode code point at the snippet boundary", () => {
