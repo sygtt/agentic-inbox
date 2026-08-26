@@ -19,6 +19,7 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("<p>Hello<p>World"), "Hello World");
 	assert.equal(stripHtmlToText("<p>&copy; &mdash; &rsquo; &hellip;</p>"), "© — ’ …");
 	assert.equal(stripHtmlToText('<p title="1 > 0">Hello</p>'), "Hello");
+	assert.equal(stripHtmlToText("<script>alert(1)</script ><style>.hidden{}</style ><p>Safe</p>"), "Safe");
 });
 
 test("does not split a Unicode code point at the snippet boundary", () => {
