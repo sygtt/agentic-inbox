@@ -16,7 +16,20 @@ const TEXT_BOUNDARY_TAGS = new Set([
 
 const HIDDEN_TAGS = new Set(["head", "script", "style", "template", "title"]);
 const HEAD_CONTENT_TAGS = new Set(["base", "link", "meta", "noscript", "script", "style", "title"]);
-const IMAGE_ALT_PATTERN = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+
+function findTagEnd(html: string, start: number): number {
+	let quote = "";
+	for (let index = start; index < html.length; index++) {
+		if (quote) {
+			if (html[index] === quote) quote = "";
+		} else if (html[index] === '"' || html[index] === "'") {
+			quote = html[index];
+		} else if (html[index] === ">") {
+			return index;
+		}
+	}
+	return -1;
+}
 
 function isTagNameStart(char: string | undefined): boolean {
 	return !!char && /[a-z]/i.test(char);
@@ -40,7 +53,7 @@ function readTagName(html: string, start: number) {
 	while (isTagNameChar(html[index])) index++;
 	if (index === nameStart) return null;
 	const next = html[index];
-	if (closing ? next !== ">" && !/\s/.test(next || "") : next !== ">" && next !== "/" && !/\s/.test(next || "")) {
+	if (closing ? next !== ">" && next !== "/" && !/\s/.test(next || "") : next !== ">" && next !== "/" && !/\s/.test(next || "")) {
 		return null;
 	}
 
@@ -48,8 +61,41 @@ function readTagName(html: string, start: number) {
 }
 
 function extractImageAlt(html: string, start: number, end: number): string | null {
-	const match = html.slice(start + 1, end).match(IMAGE_ALT_PATTERN);
-	return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+	let index = start + 1;
+	while (isTagNameChar(html[index])) index++;
+
+	while (index < end) {
+		while (index < end && /[\s/]/.test(html[index])) index++;
+		const nameStart = index;
+		while (index < end && !/[\s=/>]/.test(html[index])) index++;
+		if (index === nameStart) {
+			index++;
+			continue;
+		}
+
+		const name = html.slice(nameStart, index).toLowerCase();
+		while (index < end && /\s/.test(html[index])) index++;
+		if (html[index] !== "=") continue;
+		index++;
+		while (index < end && /\s/.test(html[index])) index++;
+
+		let value = "";
+		const quote = html[index];
+		if (quote === '"' || quote === "'") {
+			index++;
+			const valueStart = index;
+			while (index < end && html[index] !== quote) index++;
+			value = html.slice(valueStart, index);
+			if (index < end) index++;
+		} else {
+			const valueStart = index;
+			while (index < end && !/[\s/>]/.test(html[index])) index++;
+			value = html.slice(valueStart, index);
+		}
+		if (name === "alt") return value;
+	}
+
+	return null;
 }
 
 function getTagInfo(html: string, start: number, end: number) {
@@ -70,6 +116,7 @@ function looksLikeHtml(body: string): boolean {
 }
 
 function findRawElementClosingTag(html: string, start: number, name: string) {
+	let depth = 1;
 	for (let index = start; index < html.length; index++) {
 		if (name === "head") {
 			const tag = readTagName(html, index);
@@ -77,13 +124,19 @@ function findRawElementClosingTag(html: string, start: number, name: string) {
 				return { end: index - 1, name, closing: true };
 			}
 		}
-		if (html[index] !== "<" || html[index + 1] !== "/") continue;
-		const nameStart = index + 2;
-		let nameEnd = nameStart;
-		while (isTagNameChar(html[nameEnd])) nameEnd++;
-		if (html.slice(nameStart, nameEnd).toLowerCase() !== name) continue;
-		const end = html.indexOf(">", nameEnd);
-		return { end: end === -1 ? html.length - 1 : end, name, closing: true };
+		if (html[index] !== "<") continue;
+		const tag = readTagName(html, index);
+		if (!tag || tag.name !== name) continue;
+		if (!tag.closing && name !== "template") continue;
+		const end = findTagEnd(html, index);
+		if (end === -1) return null;
+		if (tag.closing) {
+			depth--;
+			if (depth === 0) return { end, name, closing: true };
+		} else {
+			depth++;
+		}
+		index = end;
 	}
 	return null;
 }
@@ -155,7 +208,7 @@ function stripHtmlTags(html: string): string {
 export function stripHtmlToText(body: string): string {
 	if (!body) return "";
 
-	// ponytail: without a persisted MIME marker, paired/void-tag detection is
+	// ponytail: without a persisted MIME marker, syntax-based detection is
 	// the smallest safe discriminator; ambiguous paired prose is the ceiling.
 	const isHtml = looksLikeHtml(body);
 	const text = isHtml
