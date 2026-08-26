@@ -70,9 +70,8 @@ function findRawElementClosingTag(html: string, start: number, name: string) {
 		let nameEnd = nameStart;
 		while (isTagNameChar(html[nameEnd])) nameEnd++;
 		if (html.slice(nameStart, nameEnd).toLowerCase() !== name) continue;
-		let end = nameEnd;
-		while (/\s/.test(html[end] || "")) end++;
-		if (html[end] === ">") return { end, name, closing: true };
+		const end = html.indexOf(">", nameEnd);
+		return { end: end === -1 ? html.length - 1 : end, name, closing: true };
 	}
 	return null;
 }

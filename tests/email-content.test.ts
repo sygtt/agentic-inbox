@@ -31,6 +31,8 @@ test("normalizes HTML fragments and decodes HTML entities", () => {
 	assert.equal(stripHtmlToText("<head><meta charset=\"utf-8\"><p>Actual message</p>"), "Actual message");
 	assert.equal(stripHtmlToText("<p>Visible</p><!-- hidden"), "Visible");
 	assert.equal(stripHtmlToText("<center>First</center><center>Second</center>"), "First Second");
+	assert.equal(stripHtmlToText("<script>hidden</script/><p>Safe</p>"), "Safe");
+	assert.equal(stripHtmlToText("<script>hidden</script ignored><p>Safe</p>"), "Safe");
 });
 
 test("does not split a Unicode code point at the snippet boundary", () => {
