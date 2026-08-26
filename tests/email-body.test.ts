@@ -25,6 +25,14 @@ test("escapes plain text before linkifying it", () => {
 		linkifyPlainText("<script>alert(1)</script> https://example.com"),
 		'&lt;script&gt;alert(1)&lt;/script&gt; <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
 	);
+	assert.equal(
+		linkifyPlainText("Press <Enter> and visit https://example.com"),
+		'Press &lt;Enter&gt; and visit <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
+	);
+	assert.equal(
+		prepareEmailBody("Press <Enter> and visit https://example.com"),
+		'Press &lt;Enter&gt; and visit <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
+	);
 });
 
 test("keeps existing HTML for the normal sanitization path", () => {

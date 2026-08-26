@@ -4,32 +4,39 @@
 
 import { Button } from "@cloudflare/kumo";
 import { CheckIcon, CopyIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { extractVerificationCode } from "~/lib/verification-code";
 
 export default function VerificationCodeAction({
 	subject,
 	body,
+	messageId,
 }: {
 	subject: string;
 	body?: string | null;
+	messageId: string;
 }) {
 	const code = extractVerificationCode(subject, body);
 	const [feedback, setFeedback] = useState<"idle" | "copied" | "failed">("idle");
-	useEffect(() => setFeedback("idle"), [code]);
+	const copyVersion = useRef(0);
+	useEffect(() => {
+		copyVersion.current += 1;
+		setFeedback("idle");
+	}, [code, messageId]);
 
 	if (!code) return null;
 
 	const copyCode = async () => {
+		const version = copyVersion.current;
 		if (!navigator.clipboard?.writeText) {
 			setFeedback("failed");
 			return;
 		}
 		try {
 			await navigator.clipboard.writeText(code);
-			setFeedback("copied");
+			if (version === copyVersion.current) setFeedback("copied");
 		} catch {
-			setFeedback("failed");
+			if (version === copyVersion.current) setFeedback("failed");
 		}
 	};
 

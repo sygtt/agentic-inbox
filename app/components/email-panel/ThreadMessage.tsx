@@ -161,7 +161,11 @@ export default function ThreadMessage({
 				</div>
 
 				<div className="md:ml-[42px]">
-					<VerificationCodeAction subject={email.subject} body={email.body} />
+					<VerificationCodeAction
+						messageId={email.id}
+						subject={email.subject}
+						body={email.body}
+					/>
 					<EmailIframe
 						body={rewriteInlineImages(
 							email.body || "",

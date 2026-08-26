@@ -43,7 +43,11 @@ export default function SingleMessageView({
 				</div>
 			</div>
 
-			<VerificationCodeAction subject={email.subject} body={email.body} />
+			<VerificationCodeAction
+				messageId={email.id}
+				subject={email.subject}
+				body={email.body}
+			/>
 
 			<div className="flex-1 min-h-0">
 				<EmailIframe
