@@ -4,6 +4,7 @@
 
 import DOMPurify from "dompurify";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { prepareEmailBody } from "~/lib/email-body";
 
 interface EmailIframeProps {
 	body: string;
@@ -59,12 +60,18 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 		const iframe = iframeRef.current;
 		if (!iframe || !body) return;
 
-		const cleanBody = DOMPurify.sanitize(body, {
+		const sanitizedBody = DOMPurify.sanitize(prepareEmailBody(body), {
 			USE_PROFILES: { html: true },
 			FORBID_TAGS: ["style"],
 			ADD_ATTR: ["target"],
 			FORCE_BODY: true,
 		});
+		const parsedBody = new DOMParser().parseFromString(sanitizedBody, "text/html");
+		for (const link of parsedBody.body.querySelectorAll("a")) {
+			link.target = "_blank";
+			link.rel = "noopener noreferrer";
+		}
+		const cleanBody = parsedBody.body.innerHTML;
 
 		const padding = autoSize ? "0" : "24px";
 
@@ -144,7 +151,7 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 			ref={iframeRef}
 			className="block w-full border-0"
 			style={autoSize ? { height: `${height}px` } : { height: "100%" }}
-			sandbox="allow-scripts allow-popups allow-top-navigation-by-user-activation"
+			sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
 			title="Email content"
 		/>
 	);

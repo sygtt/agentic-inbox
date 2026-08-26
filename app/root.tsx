@@ -81,6 +81,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="UTF-8" />
 				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+				<link rel="manifest" href="/manifest.webmanifest" />
+				<meta name="theme-color" content="#ffffff" />
+				<meta name="mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<link
 					rel="icon"
 					type="image/x-icon"
