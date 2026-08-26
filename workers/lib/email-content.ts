@@ -4,7 +4,7 @@
 
 import { decodeHTML } from "entities";
 
-const PAIRED_HTML_TAG_PATTERN = /<([a-z][\w:-]*)\b[^>]*>[\s\S]*?<\/\1\s*>/i;
+const HTML_CLOSING_TAG_PATTERN = /<\/[a-z][\w:-]*\s*>/i;
 const HTML_FRAGMENT_PATTERN = /<!doctype\b|<!--[\s\S]*?-->|<\/?(?:area|base|br|col|colgroup|dd|embed|hr|img|input|li|link|meta|option|param|source|tbody|td|tfoot|th|thead|track|tr|dt|p|rp|rt|wbr)\b[^>]*\/?>/i;
 
 /** Strip HTML and normalize whitespace to produce readable plain text. */
@@ -13,7 +13,7 @@ export function stripHtmlToText(body: string): string {
 
 	// ponytail: without a persisted MIME marker, paired/void-tag detection is
 	// the smallest safe discriminator; ambiguous paired prose is the ceiling.
-	const isHtml = PAIRED_HTML_TAG_PATTERN.test(body) || HTML_FRAGMENT_PATTERN.test(body);
+	const isHtml = HTML_CLOSING_TAG_PATTERN.test(body) || HTML_FRAGMENT_PATTERN.test(body);
 	const text = isHtml
 		? body
 				.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -24,7 +24,18 @@ export function stripHtmlToText(body: string): string {
 	return (isHtml ? decodeHTML(text) : text).replace(/\s+/g, " ").trim();
 }
 
+function truncateToCodePoints(text: string, limit: number): string {
+	let end = 0;
+	let count = 0;
+	for (const codePoint of text) {
+		if (count === limit) break;
+		end += codePoint.length;
+		count++;
+	}
+	return text.slice(0, end);
+}
+
 /** Normalize stored body content before exposing it as a list snippet. */
 export function createEmailSnippet(body: string | null | undefined): string {
-	return stripHtmlToText(body ?? "").slice(0, 300);
+	return truncateToCodePoints(stripHtmlToText(body ?? ""), 300);
 }

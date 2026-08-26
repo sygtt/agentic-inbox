@@ -23,6 +23,12 @@ test("preserves angle brackets in plain text and decodes HTML entities", () => {
 	assert.equal(createEmailSnippet("<p>&copy; &mdash; &rsquo; &hellip;</p>"), "© — ’ …");
 });
 
+test("does not split a Unicode code point at the snippet boundary", () => {
+	const snippet = createEmailSnippet("x".repeat(299) + "😀z");
+
+	assert.equal(snippet, "x".repeat(299) + "😀");
+});
+
 test("keeps plain-text snippets readable and truncates normalized text", () => {
 	const snippet = createEmailSnippet("  Plain   text  " + "x".repeat(400));
 
