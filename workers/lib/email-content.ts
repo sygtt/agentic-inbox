@@ -4,6 +4,12 @@
 
 import { decodeHTML } from "entities";
 
+const INLINE_TAGS = new Set([
+	"a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "em",
+	"i", "ins", "kbd", "label", "mark", "q", "s", "samp", "small", "span",
+	"strong", "sub", "sup", "time", "u", "var",
+]);
+
 function isTagNameChar(char: string | undefined): boolean {
 	return !!char && /[a-z0-9:-]/i.test(char);
 }
@@ -99,7 +105,7 @@ function stripHtmlTags(html: string): string {
 				continue;
 			}
 
-			parts.push(html.slice(textStart, tagStart), " ");
+			parts.push(html.slice(textStart, tagStart), INLINE_TAGS.has(tag.name) ? "" : " ");
 			if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
 				const closingTag = findRawElementClosingTag(html, index + 1, tag.name);
 				if (!closingTag) return parts.join("");
