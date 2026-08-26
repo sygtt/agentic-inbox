@@ -4,9 +4,11 @@
 
 const CODE_PATTERN = /(?<!\d)\d{4,8}(?!\d)/g;
 const CONTEXT_PATTERNS = [
-	/\b(?:auth(?:entication|enticate)?|login|one[-\s]?time|otp|pass(?:code|word)|security|sign[-\s]?in|verif(?:ication|y))\b/i,
-	/\b(?:confirm(?:ation)?|confirmation)\s+(?:code|number)\b/i,
+	/\b(?:auth(?:entication|enticate)?|confirmation|security|verification)\s+(?:code|number)\b/i,
+	/\b(?:auth|login|one[-\s]?time|otp|pass(?:code|word)|sign[-\s]?in)\s+(?:code|password)\b/i,
 	/\b(?:code|passcode)\s*(?:is|:)\s*\d/i,
+	/\b(?:use|enter|input|type)\b[\s\S]{0,30}\b(?:verify|confirm|authenticate)\b/i,
+	/\b(?:verify|confirm|authenticate)\b[\s\S]{0,30}\b(?:use|enter|input|type|with|using)\b/i,
 ];
 const CONTEXT_RADIUS = 80;
 

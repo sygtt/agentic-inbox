@@ -3,7 +3,25 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 const URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
-const TRAILING_PUNCTUATION = /[.,!?;:)\]}]+$/;
+
+function trimTrailingPunctuation(url: string): string {
+	let trimmed = url.replace(/[.,!?;:]+$/, "");
+	const pairs: Record<string, string> = {
+		")": "(",
+		"]": "[",
+		"}": "{",
+	};
+
+	while (true) {
+		const closing = trimmed.at(-1);
+		const opening = closing ? pairs[closing] : undefined;
+		if (!opening) return trimmed;
+		const openings = [...trimmed].filter((char) => char === opening).length;
+		const closings = [...trimmed].filter((char) => char === closing).length;
+		if (closings <= openings) return trimmed;
+		trimmed = trimmed.slice(0, -1);
+	}
+}
 
 function escapeHtml(text: string): string {
 	return text
@@ -23,7 +41,7 @@ export function linkifyPlainText(text: string): string {
 	for (const match of normalized.matchAll(URL_PATTERN)) {
 		const rawUrl = match[0];
 		const start = match.index ?? 0;
-		const url = rawUrl.replace(TRAILING_PUNCTUATION, "");
+		const url = trimTrailingPunctuation(rawUrl);
 		html += escapeHtml(normalized.slice(lastIndex, start));
 		html += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
 		html += escapeHtml(rawUrl.slice(url.length));
@@ -34,7 +52,7 @@ export function linkifyPlainText(text: string): string {
 		.replace(/\n/g, "<br>");
 }
 
-const HTML_TAG_PATTERN = /<\/?(?:a|body|blockquote|br|div|head|h[1-6]|hr|html|img|li|ol|p|pre|script|span|style|table|tbody|td|th|title|tr|ul)(?:\s[^>]*)?>/i;
+const HTML_TAG_PATTERN = /<!--[\s\S]*?-->|<\/?[a-z][a-z0-9-]*(?:\s[^<>]*|\/?)>/i;
 
 export function prepareEmailBody(body: string): string {
 	return HTML_TAG_PATTERN.test(body) ? body : linkifyPlainText(body);
