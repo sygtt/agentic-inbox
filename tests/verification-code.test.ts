@@ -8,6 +8,8 @@ test("extracts a contextual 4–8 digit verification code", () => {
 		"482913",
 	);
 	assert.equal(extractVerificationCode(null, "Use 482913 to verify your sign-in."), "482913");
+	assert.equal(extractVerificationCode("Your OTP", "OTP: 482913"), "482913");
+	assert.equal(extractVerificationCode("", "Your OTP is 482913"), "482913");
 });
 
 test("supports codes in HTML messages", () => {
