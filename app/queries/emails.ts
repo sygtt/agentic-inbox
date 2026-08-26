@@ -107,6 +107,7 @@ function useInvalidateEmailData() {
 export function useSendEmail() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
+		mutationKey: ["sendEmail"],
 		mutationFn: ({
 			mailboxId,
 			email,
@@ -257,6 +258,7 @@ export function useSaveDraft() {
 export function useReplyToEmail() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
+		mutationKey: ["sendEmail"],
 		mutationFn: ({
 			mailboxId,
 			emailId,
@@ -270,6 +272,7 @@ export function useReplyToEmail() {
 export function useForwardEmail() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
+		mutationKey: ["sendEmail"],
 		mutationFn: ({
 			mailboxId,
 			emailId,

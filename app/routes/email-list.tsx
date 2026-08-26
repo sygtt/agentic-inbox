@@ -162,6 +162,7 @@ export default function EmailListRoute() {
 	const deleteEmail = useDeleteEmail();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
+	const isSendingEmail = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
 
 	const params = useMemo(
 		() => ({
@@ -217,11 +218,10 @@ export default function EmailListRoute() {
 	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (isDeleting || isSavingDraft) return;
+		if (isDeleting || isSavingDraft || isSendingEmail) return;
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
-			clearEmailSelection(emailId);
 			try {
 				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 				toastManager.add({ title: "Email deleted" });
@@ -440,7 +440,7 @@ export default function EmailListRoute() {
 													size="sm"
 															icon={<TrashIcon size={14} />}
 															onClick={(e) => handleDelete(e, email.id)}
-															disabled={isDeleting || isSavingDraft}
+															disabled={isDeleting || isSavingDraft || isSendingEmail}
 													aria-label="Delete"
 												/>
 											</Tooltip>

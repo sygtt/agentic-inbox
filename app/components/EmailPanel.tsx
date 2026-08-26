@@ -39,6 +39,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const updateEmail = useUpdateEmail();
 	const deleteEmailMut = useDeleteEmail();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSendingEmail = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
 	const moveEmailMut = useMoveEmail();
 	const sendEmailMut = useSendEmail();
 	const replyMut = useReplyToEmail();
@@ -91,7 +92,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleMove = (folderId: string) => { if (mailboxId) { moveEmailMut.mutate({ mailboxId, id: email.id, folderId }); closePanel(); } };
-	const handleDelete = () => { if (mailboxId && !isDeleting) { if (!window.confirm("Are you sure you want to delete this email?")) return; deleteEmailMut.mutate({ mailboxId, id: email.id }); closePanel(); } };
+	const handleDelete = () => { if (mailboxId && !isDeleting && !isSendingEmail) { if (!window.confirm("Are you sure you want to delete this email?")) return; deleteEmailMut.mutate({ mailboxId, id: email.id }); closePanel(); } };
 
 	const handleEditDraft = (draftMsg?: Email) => {
 		const target = draftMsg || email;
@@ -109,7 +110,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	};
 
 	const handleSendDraft = async (draftMsg?: Email) => {
-		if (isDeleting) return;
+		if (isDeleting || isSendingEmail) return;
 		let target = draftMsg || email;
 		if (!mailboxId || !currentMailbox) return;
 		setIsSending(true);
@@ -149,7 +150,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				mailboxId={mailboxId}
 				isDraftFolder={isDraftFolder}
 				isSending={isSending}
-				isDeleting={isDeleting}
+				isDeleting={isDeleting || isSendingEmail}
 				moveToFolders={moveToFolders}
 				onBack={closePanel}
 				onSendDraft={() => handleSendDraft()}
@@ -198,7 +199,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isLast={idx === allMessages.length - 1}
 								isDraft={isDraft}
 								isSending={isDraft ? isSending : false}
-								isDeleting={isDeleting}
+								isDeleting={isDeleting || isSendingEmail}
 								isExpanded={expandedMessages.has(msg.id)}
 								onToggleExpand={() => toggleExpand(msg.id)}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}

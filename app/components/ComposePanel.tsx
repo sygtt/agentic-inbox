@@ -30,6 +30,7 @@ export default function ComposePanel() {
 		error,
 		isSavingDraft,
 		isSending,
+		isDeleting,
 		formTitle,
 		handleSaveDraft,
 		handleSend,
@@ -50,7 +51,7 @@ export default function ComposePanel() {
 						size="sm"
 						icon={<XIcon size={18} />}
 						onClick={closeCompose}
-						disabled={isSending}
+						disabled={isSending || isDeleting}
 						aria-label="Close compose"
 					/>
 				</div>
@@ -160,7 +161,7 @@ export default function ComposePanel() {
 								variant="secondary"
 								size="sm"
 								loading={isSavingDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 								icon={<FloppyDiskIcon size={14} />}
 								onClick={handleSaveDraft}
 							>
@@ -171,7 +172,7 @@ export default function ComposePanel() {
 								variant="primary"
 								size="sm"
 								loading={isSending}
-								disabled={isSavingDraft || isSending}
+								disabled={isSavingDraft || isSending || isDeleting}
 								icon={<PaperPlaneTiltIcon size={14} />}
 							>
 								{isSending ? "Sending..." : "Send"}

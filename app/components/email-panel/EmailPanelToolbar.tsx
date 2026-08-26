@@ -90,6 +90,7 @@ export default function EmailPanelToolbar({
 						size="sm"
 						icon={<PencilSimpleIcon size={16} />}
 						onClick={onEditDraft}
+						disabled={isDeleting}
 					>
 						Edit
 					</Button>
@@ -103,6 +104,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ArrowBendUpLeftIcon size={18} />}
 							onClick={onReply}
+							disabled={isDeleting}
 							aria-label="Reply"
 						/>
 					</Tooltip>
@@ -113,6 +115,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ChatCircleIcon size={18} />}
 							onClick={onReplyAll}
+							disabled={isDeleting}
 							aria-label="Reply All"
 						/>
 					</Tooltip>
@@ -123,6 +126,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ArrowBendUpRightIcon size={18} />}
 							onClick={onForward}
+							disabled={isDeleting}
 							aria-label="Forward"
 						/>
 					</Tooltip>
