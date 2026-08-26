@@ -33,6 +33,10 @@ test("escapes plain text before linkifying it", () => {
 		prepareEmailBody("Press <Enter> and visit https://example.com"),
 		'Press &lt;Enter&gt; and visit <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
 	);
+	assert.equal(
+		prepareEmailBody("Set <input> to https://example.com"),
+		'Set &lt;input&gt; to <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>',
+	);
 });
 
 test("keeps existing HTML for the normal sanitization path", () => {

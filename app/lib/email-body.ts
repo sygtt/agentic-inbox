@@ -52,13 +52,16 @@ export function linkifyPlainText(text: string): string {
 		.replace(/\n/g, "<br>");
 }
 
-const KNOWN_HTML_TAG_PATTERN =
-	/<!--[\s\S]*?-->|<\/?(?:a|area|article|body|br|button|caption|center|col|div|em|figcaption|figure|font|form|head|h[1-6]|hr|html|i|img|input|label|li|link|main|meta|ol|option|p|pre|script|section|select|small|source|span|strong|style|sub|sup|table|tbody|td|tfoot|th|thead|title|tr|u|ul|video)(?:\s[^<>]*)?\/?\>/i;
+const VOID_HTML_TAG_PATTERN =
+	/<!--[\s\S]*?-->|<\/?(?:area|base|br|col|embed|hr|img|link|meta|param|source|track|wbr)(?:\s[^<>]*)?\/?\>/i;
+const HTML_TAG_WITH_ATTRIBUTES_PATTERN = /<\/?[a-z][a-z0-9-]*\s+[^<>]*\/?\>/i;
 const PAIRED_HTML_TAG_PATTERN =
 	/<([a-z][a-z0-9-]*)(?:\s[^<>]*)?>[\s\S]*?<\/\1\s*>/i;
 
 export function prepareEmailBody(body: string): string {
-	return KNOWN_HTML_TAG_PATTERN.test(body) || PAIRED_HTML_TAG_PATTERN.test(body)
+	return VOID_HTML_TAG_PATTERN.test(body) ||
+		HTML_TAG_WITH_ATTRIBUTES_PATTERN.test(body) ||
+		PAIRED_HTML_TAG_PATTERN.test(body)
 		? body
 		: linkifyPlainText(body);
 }
