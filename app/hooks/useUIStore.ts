@@ -56,7 +56,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
 	clearEmailSelection: (id) =>
 		set((state) => {
-			const composeDependsOnEmail = state.composeOptions.originalEmail?.id === id;
+			const composeDependsOnEmail =
+				state.composeOptions.originalEmail?.id === id ||
+				state.composeOptions.draftEmail?.id === id;
 			return {
 				selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
 				_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
