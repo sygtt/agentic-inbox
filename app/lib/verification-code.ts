@@ -4,9 +4,9 @@
 
 const CODE_PATTERN = /(?<!\d)\d{4,8}(?!\d)/g;
 const CONTEXT_PATTERNS = [
-	/\b(?:auth(?:entication|enticate)?|confirmation|security|verification)\s+(?:code|number)\b[\s\S]{0,24}__CODE__/i,
-	/\b(?:auth|login|one[-\s]?time|otp|pass(?:code|word)|sign[-\s]?in)\s+(?:code|password)\b[\s\S]{0,24}__CODE__/i,
 	/\b(?:code|passcode)\s*(?:is|:)\s*__CODE__/i,
+	/\b(?:auth(?:entication|enticate)?|confirmation|security|verification)\s+(?:code|number)\b\s*(?:is|:|-|=)?\s*__CODE__/i,
+	/\b(?:auth|login|one[-\s]?time|otp|pass(?:code|word)|sign[-\s]?in)\s+(?:code|password)\b\s*(?:is|:|-|=)?\s*__CODE__/i,
 	/__CODE__\s+(?:is|=)\s+(?:your\s+)?(?:auth(?:entication)?|confirmation|security|verification)\s+(?:code|number)\b/i,
 	/\b(?:use|enter|input|type)\s+__CODE__\s+(?:to\s+)?(?:verify|confirm|authenticate)\b/i,
 	/\b(?:verify|confirm|authenticate)\s+(?:with|using)\s+__CODE__/i,

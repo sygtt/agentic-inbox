@@ -4,7 +4,7 @@
 
 import { Button } from "@cloudflare/kumo";
 import { CheckIcon, CopyIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { extractVerificationCode } from "~/lib/verification-code";
 
 export default function VerificationCodeAction({
@@ -16,6 +16,7 @@ export default function VerificationCodeAction({
 }) {
 	const code = extractVerificationCode(subject, body);
 	const [feedback, setFeedback] = useState<"idle" | "copied" | "failed">("idle");
+	useEffect(() => setFeedback("idle"), [code]);
 
 	if (!code) return null;
 
