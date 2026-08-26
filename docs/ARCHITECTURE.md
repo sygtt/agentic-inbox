@@ -329,7 +329,7 @@ Because there is no per-mailbox authorization, an MCP client that passes Access 
 MCP `get_email` and `get_thread` responses expose normalized readable text in
 the `body` and `body_text` fields. When the stored representation is retained,
 it is exposed as `body_html`; database persistence and browser/API body
-rendering remain unchanged. `list_emails` snippets use the same normalization.
+rendering remain unchanged.
 
 ## Frontend architecture
 

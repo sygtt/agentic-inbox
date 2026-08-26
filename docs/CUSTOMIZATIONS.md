@@ -38,6 +38,44 @@ A useful entry should include:
 
 # Active customizations
 
+## MCP plain-text email body contract
+
+**Status:** Active
+
+### Why
+
+MCP consumers should receive semantic email content without having to guess
+whether `body` or `body_text` is safe to process.
+
+### Behavior
+
+MCP `get_email` and `get_thread` responses expose normalized readable text in
+`body` and `body_text`. The stored representation remains available only in
+the explicitly named `body_html` field.
+
+### Main affected areas
+
+- `workers/lib/mcp-email.ts`
+- `workers/mcp/index.ts`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+None. Database body storage and browser/API rendering are unchanged.
+
+### Upstream synchronization risk
+
+Medium. Changes to upstream MCP tool response mapping may conflict with this
+adapter; preserve the plain-text-first contract when resolving conflicts.
+
+### Removal / replacement condition
+
+Remove this adapter when upstream exposes the same plain-text-first MCP
+contract with an explicitly named HTML field.
+
 ## AI-oriented repository governance
 
 **Status:** Active

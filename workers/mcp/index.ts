@@ -97,7 +97,7 @@ export class EmailMCP extends McpAgent<Env> {
 		// ── list_emails ────────────────────────────────────────────
 		this.server.tool(
 			"list_emails",
-			"List emails in a mailbox folder. Returns metadata and readable plain-text snippets.",
+			"List emails in a mailbox folder. Returns email metadata (id, subject, sender, recipient, date, read/starred status, thread_id).",
 			{
 				mailboxId: z
 					.string()
