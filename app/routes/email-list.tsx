@@ -149,6 +149,7 @@ export default function EmailListRoute() {
 		selectedEmailId,
 		isComposing,
 		selectEmail,
+		clearEmailSelection,
 		closePanel,
 		startCompose,
 	} = useUIStore();
@@ -222,10 +223,7 @@ export default function EmailListRoute() {
 			try {
 				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 				toastManager.add({ title: "Email deleted" });
-				const currentUI = useUIStore.getState();
-				if (currentUI.selectedEmailId === emailId && !currentUI.isComposing) {
-					closePanel();
-				}
+				clearEmailSelection(emailId);
 			} catch {
 				toastManager.add({ title: "Failed to delete email", variant: "error" });
 			} finally {

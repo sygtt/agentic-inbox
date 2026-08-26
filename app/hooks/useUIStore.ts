@@ -20,6 +20,7 @@ interface UIState {
 	isComposing: boolean;
 	_previousEmailId: string | null;
 	selectEmail: (id: string | null) => void;
+	clearEmailSelection: (id: string) => void;
 	startCompose: (options?: ComposeOptions) => void;
 	closePanel: () => void;
 	closeCompose: () => void;
@@ -53,6 +54,11 @@ export const useUIStore = create<UIState>((set, get) => ({
 	isAgentPanelOpen: true,
 
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
+	clearEmailSelection: (id) =>
+		set((state) => ({
+			selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
+			_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
+		})),
 
 	startCompose: (options) =>
 		set((state) => {
