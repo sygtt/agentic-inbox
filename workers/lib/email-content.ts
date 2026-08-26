@@ -4,10 +4,13 @@
 
 import { decodeHTML } from "entities";
 
-const INLINE_TAGS = new Set([
-	"a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "em",
-	"i", "ins", "kbd", "label", "mark", "q", "s", "samp", "small", "span",
-	"strong", "sub", "sup", "time", "u", "var",
+const TEXT_BOUNDARY_TAGS = new Set([
+	"address", "article", "aside", "blockquote", "body", "br", "caption",
+	"dd", "details", "dialog", "div", "dl", "dt", "fieldset", "figcaption",
+	"figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head",
+	"header", "hgroup", "hr", "html", "legend", "li", "main", "nav", "ol",
+	"option", "p", "pre", "script", "section", "style", "table", "tbody",
+	"td", "tfoot", "th", "thead", "tr", "ul",
 ]);
 
 function isTagNameChar(char: string | undefined): boolean {
@@ -105,7 +108,8 @@ function stripHtmlTags(html: string): string {
 				continue;
 			}
 
-			parts.push(html.slice(textStart, tagStart), INLINE_TAGS.has(tag.name) ? "" : " ");
+			const separator = tag.name === "" || TEXT_BOUNDARY_TAGS.has(tag.name) ? " " : "";
+			parts.push(html.slice(textStart, tagStart), separator);
 			if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
 				const closingTag = findRawElementClosingTag(html, index + 1, tag.name);
 				if (!closingTag) return parts.join("");
