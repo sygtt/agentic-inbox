@@ -14,6 +14,7 @@ const TEXT_BOUNDARY_TAGS = new Set([
 ]);
 
 const HIDDEN_TAGS = new Set(["head", "script", "style", "title"]);
+const HEAD_CONTENT_TAGS = new Set(["base", "link", "meta", "noscript", "script", "style", "template", "title"]);
 
 function isTagNameChar(char: string | undefined): boolean {
 	return !!char && /[a-z0-9:-]/i.test(char);
@@ -58,8 +59,11 @@ function looksLikeHtml(body: string): boolean {
 
 function findRawElementClosingTag(html: string, start: number, name: string) {
 	for (let index = start; index < html.length; index++) {
-		if (name === "head" && readTagName(html, index)?.name === "body") {
-			return { end: index - 1, name, closing: true };
+		if (name === "head") {
+			const tag = readTagName(html, index);
+			if (tag && !tag.closing && !HEAD_CONTENT_TAGS.has(tag.name)) {
+				return { end: index - 1, name, closing: true };
+			}
 		}
 		if (html[index] !== "<" || html[index + 1] !== "/") continue;
 		const nameStart = index + 2;
@@ -126,6 +130,10 @@ function stripHtmlTags(html: string): string {
 		}
 	}
 
+	if (comment) {
+		parts.push(html.slice(textStart, tagStart));
+		return parts.join("");
+	}
 	// Preserve malformed/incomplete tags and their surrounding text.
 	parts.push(html.slice(textStart));
 	return parts.join("");
