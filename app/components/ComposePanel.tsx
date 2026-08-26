@@ -76,6 +76,7 @@ export default function ComposePanel() {
 									size="sm"
 									value={to}
 									onChange={(e) => setTo(e.target.value)}
+									disabled={isDeleting}
 									required
 								/>
 								{!showCcBcc && (
@@ -83,6 +84,7 @@ export default function ComposePanel() {
 										type="button"
 										onClick={() => setShowCcBcc(true)}
 										className="shrink-0 text-xs text-kumo-link hover:text-kumo-link-hover font-medium"
+										disabled={isDeleting}
 									>
 										CC / BCC
 									</button>
@@ -101,6 +103,7 @@ export default function ComposePanel() {
 										size="sm"
 										value={cc}
 										onChange={(e) => setCc(e.target.value)}
+										disabled={isDeleting}
 										placeholder="Separate multiple addresses with commas"
 									/>
 								</div>
@@ -118,6 +121,7 @@ export default function ComposePanel() {
 										size="sm"
 										value={bcc}
 										onChange={(e) => setBcc(e.target.value)}
+										disabled={isDeleting}
 										placeholder="Separate multiple addresses with commas"
 									/>
 								</div>
@@ -135,6 +139,7 @@ export default function ComposePanel() {
 									size="sm"
 									value={subject}
 									onChange={(e) => setSubject(e.target.value)}
+									disabled={isDeleting}
 									required
 								/>
 							</div>
@@ -145,6 +150,7 @@ export default function ComposePanel() {
 						<RichTextEditor
 							value={body}
 							onChange={setBody}
+							readOnly={isDeleting}
 						/>
 					</div>
 				</div>
