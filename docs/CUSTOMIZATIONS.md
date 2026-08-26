@@ -82,6 +82,53 @@ helpers may conflict with this shared normalizer.
 Remove the local normalizer when upstream provides equivalent safe handling for
 HTML and text-only content across list, agent, and reply paths.
 
+## Mobile PWA inbox helpers
+
+**Status:** Active
+
+### Why
+
+Issue #3 adds a deliberately small mobile workflow for checking incoming mail,
+copying verification codes, deleting messages from the list, and opening links
+without introducing a separate mobile client or new persistence.
+
+### Behavior
+
+- Contextual 4–8 digit verification codes are shown with a Clipboard API copy action.
+- Plain-text `http`/`https` URLs are converted to links after escaping the input.
+- Existing HTML mail continues through the sandboxed DOMPurify iframe path.
+- Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
+- The web app declares a standalone manifest using the repository's generic favicon.
+- No service worker or offline mailbox support is added.
+
+### Main affected areas
+
+- `app/lib/verification-code.ts`
+- `app/lib/email-body.ts`
+- `app/components/VerificationCodeAction.tsx`
+- `app/components/EmailIframe.tsx`
+- `app/routes/email-list.tsx`
+- `app/root.tsx`
+- `public/manifest.webmanifest`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+None. OTP extraction and URL linkification are view-layer behavior, and
+deletion reuses the existing email API and semantics.
+
+### Upstream synchronization risk
+
+Low to medium. The email iframe and list route may change upstream, while the
+standalone helper and manifest are isolated additions.
+
+### Removal / replacement condition
+
+Remove local helpers if upstream provides equivalent safe mobile behavior.
+
 ## AI-oriented repository governance
 
 **Status:** Active

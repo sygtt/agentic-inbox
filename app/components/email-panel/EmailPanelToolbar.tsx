@@ -26,6 +26,7 @@ interface EmailPanelToolbarProps {
 	mailboxId?: string;
 	isDraftFolder: boolean;
 	isSending: boolean;
+	isDeleting: boolean;
 	moveToFolders: Folder[];
 	lastReceivedMessage?: Email;
 	onBack: () => void;
@@ -46,6 +47,7 @@ export default function EmailPanelToolbar({
 	mailboxId,
 	isDraftFolder,
 	isSending,
+	isDeleting,
 	moveToFolders,
 	onBack,
 	onSendDraft,
@@ -79,6 +81,7 @@ export default function EmailPanelToolbar({
 						icon={<PaperPlaneTiltIcon size={16} />}
 						onClick={onSendDraft}
 						loading={isSending}
+						disabled={isDeleting}
 					>
 						{isSending ? "Sending..." : "Send"}
 					</Button>
@@ -87,6 +90,7 @@ export default function EmailPanelToolbar({
 						size="sm"
 						icon={<PencilSimpleIcon size={16} />}
 						onClick={onEditDraft}
+						disabled={isDeleting}
 					>
 						Edit
 					</Button>
@@ -100,6 +104,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ArrowBendUpLeftIcon size={18} />}
 							onClick={onReply}
+							disabled={isDeleting}
 							aria-label="Reply"
 						/>
 					</Tooltip>
@@ -110,6 +115,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ChatCircleIcon size={18} />}
 							onClick={onReplyAll}
+							disabled={isDeleting}
 							aria-label="Reply All"
 						/>
 					</Tooltip>
@@ -120,6 +126,7 @@ export default function EmailPanelToolbar({
 							size="sm"
 							icon={<ArrowBendUpRightIcon size={18} />}
 							onClick={onForward}
+							disabled={isDeleting}
 							aria-label="Forward"
 						/>
 					</Tooltip>
@@ -176,6 +183,7 @@ export default function EmailPanelToolbar({
 						size="sm"
 						icon={<TrashIcon size={18} />}
 						onClick={onDelete}
+						disabled={isDeleting}
 						aria-label="Delete"
 					/>
 				</Tooltip>

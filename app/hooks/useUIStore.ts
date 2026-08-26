@@ -18,8 +18,11 @@ interface UIState {
 	// Side panel state
 	selectedEmailId: string | null;
 	isComposing: boolean;
+	isSendingEmail: boolean;
 	_previousEmailId: string | null;
 	selectEmail: (id: string | null) => void;
+	setSendingEmail: (pending: boolean) => void;
+	clearEmailSelection: (id: string) => void;
 	startCompose: (options?: ComposeOptions) => void;
 	closePanel: () => void;
 	closeCompose: () => void;
@@ -46,6 +49,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
 	selectedEmailId: null,
 	isComposing: false,
+	isSendingEmail: false,
 	_previousEmailId: null,
 	composeOptions: { mode: "new", originalEmail: null },
 	isComposeModalOpen: false,
@@ -53,6 +57,23 @@ export const useUIStore = create<UIState>((set, get) => ({
 	isAgentPanelOpen: true,
 
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
+	setSendingEmail: (pending) => set({ isSendingEmail: pending }),
+	clearEmailSelection: (id) =>
+		set((state) => {
+			const composeDependsOnEmail =
+				state.composeOptions.originalEmail?.id === id ||
+				state.composeOptions.draftEmail?.id === id;
+			return {
+				selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
+				_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
+				...(composeDependsOnEmail
+					? {
+							isComposing: false,
+							composeOptions: { mode: "new" as const, originalEmail: null },
+						}
+					: {}),
+			};
+		}),
 
 	startCompose: (options) =>
 		set((state) => {

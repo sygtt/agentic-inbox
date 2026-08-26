@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Pagination, Tooltip } from "@cloudflare/kumo";
+import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
 	ArrowBendUpLeftIcon,
@@ -16,7 +16,7 @@ import {
 	TrashIcon,
 	TrayIcon,
 } from "@phosphor-icons/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
@@ -149,15 +149,22 @@ export default function EmailListRoute() {
 		selectedEmailId,
 		isComposing,
 		selectEmail,
+		clearEmailSelection,
 		closePanel,
 		startCompose,
+		isSendingEmail: isDraftSending,
 	} = useUIStore();
 	const [page, setPage] = useState(1);
+	const toastManager = useKumoToastManager();
 
 	const queryClient = useQueryClient();
 	const updateEmail = useUpdateEmail();
 	const markThreadRead = useMarkThreadRead();
 	const deleteEmail = useDeleteEmail();
+	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
+	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSendingEmail = isDraftSending || isSendingMutation;
 
 	const params = useMemo(
 		() => ({
@@ -210,14 +217,20 @@ export default function EmailListRoute() {
 			});
 	};
 
-	const handleDelete = (e: React.MouseEvent, emailId: string) => {
+	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
+		if (isDeleting || isSavingDraft || isSendingEmail) return;
 		if (mailboxId) {
 			const confirmed = window.confirm("Are you sure you want to delete this email?");
 			if (!confirmed) return;
-			deleteEmail.mutate({ mailboxId, id: emailId });
-			if (selectedEmailId === emailId) closePanel();
+			try {
+				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
+				toastManager.add({ title: "Email deleted" });
+				clearEmailSelection(emailId);
+			} catch {
+				toastManager.add({ title: "Failed to delete email", variant: "error" });
+			}
 		}
 	};
 
@@ -403,7 +416,7 @@ export default function EmailListRoute() {
 									</div>
 
 										{/* Hover actions */}
-										<div className="hidden group-hover:flex items-center shrink-0">
+										<div className="flex md:hidden md:group-hover:flex items-center shrink-0">
 											<Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
 												<Button
 													variant="ghost"
@@ -427,8 +440,9 @@ export default function EmailListRoute() {
 													variant="ghost"
 													shape="square"
 													size="sm"
-													icon={<TrashIcon size={14} />}
-													onClick={(e) => handleDelete(e, email.id)}
+															icon={<TrashIcon size={14} />}
+															onClick={(e) => handleDelete(e, email.id)}
+															disabled={isDeleting || isSavingDraft || isSendingEmail}
 													aria-label="Delete"
 												/>
 											</Tooltip>

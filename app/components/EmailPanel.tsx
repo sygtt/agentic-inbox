@@ -3,6 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useKumoToastManager } from "@cloudflare/kumo";
+import { useIsMutating } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
@@ -37,6 +38,9 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	};
 	const updateEmail = useUpdateEmail();
 	const deleteEmailMut = useDeleteEmail();
+	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const moveEmailMut = useMoveEmail();
 	const sendEmailMut = useSendEmail();
 	const replyMut = useReplyToEmail();
@@ -44,7 +48,14 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const { data: currentMailbox } = useMailbox(mailboxId) as {
 		data?: Mailbox;
 	};
-	const { closePanel, startCompose } = useUIStore();
+	const {
+		closePanel,
+		startCompose,
+		isSendingEmail: isDraftSending,
+		setSendingEmail,
+	} = useUIStore();
+	const isSendingEmail = isDraftSending || isSendingMutation;
+	const isDeletionBlocked = isDeleting || isSavingDraft || isSendingEmail;
 	const toastManager = useKumoToastManager();
 	const [isSending, setIsSending] = useState(false);
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
@@ -89,7 +100,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleMove = (folderId: string) => { if (mailboxId) { moveEmailMut.mutate({ mailboxId, id: email.id, folderId }); closePanel(); } };
-	const handleDelete = () => { if (mailboxId) { if (!window.confirm("Are you sure you want to delete this email?")) return; deleteEmailMut.mutate({ mailboxId, id: email.id }); closePanel(); } };
+	const handleDelete = () => { if (mailboxId && !isDeletionBlocked) { if (!window.confirm("Are you sure you want to delete this email?")) return; deleteEmailMut.mutate({ mailboxId, id: email.id }); closePanel(); } };
 
 	const handleEditDraft = (draftMsg?: Email) => {
 		const target = draftMsg || email;
@@ -99,7 +110,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const handleDeleteDraft = async (draftMsg?: Email) => {
 		const target = draftMsg || email;
-		if (!mailboxId) return;
+		if (!mailboxId || isDeletionBlocked) return;
 		if (!window.confirm("Discard this draft?")) return;
 		deleteEmailMut.mutate({ mailboxId, id: target.id });
 		toastManager.add({ title: "Draft discarded" });
@@ -107,8 +118,10 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	};
 
 	const handleSendDraft = async (draftMsg?: Email) => {
+		if (isDeletionBlocked) return;
 		let target = draftMsg || email;
 		if (!mailboxId || !currentMailbox) return;
+		setSendingEmail(true);
 		setIsSending(true);
 		try {
 			if (!target.recipient || !target.subject) { try { const fresh = await api.getEmail(mailboxId, target.id) as Email; if (fresh) target = fresh; } catch {} }
@@ -134,7 +147,10 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		} catch (err) {
 			const message = (err instanceof Error ? err.message : null) || "Failed to send email.";
 			toastManager.add({ title: message, variant: "error" });
-		} finally { setIsSending(false); }
+		} finally {
+			setSendingEmail(false);
+			setIsSending(false);
+		}
 	};
 
 	const hasThread = allMessages.length > 1;
@@ -146,6 +162,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				mailboxId={mailboxId}
 				isDraftFolder={isDraftFolder}
 				isSending={isSending}
+				isDeleting={isDeletionBlocked}
 				moveToFolders={moveToFolders}
 				onBack={closePanel}
 				onSendDraft={() => handleSendDraft()}
@@ -194,6 +211,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isLast={idx === allMessages.length - 1}
 								isDraft={isDraft}
 								isSending={isDraft ? isSending : false}
+				isDeleting={isDeletionBlocked}
 								isExpanded={expandedMessages.has(msg.id)}
 								onToggleExpand={() => toggleExpand(msg.id)}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
