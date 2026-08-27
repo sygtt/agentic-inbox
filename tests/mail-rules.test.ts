@@ -99,6 +99,7 @@ test("keeps the legacy rules key safe for older workers", () => {
 		{ ...firstRule, enabled: true },
 		{ ...laterRule, enabled: false },
 	]);
+	assert.equal(MailRuleListSchema.safeParse(settings.rules).success, true);
 });
 
 function createApiTestContext(initialRules: unknown[] = []) {

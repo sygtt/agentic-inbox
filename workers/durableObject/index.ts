@@ -756,10 +756,7 @@ export class MailboxDO extends DurableObject<Env> {
 			if (!current.rules.some((rule) => rule.id === id)) return { kind: "not-found" as const };
 
 			const rules = current.rules.filter((rule) => rule.id !== id);
-			await this.env.BUCKET.put(
-				`mailboxes/${mailboxId}.json`,
-				JSON.stringify({ ...current.settings, rules }),
-			);
+			await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
 			return { kind: "deleted" as const };
 		});
 	}
