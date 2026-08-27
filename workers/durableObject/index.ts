@@ -14,6 +14,8 @@ import { createEmailSnippet } from "../lib/email-content";
 import {
 	readMailboxRules,
 	MailRuleListSchema,
+	MAX_MAIL_RULES,
+	serializeMailboxRules,
 	type MailRuleMutation,
 	type MailRuleMutationResult,
 } from "../lib/mail-rules";
@@ -691,14 +693,11 @@ export class MailboxDO extends DurableObject<Env> {
 
 				const rulesById = new Map(current.rules.map((rule) => [rule.id, rule]));
 				const rules = mutation.ruleIds.map((id) => rulesById.get(id)!);
-				await this.env.BUCKET.put(
-					`mailboxes/${mailboxId}.json`,
-					JSON.stringify({ ...current.settings, rules }),
-				);
+				await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
 				return { kind: "reordered", rules };
 			}
 
-			if (mutation.operation === "create" && current.rules.length >= 100) {
+			if (mutation.operation === "create" && current.rules.length >= MAX_MAIL_RULES) {
 				return { kind: "limit-exceeded" };
 			}
 
@@ -714,10 +713,7 @@ export class MailboxDO extends DurableObject<Env> {
 
 			if (mutation.operation === "create") {
 				const rules = [...current.rules, mutation.rule];
-				await this.env.BUCKET.put(
-					`mailboxes/${mailboxId}.json`,
-					JSON.stringify({ ...current.settings, rules }),
-				);
+				await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
 				return { kind: "created", rule: mutation.rule };
 			}
 
@@ -725,11 +721,32 @@ export class MailboxDO extends DurableObject<Env> {
 			if (index < 0) return { kind: "not-found" };
 			const rules = [...current.rules];
 			rules[index] = mutation.rule;
-			await this.env.BUCKET.put(
-				`mailboxes/${mailboxId}.json`,
-				JSON.stringify({ ...current.settings, rules }),
-			);
+			await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
 			return { kind: "updated", rule: mutation.rule };
+		});
+	}
+
+	async setMailRuleEnabled(mailboxId: string, id: string, enabled: boolean): Promise<MailRuleMutationResult> {
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const current = await readMailboxRules(this.env.BUCKET, mailboxId);
+			if (!current) return { kind: "not-found" as const };
+			const index = current.rules.findIndex((rule) => rule.id === id);
+			if (index < 0) return { kind: "not-found" as const };
+
+			const rule = { ...current.rules[index], enabled };
+			if (enabled && rule.action.folderId) {
+				const folder = this.db
+					.select({ id: schema.folders.id })
+					.from(schema.folders)
+					.where(eq(schema.folders.id, rule.action.folderId))
+					.get();
+				if (!folder) return { kind: "invalid-folder" as const };
+			}
+
+			const rules = [...current.rules];
+			rules[index] = rule;
+			await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
+			return { kind: "updated" as const, rule };
 		});
 	}
 
@@ -740,10 +757,7 @@ export class MailboxDO extends DurableObject<Env> {
 			if (!current.rules.some((rule) => rule.id === id)) return { kind: "not-found" as const };
 
 			const rules = current.rules.filter((rule) => rule.id !== id);
-			await this.env.BUCKET.put(
-				`mailboxes/${mailboxId}.json`,
-				JSON.stringify({ ...current.settings, rules }),
-			);
+			await this.env.BUCKET.put(`mailboxes/${mailboxId}.json`, JSON.stringify(serializeMailboxRules(current.settings, rules)));
 			return { kind: "deleted" as const };
 		});
 	}
@@ -757,8 +771,13 @@ export class MailboxDO extends DurableObject<Env> {
 				return { kind: "invalid-rules" as const };
 			}
 
-			const { rules: _ignoredRules, ...settingsWithoutRules } = settings;
-			const updatedSettings = { ...settingsWithoutRules, rules: current.rules };
+			const { rules: _ignoredRules, rules_v2: _ignoredRulesV2, ...settingsWithoutRules } = settings;
+			const legacyRules = current.rules.filter((rule) => rule.enabled).map(({ enabled: _enabled, ...rule }) => rule);
+			const updatedSettings = {
+				...settingsWithoutRules,
+				rules: legacyRules,
+				...(current.settings.rules_v2 !== undefined ? { rules_v2: current.rules } : {}),
+			};
 			await this.env.BUCKET.put(
 				`mailboxes/${mailboxId}.json`,
 				JSON.stringify(updatedSettings),

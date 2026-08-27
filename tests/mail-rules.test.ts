@@ -8,6 +8,7 @@ import {
 	MailRuleInputSchema,
 	MailRuleListSchema,
 	readMailboxRules,
+	serializeMailboxRules,
 } from "../workers/lib/mail-rules.ts";
 
 const firstRule = {
@@ -38,6 +39,12 @@ test("validates and evaluates ordered rules with AND semantics", () => {
 	});
 	assert.equal(match.invalid, false);
 	assert.equal(match.rule?.id, firstRule.id);
+	assert.equal(match.rule?.enabled, true);
+	assert.equal(evaluateMailRules([{ ...firstRule, enabled: false }], {
+		envelopeRecipient: "alias@example.com",
+		sender: "recruiter@example.net",
+		subject: "A JOB OFFER for you",
+	}).rule, null);
 
 	const noMatch = evaluateMailRules(parsed, {
 		envelopeRecipient: "alias@example.com",
@@ -59,6 +66,10 @@ test("validates and evaluates ordered rules with AND semantics", () => {
 		conditions: { sender: "person@example.net" },
 		action: { tags: ["disposition:review"] },
 	}).success, false);
+	assert.equal(MailRuleInputSchema.parse({
+		conditions: { sender: "person@example.net" },
+		action: { tags: ["source:newsletter"] },
+	}).enabled, true);
 	const tooManyRules = Array.from({ length: 101 }, (_, index) => ({
 		...firstRule,
 		id: `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
@@ -76,6 +87,54 @@ test("rejects malformed rules stored in mailbox settings", async () => {
 		() => readMailboxRules(bucket, "test@example.com"),
 		/Invalid mail rules/,
 	);
+});
+
+test("keeps the legacy rules key safe for older workers", () => {
+	const settings = serializeMailboxRules({ fromName: "Test" }, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+	assert.deepEqual(settings.rules, [{ ...firstRule }]);
+	assert.deepEqual(settings.rules_v2, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+	assert.equal(MailRuleListSchema.safeParse(settings.rules).success, true);
+});
+
+test("reconciles rule edits made while the enabled-aware worker is rolled back", async () => {
+	const persisted = serializeMailboxRules({ fromName: "Test" }, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+	const legacyEdit = { ...firstRule, conditions: { sender: "edited@example.net" } };
+	const bucket = {
+		get: async () => ({
+			json: async () => ({ ...persisted, rules: [legacyEdit] }),
+		}),
+	} as any;
+	const result = await readMailboxRules(bucket, "test@example.com");
+	assert.deepEqual(result?.rules.map(({ id, enabled, conditions }) => ({ id, enabled, conditions })), [
+		{ id: firstRule.id, enabled: true, conditions: legacyEdit.conditions },
+		{ id: laterRule.id, enabled: false, conditions: laterRule.conditions },
+	]);
+});
+
+test("keeps rollback reconciliation within the rule limit", async () => {
+	const idFor = (index: number) => `${String(index).padStart(8, "0")}-1111-4111-8111-111111111111`;
+	const activeRules = Array.from({ length: 95 }, (_, index) => ({ ...firstRule, id: idFor(index + 1), enabled: true }));
+	const disabledRules = Array.from({ length: 5 }, (_, index) => ({ ...laterRule, id: idFor(index + 96), enabled: false }));
+	const rollbackAddedRules = Array.from({ length: 5 }, (_, index) => ({ ...firstRule, id: idFor(index + 101), enabled: true }));
+	const persisted = serializeMailboxRules({}, [...activeRules, ...disabledRules]);
+	const bucket = {
+		get: async () => ({
+			json: async () => ({ ...persisted, rules: [...activeRules, ...rollbackAddedRules].map(({ enabled: _enabled, ...rule }) => rule) }),
+		}),
+	} as any;
+	const result = await readMailboxRules(bucket, "test@example.com");
+	assert.equal(result?.rules.length, 100);
+	assert.equal(result?.rules.some((rule) => rule.id === disabledRules[0].id), false);
+	assert.equal(MailRuleListSchema.safeParse(result?.rules).success, true);
 });
 
 function createApiTestContext(initialRules: unknown[] = []) {
@@ -118,6 +177,15 @@ function createApiTestContext(initialRules: unknown[] = []) {
 			settings = { ...settings, rules: rules.filter((rule) => rule.id !== id) };
 			return { kind: "deleted" };
 		},
+		setMailRuleEnabled: async (_mailboxId: string, id: string, enabled: boolean) => {
+			const rules = settings.rules as any[];
+			const index = rules.findIndex((rule) => rule.id === id);
+			if (index < 0) return { kind: "not-found" };
+			const updated = [...rules];
+			updated[index] = { ...updated[index], enabled };
+			settings = { ...settings, rules: updated };
+			return { kind: "updated", rule: updated[index] };
+		},
 	};
 	const env = {
 		BUCKET: {
@@ -158,6 +226,7 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 	assert.equal(response.status, 201);
 	const created = await response.json() as typeof firstRule;
 	assert.match(created.id, /^[0-9a-f-]{36}$/);
+	assert.equal(created.enabled, true);
 	assert.deepEqual(created.action.tags, ["source:job-board"]);
 
 	response = await request(base, {
@@ -204,11 +273,21 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
+			enabled: false,
 			conditions: { sender: "updated@example.net" },
 			action: { folderId: "career" },
 		}),
 	});
 	assert.equal(response.status, 200);
+	assert.equal((await response.json() as { enabled: boolean }).enabled, false);
+
+	response = await request(`${base}/${created.id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ enabled: true }),
+	});
+	assert.equal(response.status, 200);
+	assert.equal((await response.json() as { enabled: boolean }).enabled, true);
 
 	response = await request(`${base}/${created.id}`, { method: "DELETE" });
 	assert.equal(response.status, 204);

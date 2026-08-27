@@ -95,13 +95,18 @@ LLM.
 
 ### Behavior
 
-- Rules are stored per mailbox in the existing R2 settings JSON.
+- Rules are stored per mailbox in the existing R2 settings JSON. The full
+  enabled-aware list is kept in `rules_v2`; the legacy `rules` key contains
+  only enabled rules without the status field so older workers can read it.
 - Conditions support SMTP envelope recipient, sender address, sender domain,
   and case-insensitive subject containment.
 - Conditions within a rule use AND semantics; rules are evaluated in stored
-  order and the first match wins.
+  order and the first enabled match wins. Rules can be disabled without being
+  deleted.
 - A match can assign one existing folder and/or add namespaced tags with
   provenance `rule`.
+- The mailbox settings UI lists rules in evaluation order and supports create,
+  edit, enable/disable, delete, and keyboard-friendly up/down reordering.
 - Rule evaluation runs after mailbox/catch-all resolution and before the
   existing asynchronous agent trigger.
 - Invalid configuration or application failures preserve the email in Inbox
@@ -113,6 +118,8 @@ LLM.
 - `workers/lib/mail-rules-api.ts`
 - `workers/index.ts`
 - `workers/durableObject/index.ts`
+- `app/components/MailRulesSettings.tsx`
+- `app/queries/mail-rules.ts`
 
 ### Configuration involved
 
@@ -120,13 +127,17 @@ None. Rules are managed through authenticated mailbox-scoped API endpoints.
 
 ### Persistence / migration implications
 
-No database migration. The existing mailbox settings JSON gains an optional
-`rules` array. Existing settings and emails remain compatible.
+No database migration. The existing mailbox settings JSON gains the optional
+`rules_v2` array when a rule is changed through the new UI. Existing settings
+and emails remain compatible, and the legacy `rules` array remains readable by
+older Workers during rollback.
 
 ### Validation
 
-Rule schema, AND matching, first-match evaluation, CRUD, reorder validation,
-folder validation, and safe invalid-rule fallback are covered by tests.
+Rule schema, enabled-rule matching, AND matching, first-match evaluation, CRUD,
+reorder validation, folder validation, and safe invalid-rule fallback are
+covered by tests. The UI validates supported conditions/actions before submit
+and surfaces loading, empty, validation, and API-error states.
 
 ### Upstream synchronization risk
 

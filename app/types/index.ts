@@ -8,12 +8,34 @@ export interface SignatureSettings {
 	html?: string;
 }
 
+export interface MailRuleConditions {
+	envelopeRecipient?: string;
+	sender?: string;
+	senderDomain?: string;
+	subjectContains?: string;
+}
+
+export interface MailRuleAction {
+	folderId?: string;
+	tags: string[];
+}
+
+export interface MailRule {
+	id: string;
+	enabled: boolean;
+	conditions: MailRuleConditions;
+	action: MailRuleAction;
+}
+
+export type MailRuleInput = Omit<MailRule, "id">;
+
 export interface MailboxSettings {
 	fromName?: string;
 	forwarding?: { enabled: boolean; email: string };
 	signature?: SignatureSettings;
 	autoReply?: { enabled: boolean; subject: string; message: string };
 	agentSystemPrompt?: string;
+	rules?: MailRule[];
 }
 
 export interface Mailbox {

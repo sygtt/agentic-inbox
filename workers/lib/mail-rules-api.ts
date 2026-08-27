@@ -6,6 +6,7 @@ import type { Context, Hono } from "hono";
 import type { MailboxContext } from "./mailbox.ts";
 import {
 	MailRuleIdSchema,
+	MailRuleEnabledSchema,
 	MailRuleInputSchema,
 	MailRuleReorderRequestSchema,
 	type MailRuleMutationResult,
@@ -67,6 +68,21 @@ export function registerMailRuleRoutes(app: Hono<MailboxContext>) {
 		const rule = { id: id.data, ...parsed.data };
 		const result = await c.var.mailboxStub.mutateMailRules(c.req.param("mailboxId")!, { operation: "update", rule });
 		return mutationResponse(c, result, rule);
+	});
+
+	app.patch("/api/v1/mailboxes/:mailboxId/rules/:id", async (c: AppContext) => {
+		const id = MailRuleIdSchema.safeParse(c.req.param("id"));
+		const parsed = MailRuleEnabledSchema.safeParse(await readJson(c));
+		if (!id.success || !parsed.success) return c.json({ error: "Invalid mail rule state" }, 400);
+
+		const result = await c.var.mailboxStub.setMailRuleEnabled(
+			c.req.param("mailboxId")!,
+			id.data,
+			parsed.data.enabled,
+		);
+		if (result.kind === "not-found") return c.json({ error: "Rule not found" }, 404);
+		if (result.kind === "invalid-folder") return c.json({ error: "Folder not found" }, 400);
+		return result.kind === "updated" ? c.json(result.rule) : c.json({ error: "Unable to update mail rule" }, 500);
 	});
 
 	app.delete("/api/v1/mailboxes/:mailboxId/rules/:id", async (c: AppContext) => {

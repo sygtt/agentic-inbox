@@ -149,7 +149,8 @@ Deterministic inbound mail rules are managed with mailbox-scoped endpoints:
 
 Rule conditions use `envelopeRecipient`, `sender`, `senderDomain`, and
 `subjectContains`. Conditions in one rule are ANDed. A rule action can assign
-one existing `folderId` and/or add namespaced rule-provenance tags.
+one existing `folderId` and/or add namespaced rule-provenance tags. Rules also
+have an `enabled` flag; disabled rules remain in order but are skipped.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
@@ -175,7 +176,7 @@ Creating a mailbox performs two distinct operations:
 
 The R2 settings object acts as the current mailbox registry. A mailbox can have a Durable Object identity even if no registry object exists, so application code explicitly checks R2 when deciding whether a mailbox exists.
 
-Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, optional per-mailbox agent system prompt, and the ordered deterministic mail rules.
+Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, optional per-mailbox agent system prompt, and the ordered deterministic mail rules. When enabled-state support is used, `rules_v2` stores the full rule list while the legacy `rules` key retains only enabled rules without the `enabled` field for rollback compatibility.
 
 ## Mailbox storage
 
@@ -291,8 +292,12 @@ If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or 
 
 Rules are stored in the selected mailbox's R2 settings JSON under `rules`.
 They do not create category-specific mailboxes or require a schema migration.
+The optional `rules_v2` shadow key stores disabled rules and enabled state;
+the legacy `rules` key contains only enabled rules so a rollback to a worker
+that predates enabled-state support remains safe.
 The receiver evaluates each rule in stored order using only the original SMTP
-envelope recipient, parsed sender address/domain, and subject. The first rule
+envelope recipient, parsed sender address/domain, and subject. Disabled rules
+are skipped; the first enabled rule
 whose conditions all match is applied; later rules are not evaluated.
 
 Rule evaluation never calls an AI model or performs external side effects.

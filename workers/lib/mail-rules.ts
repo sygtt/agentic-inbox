@@ -30,6 +30,8 @@ const RuleTagSchema = TagSchema.refine((tag) => !isDispositionTag(tag), {
 	message: "Disposition tags must use the disposition endpoint",
 });
 
+export const MAX_MAIL_RULES = 100;
+
 export const MailRuleActionSchema = z
 	.object({
 		folderId: z.string().trim().min(1).max(128).optional(),
@@ -46,10 +48,13 @@ export const MailRuleActionSchema = z
 
 export const MailRuleInputSchema = z
 	.object({
+		enabled: z.boolean().default(true),
 		conditions: MailRuleConditionsSchema,
 		action: MailRuleActionSchema,
 	})
 	.strict();
+
+export const MailRuleEnabledSchema = z.object({ enabled: z.boolean() }).strict();
 
 export const MailRuleSchema = MailRuleInputSchema.extend({
 	id: z.string().uuid(),
@@ -57,7 +62,7 @@ export const MailRuleSchema = MailRuleInputSchema.extend({
 
 export const MailRuleListSchema = z
 	.array(MailRuleSchema)
-	.max(100)
+	.max(MAX_MAIL_RULES)
 	.superRefine((rules, ctx) => {
 		const ids = new Set<string>();
 		for (const [index, rule] of rules.entries()) {
@@ -75,11 +80,13 @@ export const MailRuleListSchema = z
 export const MailRuleIdSchema = z.string().uuid();
 
 export const MailRuleReorderRequestSchema = z
-	.object({ ruleIds: z.array(MailRuleIdSchema).max(100) })
+	.object({ ruleIds: z.array(MailRuleIdSchema).max(MAX_MAIL_RULES) })
 	.strict();
 
 export type MailRule = z.infer<typeof MailRuleSchema>;
 export type MailRuleInput = z.infer<typeof MailRuleInputSchema>;
+
+export type MailRuleEnabled = z.infer<typeof MailRuleEnabledSchema>;
 
 export type MailRuleMutation =
 	| { operation: "create" | "update"; rule: MailRule }
@@ -94,6 +101,43 @@ export interface RuleMatchInput {
 	envelopeRecipient: string;
 	sender: string;
 	subject: string;
+}
+
+/**
+ * Keep the legacy rules key readable by workers deployed before enabled rules
+ * existed. The full ordered representation lives in rules_v2.
+ */
+export function serializeMailboxRules(
+	settings: MailboxSettings,
+	rules: MailRule[],
+): MailboxSettings {
+	const legacyRules = rules.filter((rule) => rule.enabled).map(({ enabled: _enabled, ...rule }) => rule);
+	return { ...settings, rules: legacyRules, rules_v2: rules };
+}
+
+function comparableLegacyRules(rules: MailRule[]) {
+	return rules
+		.filter((rule) => rule.enabled)
+		.map(({ id, conditions, action }) => ({ id, conditions, action }));
+}
+
+function reconcileRulesAfterLegacyEdit(v2Rules: MailRule[], legacyRaw: unknown): MailRule[] {
+	const parsedLegacy = MailRuleListSchema.safeParse(legacyRaw);
+	if (!parsedLegacy.success) return v2Rules;
+	if (JSON.stringify(comparableLegacyRules(v2Rules)) === JSON.stringify(comparableLegacyRules(parsedLegacy.data))) {
+		return v2Rules;
+	}
+
+	const legacyRules = parsedLegacy.data
+		.filter((rule) => rule.enabled)
+		.map((rule) => ({ ...rule, enabled: true }));
+	const legacyIds = new Set(legacyRules.map((rule) => rule.id));
+	const disabledRules = v2Rules.filter((rule) => !rule.enabled && !legacyIds.has(rule.id));
+	// ponytail: preserve all active rollback edits within the existing 100-rule ceiling; disabled overflow is non-evaluated.
+	return [
+		...legacyRules,
+		...disabledRules.slice(0, Math.max(0, MAX_MAIL_RULES - legacyRules.length)),
+	];
 }
 
 export function matchesMailRule(rule: MailRule, input: RuleMatchInput): boolean {
@@ -118,7 +162,7 @@ export function evaluateMailRules(
 	if (!parsed.success) return { rule: null, invalid: true };
 
 	return {
-		rule: parsed.data.find((rule) => matchesMailRule(rule, input)) || null,
+		rule: parsed.data.find((rule) => rule.enabled && matchesMailRule(rule, input)) || null,
 		invalid: false,
 	};
 }
@@ -133,8 +177,15 @@ export async function readMailboxRules(
 	if (!object) return null;
 
 	const settings = await object.json<MailboxSettings>();
-	const parsed = MailRuleListSchema.safeParse(settings.rules === undefined ? [] : settings.rules);
+	const hasV2Rules = settings.rules_v2 !== undefined;
+	const rawRules = hasV2Rules ? settings.rules_v2 : settings.rules;
+	const parsed = MailRuleListSchema.safeParse(rawRules === undefined ? [] : rawRules);
 	if (!parsed.success) throw new Error(`Invalid mail rules for mailbox ${mailboxId}`);
 
-	return { settings, rules: parsed.data };
+	return {
+		settings,
+		rules: hasV2Rules && settings.rules !== undefined
+			? reconcileRulesAfterLegacyEdit(parsed.data, settings.rules)
+			: parsed.data,
+	};
 }

@@ -7,6 +7,7 @@ import { RobotIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
+import MailRulesSettings from "~/components/MailRulesSettings";
 
 // Placeholder shown in the textarea when no custom prompt is set.
 // The authoritative default prompt lives in workers/agent/index.ts (DEFAULT_SYSTEM_PROMPT).
@@ -132,6 +133,8 @@ export default function SettingsRoute() {
 						Save Changes
 					</Button>
 				</div>
+
+				{mailboxId && <MailRulesSettings mailboxId={mailboxId} />}
 			</div>
 		</div>
 	);

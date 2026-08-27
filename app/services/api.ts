@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Email, Folder, Mailbox } from "~/types";
+import type { Email, Folder, Mailbox, MailRule, MailRuleInput } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -81,6 +81,13 @@ function put<T>(url: string, body?: unknown) {
 	});
 }
 
+function patch<T>(url: string, body?: unknown) {
+	return request<T>(url, {
+		method: "PATCH",
+		body: body != null ? JSON.stringify(body) : undefined,
+	});
+}
+
 function del<T>(url: string) {
 	return request<T>(url, { method: "DELETE" });
 }
@@ -109,6 +116,20 @@ const api = {
 		put<Mailbox>(`/api/v1/mailboxes/${mailboxId}`, { settings }),
 	deleteMailbox: (mailboxId: string) =>
 		del<void>(`/api/v1/mailboxes/${mailboxId}`),
+
+	// Mail rules
+	listMailRules: (mailboxId: string) =>
+		get<MailRule[]>(`/api/v1/mailboxes/${mailboxId}/rules`),
+	createMailRule: (mailboxId: string, rule: MailRuleInput) =>
+		post<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules`, rule),
+	updateMailRule: (mailboxId: string, id: string, rule: MailRuleInput) =>
+		put<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`, rule),
+	setMailRuleEnabled: (mailboxId: string, id: string, enabled: boolean) =>
+		patch<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`, { enabled }),
+	deleteMailRule: (mailboxId: string, id: string) =>
+		del<void>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`),
+	reorderMailRules: (mailboxId: string, ruleIds: string[]) =>
+		put<MailRule[]>(`/api/v1/mailboxes/${mailboxId}/rules/reorder`, { ruleIds }),
 
 	// Emails
 	listEmails: (mailboxId: string, params: Record<string, string>, opts?: { signal?: AbortSignal }) =>

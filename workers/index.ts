@@ -22,7 +22,7 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
 import { registerMailRuleRoutes } from "./lib/mail-rules-api";
-import { evaluateMailRules, MailRuleListSchema, readMailboxRules } from "./lib/mail-rules";
+import { evaluateMailRules, MailRuleListSchema, readMailboxRules, serializeMailboxRules } from "./lib/mail-rules";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -119,7 +119,7 @@ app.post("/api/v1/mailboxes", async (c) => {
 		)) {
 			return c.json({ error: "Invalid mail rules or folder target" }, 400);
 		}
-		initialSettings = { ...settings, rules: parsedRules.data };
+		initialSettings = serializeMailboxRules(settings, parsedRules.data);
 	}
 	const email = rawEmail.toLowerCase();
 	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
