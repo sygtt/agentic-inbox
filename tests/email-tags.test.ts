@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createRequire } from "node:module";
 import { Hono } from "hono";
-import { mailboxMigrations } from "../workers/durableObject/migrations.ts";
+import { applyMigrations, mailboxMigrations } from "../workers/durableObject/migrations.ts";
 import { requireMailbox } from "../workers/lib/mailbox.ts";
 import { registerEmailTagRoutes } from "../workers/lib/email-tags-api.ts";
 import {
@@ -26,6 +27,62 @@ test("adds the email-tags migration without changing earlier migrations", () => 
 	assert.match(migration.sql, /PRIMARY KEY \(email_id, tag\)/i);
 	assert.match(migration.sql, /CHECK \(provenance IN \('rule', 'agent', 'manual'\)\)/i);
 	assert.match(migration.sql, /FOREIGN KEY\(email_id\) REFERENCES emails\(id\)/i);
+	assert.match(migration.sql, /CREATE UNIQUE INDEX idx_email_tags_one_disposition/i);
+
+	const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as any;
+	const database = new DatabaseSync(":memory:");
+	database.exec("PRAGMA foreign_keys = ON");
+	const sql = {
+		exec(query: string, ...params: (string | number)[]) {
+			if (params.length > 0) {
+				const statement = database.prepare(query);
+				if (/^select/i.test(query.trim())) return statement.all(...params);
+				statement.run(...params);
+				return [];
+			}
+			if (/^select/i.test(query.trim())) return database.prepare(query).all();
+			database.exec(query);
+			return [];
+		},
+	};
+	const storage = {
+		transactionSync<T>(callback: () => T) {
+			database.exec("BEGIN");
+			try {
+				const result = callback();
+				database.exec("COMMIT");
+				return result;
+			} catch (error) {
+				database.exec("ROLLBACK");
+				throw error;
+			}
+		},
+	};
+
+	const tagMigrationIndex = mailboxMigrations.findIndex(({ name }) => name === "10_add_email_tags");
+	applyMigrations(sql, mailboxMigrations.slice(0, tagMigrationIndex), storage);
+	database.prepare(
+		"INSERT INTO emails (id, folder_id, subject, body) VALUES (?, ?, ?, ?)",
+	).run("email-existing", "inbox", "Existing message", "Existing body");
+	applyMigrations(sql, mailboxMigrations, storage);
+
+	const existingEmail = database.prepare("SELECT subject FROM emails WHERE id = ?").get("email-existing") as any;
+	assert.equal(existingEmail.subject, "Existing message");
+	database.prepare(
+		"INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)",
+	).run("email-existing", "source:job-board", "rule");
+	database.prepare(
+		"INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)",
+	).run("email-existing", "disposition:review", "agent");
+	assert.throws(() => database.prepare(
+		"INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)",
+	).run("email-existing", "disposition:hold", "manual"));
+	const storedTag = database.prepare(
+		"SELECT tag, provenance FROM email_tags WHERE email_id = ? AND tag = ?",
+	).get("email-existing", "source:job-board") as any;
+	assert.equal(storedTag.tag, "source:job-board");
+	assert.equal(storedTag.provenance, "rule");
+	database.close();
 });
 
 function createApiTestContext() {

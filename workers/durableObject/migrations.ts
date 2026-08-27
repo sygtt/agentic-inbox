@@ -184,6 +184,8 @@ export const mailboxMigrations: Migration[] = [
             );
 
             CREATE INDEX idx_email_tags_tag ON email_tags(tag);
+            CREATE UNIQUE INDEX idx_email_tags_one_disposition
+                ON email_tags(email_id) WHERE tag LIKE 'disposition:%';
         `),
 	},
 ];
