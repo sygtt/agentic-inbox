@@ -22,7 +22,7 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
 import { registerMailRuleRoutes } from "./lib/mail-rules-api";
-import { evaluateMailRules, readMailboxRules } from "./lib/mail-rules";
+import { evaluateMailRules, MailRuleListSchema, readMailboxRules } from "./lib/mail-rules";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -111,6 +111,9 @@ app.get("/api/v1/mailboxes", async (c) => {
 
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
+	if (settings?.rules !== undefined && !MailRuleListSchema.safeParse(settings.rules).success) {
+		return c.json({ error: "Invalid mail rules" }, 400);
+	}
 	const email = rawEmail.toLowerCase();
 	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
 	if (!isMailboxCreationAllowed(email, configuredAddresses, c.env.CATCH_ALL_MAILBOX)) {
@@ -138,15 +141,19 @@ app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const { settings } = (await c.req.json()) as { settings: Record<string, unknown> };
 	const key = `mailboxes/${mailboxId}.json`;
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.put(key, JSON.stringify(settings));
-	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings });
+	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId));
+	const result = await stub.updateMailboxSettings(mailboxId, settings);
+	if (result.kind === "not-found") return c.json({ error: "Not found" }, 404);
+	if (result.kind === "invalid-rules") return c.json({ error: "Invalid mail rules" }, 400);
+	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings: result.settings });
 });
 
 app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const mailboxId = c.req.param("mailboxId")!;
 	const key = `mailboxes/${mailboxId}.json`;
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.delete(key); // TODO: also delete DO data and R2 attachment blobs
+	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId));
+	if (!(await stub.deleteMailboxSettings(mailboxId))) return c.json({ error: "Not found" }, 404);
 	return c.body(null, 204);
 });
 

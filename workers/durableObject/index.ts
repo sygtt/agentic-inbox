@@ -13,6 +13,7 @@ import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import {
 	readMailboxRules,
+	MailRuleListSchema,
 	type MailRuleMutation,
 	type MailRuleMutationResult,
 } from "../lib/mail-rules";
@@ -744,6 +745,34 @@ export class MailboxDO extends DurableObject<Env> {
 				JSON.stringify({ ...current.settings, rules }),
 			);
 			return { kind: "deleted" as const };
+		});
+	}
+
+	async updateMailboxSettings(mailboxId: string, settings: Record<string, unknown>) {
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const current = await readMailboxRules(this.env.BUCKET, mailboxId);
+			if (!current) return { kind: "not-found" as const };
+
+			if ("rules" in settings && !MailRuleListSchema.safeParse(settings.rules).success) {
+				return { kind: "invalid-rules" as const };
+			}
+
+			const { rules: _ignoredRules, ...settingsWithoutRules } = settings;
+			const updatedSettings = { ...settingsWithoutRules, rules: current.rules };
+			await this.env.BUCKET.put(
+				`mailboxes/${mailboxId}.json`,
+				JSON.stringify(updatedSettings),
+			);
+			return { kind: "updated" as const, settings: updatedSettings };
+		});
+	}
+
+	async deleteMailboxSettings(mailboxId: string) {
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const key = `mailboxes/${mailboxId}.json`;
+			if (!(await this.env.BUCKET.head(key))) return false;
+			await this.env.BUCKET.delete(key);
+			return true;
 		});
 	}
 

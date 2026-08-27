@@ -302,9 +302,11 @@ selected existing folder and `rule`-provenance tags are applied in one
 MailboxDO transaction. Invalid stored
 rules, deleted target folders, or application errors leave the persisted email
 in Inbox and are logged, so a rule problem does not silently discard inbound
-mail. An unmatched email retains the normal Inbox behavior. Rule CRUD and
-reorder mutations are serialized by the mailbox Durable Object before the R2
-settings object is rewritten; at most 100 rules can be stored per mailbox.
+mail. An unmatched email retains the normal Inbox behavior. Rule CRUD,
+reorder, and generic mailbox-settings mutations are serialized by the mailbox
+Durable Object before the R2 settings object is rewritten; at most 100 rules
+can be stored per mailbox. Generic settings updates preserve the current
+`rules` value, so rule changes go through the rule API.
 
 ## Threading
 

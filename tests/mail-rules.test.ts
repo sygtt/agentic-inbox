@@ -59,6 +59,11 @@ test("validates and evaluates ordered rules with AND semantics", () => {
 		conditions: { sender: "person@example.net" },
 		action: { tags: ["disposition:review"] },
 	}).success, false);
+	const tooManyRules = Array.from({ length: 101 }, (_, index) => ({
+		...firstRule,
+		id: `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
+	}));
+	assert.equal(MailRuleListSchema.safeParse(tooManyRules).success, false);
 });
 
 test("rejects malformed rules stored in mailbox settings", async () => {
