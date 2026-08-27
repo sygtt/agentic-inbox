@@ -11,6 +11,11 @@ import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
+import {
+	readMailboxRules,
+	type MailRuleMutation,
+	type MailRuleMutationResult,
+} from "../lib/mail-rules";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -662,6 +667,84 @@ export class MailboxDO extends DurableObject<Env> {
 		});
 
 		return true;
+	}
+
+	async mutateMailRules(
+		mailboxId: string,
+		mutation: MailRuleMutation,
+	): Promise<MailRuleMutationResult> {
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const current = await readMailboxRules(this.env.BUCKET, mailboxId);
+			if (!current) return { kind: "not-found" };
+
+			if (mutation.operation === "reorder") {
+				const currentIds = new Set(current.rules.map((rule) => rule.id));
+				const requestedIds = new Set(mutation.ruleIds);
+				if (
+					requestedIds.size !== current.rules.length ||
+					requestedIds.size !== mutation.ruleIds.length ||
+					[...requestedIds].some((id) => !currentIds.has(id))
+				) {
+					return { kind: "invalid-order" };
+				}
+
+				const rulesById = new Map(current.rules.map((rule) => [rule.id, rule]));
+				const rules = mutation.ruleIds.map((id) => rulesById.get(id)!);
+				await this.env.BUCKET.put(
+					`mailboxes/${mailboxId}.json`,
+					JSON.stringify({ ...current.settings, rules }),
+				);
+				return { kind: "reordered", rules };
+			}
+
+			if (mutation.operation === "create" && current.rules.length >= 100) {
+				return { kind: "limit-exceeded" };
+			}
+
+			const folderId = mutation.rule.action.folderId;
+			if (folderId) {
+				const folder = this.db
+					.select({ id: schema.folders.id })
+					.from(schema.folders)
+					.where(eq(schema.folders.id, folderId))
+					.get();
+				if (!folder) return { kind: "invalid-folder" };
+			}
+
+			if (mutation.operation === "create") {
+				const rules = [...current.rules, mutation.rule];
+				await this.env.BUCKET.put(
+					`mailboxes/${mailboxId}.json`,
+					JSON.stringify({ ...current.settings, rules }),
+				);
+				return { kind: "created", rule: mutation.rule };
+			}
+
+			const index = current.rules.findIndex((rule) => rule.id === mutation.rule.id);
+			if (index < 0) return { kind: "not-found" };
+			const rules = [...current.rules];
+			rules[index] = mutation.rule;
+			await this.env.BUCKET.put(
+				`mailboxes/${mailboxId}.json`,
+				JSON.stringify({ ...current.settings, rules }),
+			);
+			return { kind: "updated", rule: mutation.rule };
+		});
+	}
+
+	async deleteMailRule(mailboxId: string, id: string): Promise<MailRuleMutationResult> {
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const current = await readMailboxRules(this.env.BUCKET, mailboxId);
+			if (!current) return { kind: "not-found" as const };
+			if (!current.rules.some((rule) => rule.id === id)) return { kind: "not-found" as const };
+
+			const rules = current.rules.filter((rule) => rule.id !== id);
+			await this.env.BUCKET.put(
+				`mailboxes/${mailboxId}.json`,
+				JSON.stringify({ ...current.settings, rules }),
+			);
+			return { kind: "deleted" as const };
+		});
 	}
 
 	async markThreadRead(threadId: string) {

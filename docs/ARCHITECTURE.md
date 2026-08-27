@@ -262,10 +262,10 @@ Current flow:
 4. Parse the message with `postal-mime`.
 5. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
 6. Resolve the mailbox Durable Object.
-7. Store attachment blobs in R2.
-8. Compute threading information.
-9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Evaluate the mailbox's deterministic rules in order and select the first match.
+7. Evaluate the mailbox's deterministic rules in order and select the first match.
+8. Store attachment blobs in R2.
+9. Compute threading information.
+10. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
 11. Apply the selected folder and rule-provenance tags atomically; if rule configuration or application fails, keep the email in Inbox and continue processing.
 12. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
 
@@ -296,11 +296,15 @@ envelope recipient, parsed sender address/domain, and subject. The first rule
 whose conditions all match is applied; later rules are not evaluated.
 
 Rule evaluation never calls an AI model or performs external side effects.
-The email is first persisted in Inbox, then the selected existing folder and
-`rule`-provenance tags are applied in one MailboxDO transaction. Invalid stored
+The receiver reads and evaluates rules before attachment storage, threading,
+and email persistence. The email is first persisted in Inbox, then the
+selected existing folder and `rule`-provenance tags are applied in one
+MailboxDO transaction. Invalid stored
 rules, deleted target folders, or application errors leave the persisted email
 in Inbox and are logged, so a rule problem does not silently discard inbound
-mail. An unmatched email retains the normal Inbox behavior.
+mail. An unmatched email retains the normal Inbox behavior. Rule CRUD and
+reorder mutations are serialized by the mailbox Durable Object before the R2
+settings object is rewritten; at most 100 rules can be stored per mailbox.
 
 ## Threading
 

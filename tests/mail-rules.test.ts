@@ -73,13 +73,46 @@ test("rejects malformed rules stored in mailbox settings", async () => {
 	);
 });
 
-function createApiTestContext() {
-	let settings: Record<string, unknown> = { fromName: "Test", rules: [] };
+function createApiTestContext(initialRules: unknown[] = []) {
+	let settings: Record<string, unknown> = { fromName: "Test", rules: initialRules };
 	const stub = {
 		getFolders: async () => [
 			{ id: "inbox", name: "Inbox", unreadCount: 0 },
 			{ id: "career", name: "Career", unreadCount: 0 },
 		],
+		mutateMailRules: async (_mailboxId: string, mutation: any) => {
+			const rules = settings.rules as any[];
+			if (mutation.operation === "reorder") {
+				const ids = new Set(rules.map((rule) => rule.id));
+				const requested = new Set(mutation.ruleIds);
+				if (requested.size !== rules.length || requested.size !== mutation.ruleIds.length || [...requested].some((id) => !ids.has(id))) {
+					return { kind: "invalid-order" };
+				}
+				const byId = new Map(rules.map((rule) => [rule.id, rule]));
+				const reordered = mutation.ruleIds.map((id: string) => byId.get(id));
+				settings = { ...settings, rules: reordered };
+				return { kind: "reordered", rules: reordered };
+			}
+			if (mutation.operation === "create") {
+				if (rules.length >= 100) return { kind: "limit-exceeded" };
+				if (mutation.rule.action.folderId === "missing") return { kind: "invalid-folder" };
+				settings = { ...settings, rules: [...rules, mutation.rule] };
+				return { kind: "created", rule: mutation.rule };
+			}
+			if (mutation.rule.action.folderId === "missing") return { kind: "invalid-folder" };
+			const index = rules.findIndex((rule) => rule.id === mutation.rule.id);
+			if (index < 0) return { kind: "not-found" };
+			const updated = [...rules];
+			updated[index] = mutation.rule;
+			settings = { ...settings, rules: updated };
+			return { kind: "updated", rule: mutation.rule };
+		},
+		deleteMailRule: async (_mailboxId: string, id: string) => {
+			const rules = settings.rules as any[];
+			if (!rules.some((rule) => rule.id === id)) return { kind: "not-found" };
+			settings = { ...settings, rules: rules.filter((rule) => rule.id !== id) };
+			return { kind: "deleted" };
+		},
 	};
 	const env = {
 		BUCKET: {
@@ -176,4 +209,15 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 	assert.equal(response.status, 204);
 	response = await request(`${base}/${created.id}`, { method: "DELETE" });
 	assert.equal(response.status, 404);
+
+	const fullRequest = createApiTestContext(Array.from({ length: 100 }, (_, index) => ({
+		...firstRule,
+		id: `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
+	})));
+	response = await fullRequest(base, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ conditions: { sender: "person@example.net" }, action: { folderId: "career" } }),
+	});
+	assert.equal(response.status, 400);
 });

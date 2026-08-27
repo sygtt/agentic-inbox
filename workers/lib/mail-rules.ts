@@ -81,6 +81,15 @@ export const MailRuleReorderRequestSchema = z
 export type MailRule = z.infer<typeof MailRuleSchema>;
 export type MailRuleInput = z.infer<typeof MailRuleInputSchema>;
 
+export type MailRuleMutation =
+	| { operation: "create" | "update"; rule: MailRule }
+	| { operation: "reorder"; ruleIds: string[] };
+
+export type MailRuleMutationResult =
+	| { kind: "created" | "updated"; rule: MailRule }
+	| { kind: "reordered"; rules: MailRule[] }
+	| { kind: "deleted" | "not-found" | "invalid-order" | "invalid-folder" | "limit-exceeded" };
+
 export interface RuleMatchInput {
 	envelopeRecipient: string;
 	sender: string;
@@ -128,18 +137,4 @@ export async function readMailboxRules(
 	if (!parsed.success) throw new Error(`Invalid mail rules for mailbox ${mailboxId}`);
 
 	return { settings, rules: parsed.data };
-}
-
-export async function saveMailboxRules(
-	bucket: R2Bucket,
-	mailboxId: string,
-	rules: MailRule[],
-): Promise<boolean> {
-	const current = await readMailboxRules(bucket, mailboxId);
-	if (!current) return false;
-	await bucket.put(
-		`mailboxes/${mailboxId}.json`,
-		JSON.stringify({ ...current.settings, rules }),
-	);
-	return true;
 }
