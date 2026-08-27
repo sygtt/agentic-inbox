@@ -22,6 +22,7 @@ import {
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
+import { toMcpEmailContent } from "../lib/mcp-email";
 
 /** Wrap a plain result object into MCP content format. */
 function mcpText(result: unknown) {
@@ -125,7 +126,7 @@ export class EmailMCP extends McpAgent<Env> {
 		// ── get_email ──────────────────────────────────────────────
 		this.server.tool(
 			"get_email",
-			"Get a single email with its full body content. Use this to read the actual content of an email.",
+			"Get a single email. The body field contains readable plain text; original HTML is in body_html.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				emailId: z.string().describe("The email ID to retrieve"),
@@ -140,14 +141,14 @@ export class EmailMCP extends McpAgent<Env> {
 						isError: true,
 					};
 				}
-				return mcpText(result);
+				return mcpText(toMcpEmailContent(result as Record<string, unknown>));
 			},
 		);
 
 		// ── get_thread ─────────────────────────────────────────────
 		this.server.tool(
 			"get_thread",
-			"Get all emails in a conversation thread. Returns all messages sorted chronologically.",
+			"Get all emails in a conversation thread. Each message has readable plain text in body and original HTML in body_html.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				threadId: z
@@ -158,7 +159,12 @@ export class EmailMCP extends McpAgent<Env> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolGetThread(env, mailboxId, threadId);
-				return mcpText(result);
+				return mcpText({
+					...result,
+					messages: result.messages.map((message) =>
+						toMcpEmailContent(message as Record<string, unknown>),
+					),
+				});
 			},
 		);
 

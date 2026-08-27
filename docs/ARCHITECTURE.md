@@ -326,6 +326,11 @@ It is protected by the same top-level Cloudflare Access middleware as the rest o
 
 Because there is no per-mailbox authorization, an MCP client that passes Access can potentially operate across mailboxes when given mailbox identifiers. Treat MCP credentials and Access policy scope accordingly.
 
+MCP `get_email` and `get_thread` responses expose normalized readable text in
+the `body` and `body_text` fields. When the stored representation is retained,
+it is exposed as `body_html`; database persistence and browser/API body
+rendering remain unchanged.
+
 Email list and search results derive their `snippet` from normalized readable
 text, then truncate it to the list limit. Stored email bodies and pagination
 semantics are unchanged.
