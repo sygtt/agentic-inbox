@@ -172,4 +172,18 @@ export const mailboxMigrations: Migration[] = [
 		name: "9_add_envelope_recipient",
 		sql: txn(`ALTER TABLE emails ADD COLUMN envelope_recipient TEXT;`),
 	},
+	{
+		name: "10_add_email_tags",
+		sql: txn(`
+            CREATE TABLE email_tags (
+                email_id TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                provenance TEXT NOT NULL CHECK (provenance IN ('rule', 'agent', 'manual')),
+                PRIMARY KEY (email_id, tag),
+                FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX idx_email_tags_tag ON email_tags(tag);
+        `),
+	},
 ];

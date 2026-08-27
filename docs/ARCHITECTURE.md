@@ -128,6 +128,19 @@ Major API areas include:
 - folders
 - search
 - attachment download
+- email tag and disposition management
+
+Email tag endpoints are mailbox-scoped and inherit the existing Cloudflare
+Access and `requireMailbox` checks:
+
+- `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
+- `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
+- `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
+- `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
+
+Tags use a conservative lowercase `namespace:value` format. Generic tag
+updates cannot bypass disposition replacement; disposition values are limited
+to `action-required`, `review`, `auto-file`, and `hold`.
 
 Routes scoped to `/api/v1/mailboxes/:mailboxId/*` use `requireMailbox` middleware to resolve and validate the mailbox before operating on its Durable Object.
 
@@ -185,13 +198,20 @@ Stores attachment metadata only.
 
 Attachment bytes are stored separately in R2.
 
+### `email_tags`
+
+Stores zero or more namespaced tags per email. Each `(email_id, tag)` pair is
+unique and stores a constrained provenance value: `rule`, `agent`, or `manual`.
+The four `disposition:*` values are mutually exclusive and are replaced
+atomically when a new disposition is set.
+
 ## Durable Object migrations
 
 Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, and the nullable SMTP envelope-recipient column.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, and the additive email-tags table.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 

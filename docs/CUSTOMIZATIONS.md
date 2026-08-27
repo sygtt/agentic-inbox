@@ -38,6 +38,51 @@ A useful entry should include:
 
 # Active customizations
 
+## Structured email tags with provenance
+
+**Status:** Active
+
+### Why
+
+External agents and deterministic processing need structured email metadata
+without conflating tags with folders or adding rule evaluation to the mailbox.
+
+### Behavior
+
+- Emails can have multiple namespaced tags with `rule`, `agent`, or `manual` provenance.
+- The four `disposition:*` workflow values are mutually exclusive and replaced atomically.
+- Mailbox-scoped HTTP endpoints support reading, upserting, removing tags, and setting disposition.
+- Tag input is constrained to lowercase `namespace:value` strings with conservative length limits.
+- Folder behavior, authentication, and email body storage remain unchanged.
+
+### Main affected areas
+
+- `workers/db/schema.ts`
+- `workers/durableObject/migrations.ts`
+- `workers/durableObject/index.ts`
+- `workers/index.ts`
+- `workers/lib/email-tags.ts`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+Migration `10_add_email_tags` adds the `email_tags` table with a foreign key
+to `emails`; existing emails remain valid with no tags. Deleting an email
+cascades to its tag assignments.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to MailboxDO schema, migrations, or mailbox-scoped
+email routes may conflict with this metadata model.
+
+### Removal / replacement condition
+
+Remove the local model when upstream provides equivalent namespaced tags,
+provenance, and disposition replacement semantics.
+
 ## Email content normalization for list and agent text
 
 **Status:** Active
