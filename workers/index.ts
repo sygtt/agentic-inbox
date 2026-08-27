@@ -20,6 +20,7 @@ import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
+import { registerEmailTagRoutes } from "./lib/email-tags-api";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -261,6 +262,8 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 	const success = await c.var.mailboxStub.moveEmail(c.req.param("id")!, folderId);
 	return success ? c.json({ status: "moved" }) : c.json({ error: "Folder not found" }, 400);
 });
+
+registerEmailTagRoutes(app);
 
 // -- Threads --------------------------------------------------------
 

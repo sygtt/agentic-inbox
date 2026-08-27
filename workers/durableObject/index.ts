@@ -546,6 +546,86 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.getEmail(id);
 	}
 
+	async getEmailTags(id: string) {
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return null;
+
+		return this.db
+			.select({
+				tag: schema.emailTags.tag,
+				provenance: schema.emailTags.provenance,
+			})
+			.from(schema.emailTags)
+			.where(eq(schema.emailTags.email_id, id))
+			.orderBy(asc(schema.emailTags.tag))
+			.all();
+	}
+
+	async upsertEmailTag(id: string, tag: string, provenance: string) {
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return null;
+
+		this.db
+			.insert(schema.emailTags)
+			.values({ email_id: id, tag, provenance })
+			.onConflictDoUpdate({
+				target: [schema.emailTags.email_id, schema.emailTags.tag],
+				set: { provenance },
+			})
+			.run();
+
+		return { tag, provenance };
+	}
+
+	async removeEmailTag(id: string, tag: string) {
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return null;
+
+		const removed = this.db
+			.delete(schema.emailTags)
+			.where(and(eq(schema.emailTags.email_id, id), eq(schema.emailTags.tag, tag)))
+			.returning({ tag: schema.emailTags.tag })
+			.get();
+		return !!removed;
+	}
+
+	async setEmailDisposition(id: string, value: string, provenance: string) {
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return null;
+
+		const tag = `disposition:${value}`;
+		this.ctx.storage.transactionSync(() => {
+			this.ctx.storage.sql.exec(
+				`DELETE FROM email_tags WHERE email_id = ?1 AND tag LIKE 'disposition:%'`,
+				id,
+			);
+			this.ctx.storage.sql.exec(
+				`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, ?3)`,
+				id,
+				tag,
+				provenance,
+			);
+		});
+
+		return { tag, provenance };
+	}
+
 	async markThreadRead(threadId: string) {
 		this.ctx.storage.sql.exec(
 			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
