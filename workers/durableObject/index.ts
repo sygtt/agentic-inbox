@@ -10,6 +10,7 @@ import * as schema from "../db/schema";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
+import { createEmailSnippet } from "../lib/email-content";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -110,6 +111,21 @@ export class MailboxDO extends DurableObject<Env> {
 		applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage);
 	}
 
+	/**
+	 * Read one body at a time so list requests never materialize a page of
+	 * complete message bodies. A persisted snippet can replace this bounded
+	 * per-row read if profiling shows it is needed.
+	 */
+	private getEmailSnippet(id: string): string {
+		const row = [
+			...this.ctx.storage.sql.exec(
+				`SELECT body FROM emails WHERE id = ?1`,
+				id,
+			),
+		][0] as { body?: string | null } | undefined;
+		return createEmailSnippet(row?.body);
+	}
+
 	// ── Email CRUD (Drizzle) ───────────────────────────────────────
 
 	async getEmails(options: GetEmailsOptions = {}) {
@@ -162,7 +178,6 @@ export class MailboxDO extends DurableObject<Env> {
 				email_references: schema.emails.email_references,
 				thread_id: schema.emails.thread_id,
 				folder_id: schema.emails.folder_id,
-				snippet: sql<string>`SUBSTR(${schema.emails.body}, 1, 300)`,
 			})
 			.from(schema.emails)
 			.where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -173,6 +188,7 @@ export class MailboxDO extends DurableObject<Env> {
 
 		return result.map((email) => ({
 			...email,
+			snippet: this.getEmailSnippet(email.id),
 			read: !!email.read,
 			starred: !!email.starred,
 		}));
@@ -242,7 +258,8 @@ export class MailboxDO extends DurableObject<Env> {
 			const result = this.ctx.storage.sql.exec(
 				`WITH
 				folder_emails AS (
-					SELECT *,
+					SELECT id, subject, sender, recipient, date, read, starred,
+						thread_id, folder_id, in_reply_to, email_references,
 						COALESCE(in_reply_to, id) as draft_group_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
@@ -269,7 +286,6 @@ export class MailboxDO extends DurableObject<Env> {
 					lp.id, lp.subject, lp.sender, lp.recipient, lp.date,
 					lp.read, lp.starred, lp.thread_id, lp.folder_id,
 					lp.in_reply_to, lp.email_references,
-					SUBSTR(lp.body, 1, 300) as snippet,
 					ds.thread_count, ds.thread_unread_count, ds.participants
 				FROM latest_per_group lp
 				JOIN draft_stats ds ON lp.draft_group_key = ds.draft_group_key
@@ -282,6 +298,7 @@ export class MailboxDO extends DurableObject<Env> {
 			const rows = [...result];
 			return rows.map((row: any) => ({
 				...row,
+				snippet: this.getEmailSnippet(row.id),
 				read: !!row.read,
 				starred: !!row.starred,
 				thread_count: row.thread_count || 1,
@@ -294,7 +311,8 @@ export class MailboxDO extends DurableObject<Env> {
 		const result = this.ctx.storage.sql.exec(
 			`WITH
 			folder_emails AS (
-				SELECT *,
+				SELECT id, subject, sender, recipient, date, read, starred,
+					thread_id, folder_id, in_reply_to, email_references,
 					COALESCE(thread_id, id) as raw_thread_id,
 					${NORMALIZED_SUBJECT_SQL} as normalized_subject
 				FROM emails
@@ -313,7 +331,7 @@ export class MailboxDO extends DurableObject<Env> {
 			),
 			all_emails_with_conversation AS (
 				SELECT
-					e.*,
+					e.sender, e.read, e.folder_id, e.date,
 					COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
 				FROM emails e
 				LEFT JOIN thread_to_conversation tc
@@ -357,7 +375,6 @@ export class MailboxDO extends DurableObject<Env> {
 				lif.id, lif.subject, lif.sender, lif.recipient, lif.date,
 				lif.read, lif.starred, lif.thread_id, lif.folder_id,
 				lif.in_reply_to, lif.email_references,
-				SUBSTR(lif.body, 1, 300) as snippet,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
 				CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
@@ -377,6 +394,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const rows = [...result];
 		return rows.map((row: any) => ({
 			...row,
+			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
 			thread_count: row.thread_count || 1,
@@ -709,7 +727,6 @@ export class MailboxDO extends DurableObject<Env> {
 				e.envelope_recipient,
 				e.read, e.starred, e.in_reply_to, e.email_references,
 				e.thread_id, e.folder_id,
-				SUBSTR(e.body, 1, 300) as snippet,
 				f.name as folder_name
 			FROM emails e
 			LEFT JOIN folders f ON e.folder_id = f.id
@@ -720,6 +737,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const result = this.ctx.storage.sql.exec(query, ...params);
 		return [...result].map((row: any) => ({
 			...row,
+			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
 		}));

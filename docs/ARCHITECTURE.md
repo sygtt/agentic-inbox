@@ -326,6 +326,10 @@ It is protected by the same top-level Cloudflare Access middleware as the rest o
 
 Because there is no per-mailbox authorization, an MCP client that passes Access can potentially operate across mailboxes when given mailbox identifiers. Treat MCP credentials and Access policy scope accordingly.
 
+Email list and search results derive their `snippet` from normalized readable
+text, then truncate it to the list limit. Stored email bodies and pagination
+semantics are unchanged.
+
 ## Frontend architecture
 
 The frontend lives under `app/` and is built with:
