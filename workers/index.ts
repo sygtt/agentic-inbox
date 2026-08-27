@@ -111,8 +111,15 @@ app.get("/api/v1/mailboxes", async (c) => {
 
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
-	if (settings?.rules !== undefined && !MailRuleListSchema.safeParse(settings.rules).success) {
-		return c.json({ error: "Invalid mail rules" }, 400);
+	let initialSettings = settings;
+	if (settings?.rules !== undefined) {
+		const parsedRules = MailRuleListSchema.safeParse(settings.rules);
+		if (!parsedRules.success || parsedRules.data.some((rule) =>
+			rule.action.folderId !== undefined && !Object.values(Folders).some((id) => id === rule.action.folderId),
+		)) {
+			return c.json({ error: "Invalid mail rules or folder target" }, 400);
+		}
+		initialSettings = { ...settings, rules: parsedRules.data };
 	}
 	const email = rawEmail.toLowerCase();
 	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
@@ -122,7 +129,7 @@ app.post("/api/v1/mailboxes", async (c) => {
 	const key = `mailboxes/${email}.json`;
 	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);
 	const defaultSettings = { fromName: name, forwarding: { enabled: false, email: "" }, signature: { enabled: false, text: "" }, autoReply: { enabled: false, subject: "", message: "" } };
-	const finalSettings = { ...defaultSettings, ...settings };
+	const finalSettings = { ...defaultSettings, ...initialSettings };
 	await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
 	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(email));
 	await stub.getFolders();
