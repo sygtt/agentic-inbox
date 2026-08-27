@@ -565,6 +565,27 @@ export class MailboxDO extends DurableObject<Env> {
 			.all();
 	}
 
+	async getEmailTagsForEmails(ids: string[]) {
+		if (ids.length === 0) return {};
+
+		const uniqueIds = [...new Set(ids)];
+		const placeholders = uniqueIds.map((_, index) => `?${index + 1}`).join(",");
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				`SELECT email_id, tag, provenance
+				 FROM email_tags
+				 WHERE email_id IN (${placeholders})
+				 ORDER BY email_id, tag`,
+				...uniqueIds,
+			),
+		] as { email_id: string; tag: string; provenance: string }[];
+
+		const tagsByEmail: Record<string, { tag: string; provenance: string }[]> = {};
+		for (const id of uniqueIds) tagsByEmail[id] = [];
+		for (const row of rows) tagsByEmail[row.email_id].push({ tag: row.tag, provenance: row.provenance });
+		return tagsByEmail;
+	}
+
 	async upsertEmailTag(id: string, tag: string, provenance: string) {
 		const email = this.db
 			.select({ id: schema.emails.id })
