@@ -52,6 +52,8 @@ without conflating tags with folders or adding rule evaluation to the mailbox.
 - Emails can have multiple namespaced tags with `rule`, `agent`, or `manual` provenance.
 - The four `disposition:*` workflow values are mutually exclusive and replaced atomically.
 - Mailbox-scoped HTTP endpoints support reading, upserting, removing tags, and setting disposition.
+- MCP email reads expose `folder_id` and structured tag provenance, and the
+  `set_email_disposition` tool records one of the four agent triage outcomes.
 - Tag input is constrained to lowercase `namespace:value` strings with conservative length limits.
 - Folder behavior, authentication, and email body storage remain unchanged.
 
@@ -62,6 +64,8 @@ without conflating tags with folders or adding rule evaluation to the mailbox.
 - `workers/durableObject/index.ts`
 - `workers/index.ts`
 - `workers/lib/email-tags.ts`
+- `workers/lib/mcp-email.ts`
+- `workers/mcp/index.ts`
 
 ### Configuration involved
 
@@ -75,8 +79,8 @@ cascades to its tag assignments.
 
 ### Upstream synchronization risk
 
-Medium. Upstream changes to MailboxDO schema, migrations, or mailbox-scoped
-email routes may conflict with this metadata model.
+Medium. Upstream changes to MailboxDO schema, migrations, mailbox-scoped email
+routes, or MCP tool response mapping may conflict with this metadata model.
 
 ### Removal / replacement condition
 

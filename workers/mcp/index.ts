@@ -22,7 +22,12 @@ import {
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
-import { toMcpEmailContent } from "../lib/mcp-email";
+import {
+	addMcpEmailTags,
+	setMcpEmailDisposition,
+	toMcpEmailContent,
+} from "../lib/mcp-email";
+import { DISPOSITION_VALUES } from "../lib/email-tags";
 
 /** Wrap a plain result object into MCP content format. */
 function mcpText(result: unknown) {
@@ -97,7 +102,7 @@ export class EmailMCP extends McpAgent<Env> {
 		// ── list_emails ────────────────────────────────────────────
 		this.server.tool(
 			"list_emails",
-			"List emails in a mailbox folder. Returns email metadata (id, subject, sender, recipient, date, read/starred status, thread_id).",
+			"List emails in a mailbox folder. Returns metadata including folder_id and tags with provenance.",
 			{
 				mailboxId: z
 					.string()
@@ -119,14 +124,14 @@ export class EmailMCP extends McpAgent<Env> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolListEmails(env, mailboxId, { folder, limit, page });
-				return mcpText(result);
+				return mcpText(await addMcpEmailTags(env, mailboxId, result as Record<string, unknown>[]));
 			},
 		);
 
 		// ── get_email ──────────────────────────────────────────────
 		this.server.tool(
 			"get_email",
-			"Get a single email. The body field contains readable plain text; original HTML is in body_html.",
+			"Get a single email with folder_id and tags including provenance. The body field contains readable plain text; original HTML is in body_html.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				emailId: z.string().describe("The email ID to retrieve"),
@@ -141,14 +146,17 @@ export class EmailMCP extends McpAgent<Env> {
 						isError: true,
 					};
 				}
-				return mcpText(toMcpEmailContent(result as Record<string, unknown>));
+				const [email] = await addMcpEmailTags(env, mailboxId, [
+					toMcpEmailContent(result as Record<string, unknown>),
+				]);
+				return mcpText(email);
 			},
 		);
 
 		// ── get_thread ─────────────────────────────────────────────
 		this.server.tool(
 			"get_thread",
-			"Get all emails in a conversation thread. Each message has readable plain text in body and original HTML in body_html.",
+			"Get all emails in a conversation thread with folder_id and tags including provenance. Each message has readable plain text in body and original HTML in body_html.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				threadId: z
@@ -159,11 +167,16 @@ export class EmailMCP extends McpAgent<Env> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolGetThread(env, mailboxId, threadId);
-				return mcpText({
-					...result,
-					messages: result.messages.map((message) =>
+				const messages = await addMcpEmailTags(
+					env,
+					mailboxId,
+					result.messages.map((message) =>
 						toMcpEmailContent(message as Record<string, unknown>),
 					),
+				);
+				return mcpText({
+					...result,
+					messages,
 				});
 			},
 		);
@@ -171,7 +184,7 @@ export class EmailMCP extends McpAgent<Env> {
 		// ── search_emails ──────────────────────────────────────────
 		this.server.tool(
 			"search_emails",
-			"Search for emails matching a query across subject and body fields.",
+			"Search for emails matching a query across subject and body fields. Results include folder_id and tags with provenance.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				query: z.string().describe("Search query to match against subject and body"),
@@ -184,7 +197,23 @@ export class EmailMCP extends McpAgent<Env> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolSearchEmails(env, mailboxId, { query, folder });
-				return mcpText(result);
+				return mcpText(await addMcpEmailTags(env, mailboxId, result as Record<string, unknown>[]));
+			},
+		);
+
+		// ── set_email_disposition ───────────────────────────────────
+		this.server.tool(
+			"set_email_disposition",
+			"Record one agent triage disposition without moving, deleting, sending, or notifying.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+				emailId: z.string().describe("The email ID"),
+				disposition: z.enum(DISPOSITION_VALUES).describe("The single triage disposition to record"),
+			},
+			async ({ mailboxId, emailId, disposition }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpResult(await setMcpEmailDisposition(env, mailboxId, emailId, disposition));
 			},
 		);
 

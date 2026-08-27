@@ -351,6 +351,13 @@ the `body` and `body_text` fields. When the stored representation is retained,
 it is exposed as `body_html`; database persistence and browser/API body
 rendering remain unchanged.
 
+MCP email list, search, single-email, and thread responses retain the existing
+`folder_id` as the current folder and add a `tags` array containing `{ tag,
+provenance }` objects. The `set_email_disposition` tool accepts only
+`action-required`, `review`, `auto-file`, or `hold`; it replaces the previous
+disposition and records the new tag with `agent` provenance without taking any
+other action.
+
 Email list and search results derive their `snippet` from normalized readable
 text, then truncate it to the list limit. Stored email bodies and pagination
 semantics are unchanged.
