@@ -331,6 +331,10 @@ the `body` and `body_text` fields. When the stored representation is retained,
 it is exposed as `body_html`; database persistence and browser/API body
 rendering remain unchanged.
 
+Email list and search results derive their `snippet` from normalized readable
+text, then truncate it to the list limit. Stored email bodies and pagination
+semantics are unchanged.
+
 ## Frontend architecture
 
 The frontend lives under `app/` and is built with:

@@ -15,7 +15,7 @@ import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
 import { stripHtmlToText } from "./email-content";
 
-export { stripHtmlToText } from "./email-content";
+export { createEmailSnippet, stripHtmlToText } from "./email-content";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 

@@ -10,8 +10,7 @@ const TEXT_BOUNDARY_TAGS = new Set([
 	"figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head",
 	"header", "hgroup", "hr", "html", "legend", "li", "main", "nav", "ol",
 	"option", "p", "pre", "script", "section", "style", "table", "tbody",
-	"td", "tfoot", "th", "thead", "tr", "ul", "center",
-	"img",
+	"td", "tfoot", "th", "thead", "tr", "ul", "center", "img",
 ]);
 
 const HIDDEN_TAGS = new Set(["head", "script", "style", "template", "title"]);
@@ -105,7 +104,7 @@ function getTagInfo(html: string, start: number, end: number) {
 		return html.slice(end - 2, end + 1) === "-->" ? { name: "", closing: false } : null;
 	}
 	const tag = readTagName(html, start);
-	return tag && (tag.index <= end) ? { name: tag.name, closing: tag.closing } : null;
+	return tag && tag.index <= end ? { name: tag.name, closing: tag.closing } : null;
 }
 
 function looksLikeHtml(body: string): boolean {
@@ -238,9 +237,7 @@ export function stripHtmlToText(body: string): string {
 	// ponytail: without a persisted MIME marker, syntax-based detection is
 	// the smallest safe discriminator; ambiguous paired prose is the ceiling.
 	const isHtml = looksLikeHtml(body);
-	const text = isHtml
-		? stripHtmlTags(body)
-		: body;
+	const text = isHtml ? stripHtmlTags(body) : body;
 
 	return (isHtml ? decodeHTML(text) : text).replace(/\s+/g, " ").trim();
 }
