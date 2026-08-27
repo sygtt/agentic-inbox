@@ -83,6 +83,61 @@ email routes may conflict with this metadata model.
 Remove the local model when upstream provides equivalent namespaced tags,
 provenance, and disposition replacement semantics.
 
+## Deterministic inbound mail rules
+
+**Status:** Active
+
+### Why
+
+Service-specific recipient aliases need stable, deterministic organization
+without creating a mailbox for every alias or sending message content to an
+LLM.
+
+### Behavior
+
+- Rules are stored per mailbox in the existing R2 settings JSON.
+- Conditions support SMTP envelope recipient, sender address, sender domain,
+  and case-insensitive subject containment.
+- Conditions within a rule use AND semantics; rules are evaluated in stored
+  order and the first match wins.
+- A match can assign one existing folder and/or add namespaced tags with
+  provenance `rule`.
+- Rule evaluation runs after mailbox/catch-all resolution and before the
+  existing asynchronous agent trigger.
+- Invalid configuration or application failures preserve the email in Inbox
+  and do not discard the message.
+
+### Main affected areas
+
+- `workers/lib/mail-rules.ts`
+- `workers/lib/mail-rules-api.ts`
+- `workers/index.ts`
+- `workers/durableObject/index.ts`
+
+### Configuration involved
+
+None. Rules are managed through authenticated mailbox-scoped API endpoints.
+
+### Persistence / migration implications
+
+No database migration. The existing mailbox settings JSON gains an optional
+`rules` array. Existing settings and emails remain compatible.
+
+### Validation
+
+Rule schema, AND matching, first-match evaluation, CRUD, reorder validation,
+folder validation, and safe invalid-rule fallback are covered by tests.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to inbound email orchestration, mailbox settings, or
+MailboxDO email operations may conflict with this customization.
+
+### Removal / replacement condition
+
+Prefer upstream deterministic mailbox rules if it later provides equivalent
+ordered conditions, folder/tag actions, and safe fallback behavior.
+
 ## Email content normalization for list and agent text
 
 **Status:** Active

@@ -21,6 +21,8 @@ import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
+import { registerMailRuleRoutes } from "./lib/mail-rules-api";
+import { evaluateMailRules, MailRuleListSchema, readMailboxRules } from "./lib/mail-rules";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -109,6 +111,16 @@ app.get("/api/v1/mailboxes", async (c) => {
 
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
+	let initialSettings = settings;
+	if (settings?.rules !== undefined) {
+		const parsedRules = MailRuleListSchema.safeParse(settings.rules);
+		if (!parsedRules.success || parsedRules.data.some((rule) =>
+			rule.action.folderId !== undefined && !Object.values(Folders).some((id) => id === rule.action.folderId),
+		)) {
+			return c.json({ error: "Invalid mail rules or folder target" }, 400);
+		}
+		initialSettings = { ...settings, rules: parsedRules.data };
+	}
 	const email = rawEmail.toLowerCase();
 	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
 	if (!isMailboxCreationAllowed(email, configuredAddresses, c.env.CATCH_ALL_MAILBOX)) {
@@ -117,7 +129,7 @@ app.post("/api/v1/mailboxes", async (c) => {
 	const key = `mailboxes/${email}.json`;
 	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);
 	const defaultSettings = { fromName: name, forwarding: { enabled: false, email: "" }, signature: { enabled: false, text: "" }, autoReply: { enabled: false, subject: "", message: "" } };
-	const finalSettings = { ...defaultSettings, ...settings };
+	const finalSettings = { ...defaultSettings, ...initialSettings };
 	await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
 	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(email));
 	await stub.getFolders();
@@ -136,15 +148,19 @@ app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const { settings } = (await c.req.json()) as { settings: Record<string, unknown> };
 	const key = `mailboxes/${mailboxId}.json`;
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.put(key, JSON.stringify(settings));
-	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings });
+	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId));
+	const result = await stub.updateMailboxSettings(mailboxId, settings);
+	if (result.kind === "not-found") return c.json({ error: "Not found" }, 404);
+	if (result.kind === "invalid-rules") return c.json({ error: "Invalid mail rules" }, 400);
+	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings: result.settings });
 });
 
 app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const mailboxId = c.req.param("mailboxId")!;
 	const key = `mailboxes/${mailboxId}.json`;
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.delete(key); // TODO: also delete DO data and R2 attachment blobs
+	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId));
+	if (!(await stub.deleteMailboxSettings(mailboxId))) return c.json({ error: "Not found" }, 404);
 	return c.body(null, 204);
 });
 
@@ -264,6 +280,7 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 });
 
 registerEmailTagRoutes(app);
+registerMailRuleRoutes(app);
 
 // -- Threads --------------------------------------------------------
 
@@ -405,6 +422,24 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 	const messageId = crypto.randomUUID();
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
+	const sender = (parsedEmail.from?.address || "").toLowerCase();
+	let matchingRule: ReturnType<typeof evaluateMailRules>["rule"] = null;
+	try {
+		const mailboxSettings = await readMailboxRules(env.BUCKET, mailboxId);
+		if (!mailboxSettings) throw new Error(`Mailbox settings not found for ${mailboxId}`);
+		const evaluation = evaluateMailRules(mailboxSettings.rules, {
+			envelopeRecipient: route.envelopeRecipient,
+			sender,
+			subject: parsedEmail.subject || "",
+		});
+		if (evaluation.invalid) throw new Error(`Invalid mail rules for ${mailboxId}`);
+		matchingRule = evaluation.rule;
+	} catch (error) {
+		console.error(
+			`Inbound mail rule processing failed; storing ${messageId} in Inbox:`,
+			(error as Error).message,
+		);
+	}
 
 	const attachmentData: StoredAttachment[] = [];
 	if (parsedEmail.attachments) {
@@ -432,7 +467,7 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 
 	await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
-		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
+		sender, recipient: allRecipients.join(", "),
 		envelope_recipient: route.envelopeRecipient,
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
 		date: new Date().toISOString(), // uses receive time, not the email's Date header
@@ -441,10 +476,28 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
+	if (matchingRule) {
+		try {
+			const applied = await stub.applyInboundMailRule(
+				messageId,
+				matchingRule.action.folderId || null,
+				matchingRule.action.tags,
+			);
+			if (!applied) {
+				console.error(`Inbound mail rule target is unavailable; keeping ${messageId} in Inbox`);
+			}
+		} catch (error) {
+			console.error(
+				`Inbound mail rule application failed; keeping ${messageId} in Inbox:`,
+				(error as Error).message,
+			);
+		}
+	}
+
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
 		method: "POST", headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
+		body: JSON.stringify({ mailboxId, emailId: messageId, sender, subject: parsedEmail.subject || "", threadId }),
 	})).catch((e) => console.error("Auto-draft trigger failed:", (e as Error).message)));
 }
 
