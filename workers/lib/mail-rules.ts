@@ -30,6 +30,8 @@ const RuleTagSchema = TagSchema.refine((tag) => !isDispositionTag(tag), {
 	message: "Disposition tags must use the disposition endpoint",
 });
 
+export const MAX_MAIL_RULES = 100;
+
 export const MailRuleActionSchema = z
 	.object({
 		folderId: z.string().trim().min(1).max(128).optional(),
@@ -60,7 +62,7 @@ export const MailRuleSchema = MailRuleInputSchema.extend({
 
 export const MailRuleListSchema = z
 	.array(MailRuleSchema)
-	.max(100)
+	.max(MAX_MAIL_RULES)
 	.superRefine((rules, ctx) => {
 		const ids = new Set<string>();
 		for (const [index, rule] of rules.entries()) {
@@ -78,7 +80,7 @@ export const MailRuleListSchema = z
 export const MailRuleIdSchema = z.string().uuid();
 
 export const MailRuleReorderRequestSchema = z
-	.object({ ruleIds: z.array(MailRuleIdSchema).max(100) })
+	.object({ ruleIds: z.array(MailRuleIdSchema).max(MAX_MAIL_RULES) })
 	.strict();
 
 export type MailRule = z.infer<typeof MailRuleSchema>;
@@ -130,9 +132,11 @@ function reconcileRulesAfterLegacyEdit(v2Rules: MailRule[], legacyRaw: unknown):
 		.filter((rule) => rule.enabled)
 		.map((rule) => ({ ...rule, enabled: true }));
 	const legacyIds = new Set(legacyRules.map((rule) => rule.id));
+	const disabledRules = v2Rules.filter((rule) => !rule.enabled && !legacyIds.has(rule.id));
+	// ponytail: preserve all active rollback edits within the existing 100-rule ceiling; disabled overflow is non-evaluated.
 	return [
 		...legacyRules,
-		...v2Rules.filter((rule) => !rule.enabled && !legacyIds.has(rule.id)),
+		...disabledRules.slice(0, Math.max(0, MAX_MAIL_RULES - legacyRules.length)),
 	];
 }
 

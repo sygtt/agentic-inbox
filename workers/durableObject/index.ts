@@ -14,6 +14,7 @@ import { createEmailSnippet } from "../lib/email-content";
 import {
 	readMailboxRules,
 	MailRuleListSchema,
+	MAX_MAIL_RULES,
 	serializeMailboxRules,
 	type MailRuleMutation,
 	type MailRuleMutationResult,
@@ -696,7 +697,7 @@ export class MailboxDO extends DurableObject<Env> {
 				return { kind: "reordered", rules };
 			}
 
-			if (mutation.operation === "create" && current.rules.length >= 100) {
+			if (mutation.operation === "create" && current.rules.length >= MAX_MAIL_RULES) {
 				return { kind: "limit-exceeded" };
 			}
 

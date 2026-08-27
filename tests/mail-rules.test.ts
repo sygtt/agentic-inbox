@@ -120,6 +120,23 @@ test("reconciles rule edits made while the enabled-aware worker is rolled back",
 	]);
 });
 
+test("keeps rollback reconciliation within the rule limit", async () => {
+	const idFor = (index: number) => `${String(index).padStart(8, "0")}-1111-4111-8111-111111111111`;
+	const activeRules = Array.from({ length: 95 }, (_, index) => ({ ...firstRule, id: idFor(index + 1), enabled: true }));
+	const disabledRules = Array.from({ length: 5 }, (_, index) => ({ ...laterRule, id: idFor(index + 96), enabled: false }));
+	const rollbackAddedRules = Array.from({ length: 5 }, (_, index) => ({ ...firstRule, id: idFor(index + 101), enabled: true }));
+	const persisted = serializeMailboxRules({}, [...activeRules, ...disabledRules]);
+	const bucket = {
+		get: async () => ({
+			json: async () => ({ ...persisted, rules: [...activeRules, ...rollbackAddedRules].map(({ enabled: _enabled, ...rule }) => rule) }),
+		}),
+	} as any;
+	const result = await readMailboxRules(bucket, "test@example.com");
+	assert.equal(result?.rules.length, 100);
+	assert.equal(result?.rules.some((rule) => rule.id === disabledRules[0].id), false);
+	assert.equal(MailRuleListSchema.safeParse(result?.rules).success, true);
+});
+
 function createApiTestContext(initialRules: unknown[] = []) {
 	let settings: Record<string, unknown> = { fromName: "Test", rules: initialRules };
 	const stub = {
