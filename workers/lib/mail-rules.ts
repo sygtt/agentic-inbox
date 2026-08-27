@@ -109,10 +109,31 @@ export function serializeMailboxRules(
 	settings: MailboxSettings,
 	rules: MailRule[],
 ): MailboxSettings {
-	const legacyRules = rules
-		.filter((rule) => rule.enabled)
-		.map(({ enabled: _enabled, ...rule }) => rule);
+	const legacyRules = rules.filter((rule) => rule.enabled).map(({ enabled: _enabled, ...rule }) => rule);
 	return { ...settings, rules: legacyRules, rules_v2: rules };
+}
+
+function comparableLegacyRules(rules: MailRule[]) {
+	return rules
+		.filter((rule) => rule.enabled)
+		.map(({ id, conditions, action }) => ({ id, conditions, action }));
+}
+
+function reconcileRulesAfterLegacyEdit(v2Rules: MailRule[], legacyRaw: unknown): MailRule[] {
+	const parsedLegacy = MailRuleListSchema.safeParse(legacyRaw);
+	if (!parsedLegacy.success) return v2Rules;
+	if (JSON.stringify(comparableLegacyRules(v2Rules)) === JSON.stringify(comparableLegacyRules(parsedLegacy.data))) {
+		return v2Rules;
+	}
+
+	const legacyRules = parsedLegacy.data
+		.filter((rule) => rule.enabled)
+		.map((rule) => ({ ...rule, enabled: true }));
+	const legacyIds = new Set(legacyRules.map((rule) => rule.id));
+	return [
+		...legacyRules,
+		...v2Rules.filter((rule) => !rule.enabled && !legacyIds.has(rule.id)),
+	];
 }
 
 export function matchesMailRule(rule: MailRule, input: RuleMatchInput): boolean {
@@ -152,9 +173,15 @@ export async function readMailboxRules(
 	if (!object) return null;
 
 	const settings = await object.json<MailboxSettings>();
-	const rawRules = settings.rules_v2 !== undefined ? settings.rules_v2 : settings.rules;
+	const hasV2Rules = settings.rules_v2 !== undefined;
+	const rawRules = hasV2Rules ? settings.rules_v2 : settings.rules;
 	const parsed = MailRuleListSchema.safeParse(rawRules === undefined ? [] : rawRules);
 	if (!parsed.success) throw new Error(`Invalid mail rules for mailbox ${mailboxId}`);
 
-	return { settings, rules: parsed.data };
+	return {
+		settings,
+		rules: hasV2Rules && settings.rules !== undefined
+			? reconcileRulesAfterLegacyEdit(parsed.data, settings.rules)
+			: parsed.data,
+	};
 }

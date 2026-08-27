@@ -775,7 +775,7 @@ export class MailboxDO extends DurableObject<Env> {
 			const updatedSettings = {
 				...settingsWithoutRules,
 				rules: legacyRules,
-				...(current.settings.rules_v2 !== undefined ? { rules_v2: current.settings.rules_v2 } : {}),
+				...(current.settings.rules_v2 !== undefined ? { rules_v2: current.rules } : {}),
 			};
 			await this.env.BUCKET.put(
 				`mailboxes/${mailboxId}.json`,

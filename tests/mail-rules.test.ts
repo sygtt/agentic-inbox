@@ -102,6 +102,24 @@ test("keeps the legacy rules key safe for older workers", () => {
 	assert.equal(MailRuleListSchema.safeParse(settings.rules).success, true);
 });
 
+test("reconciles rule edits made while the enabled-aware worker is rolled back", async () => {
+	const persisted = serializeMailboxRules({ fromName: "Test" }, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+	const legacyEdit = { ...firstRule, conditions: { sender: "edited@example.net" } };
+	const bucket = {
+		get: async () => ({
+			json: async () => ({ ...persisted, rules: [legacyEdit] }),
+		}),
+	} as any;
+	const result = await readMailboxRules(bucket, "test@example.com");
+	assert.deepEqual(result?.rules.map(({ id, enabled, conditions }) => ({ id, enabled, conditions })), [
+		{ id: firstRule.id, enabled: true, conditions: legacyEdit.conditions },
+		{ id: laterRule.id, enabled: false, conditions: laterRule.conditions },
+	]);
+});
+
 function createApiTestContext(initialRules: unknown[] = []) {
 	let settings: Record<string, unknown> = { fromName: "Test", rules: initialRules };
 	const stub = {
