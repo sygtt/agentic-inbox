@@ -99,9 +99,12 @@ LLM.
 - Conditions support SMTP envelope recipient, sender address, sender domain,
   and case-insensitive subject containment.
 - Conditions within a rule use AND semantics; rules are evaluated in stored
-  order and the first match wins.
+  order and the first enabled match wins. Rules can be disabled without being
+  deleted.
 - A match can assign one existing folder and/or add namespaced tags with
   provenance `rule`.
+- The mailbox settings UI lists rules in evaluation order and supports create,
+  edit, enable/disable, delete, and keyboard-friendly up/down reordering.
 - Rule evaluation runs after mailbox/catch-all resolution and before the
   existing asynchronous agent trigger.
 - Invalid configuration or application failures preserve the email in Inbox
@@ -113,6 +116,8 @@ LLM.
 - `workers/lib/mail-rules-api.ts`
 - `workers/index.ts`
 - `workers/durableObject/index.ts`
+- `app/components/MailRulesSettings.tsx`
+- `app/queries/mail-rules.ts`
 
 ### Configuration involved
 
@@ -125,8 +130,10 @@ No database migration. The existing mailbox settings JSON gains an optional
 
 ### Validation
 
-Rule schema, AND matching, first-match evaluation, CRUD, reorder validation,
-folder validation, and safe invalid-rule fallback are covered by tests.
+Rule schema, enabled-rule matching, AND matching, first-match evaluation, CRUD,
+reorder validation, folder validation, and safe invalid-rule fallback are
+covered by tests. The UI validates supported conditions/actions before submit
+and surfaces loading, empty, validation, and API-error states.
 
 ### Upstream synchronization risk
 

@@ -46,6 +46,7 @@ export const MailRuleActionSchema = z
 
 export const MailRuleInputSchema = z
 	.object({
+		enabled: z.boolean().default(true),
 		conditions: MailRuleConditionsSchema,
 		action: MailRuleActionSchema,
 	})
@@ -118,7 +119,7 @@ export function evaluateMailRules(
 	if (!parsed.success) return { rule: null, invalid: true };
 
 	return {
-		rule: parsed.data.find((rule) => matchesMailRule(rule, input)) || null,
+		rule: parsed.data.find((rule) => rule.enabled && matchesMailRule(rule, input)) || null,
 		invalid: false,
 	};
 }

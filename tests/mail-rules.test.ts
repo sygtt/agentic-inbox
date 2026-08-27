@@ -38,6 +38,12 @@ test("validates and evaluates ordered rules with AND semantics", () => {
 	});
 	assert.equal(match.invalid, false);
 	assert.equal(match.rule?.id, firstRule.id);
+	assert.equal(match.rule?.enabled, true);
+	assert.equal(evaluateMailRules([{ ...firstRule, enabled: false }], {
+		envelopeRecipient: "alias@example.com",
+		sender: "recruiter@example.net",
+		subject: "A JOB OFFER for you",
+	}).rule, null);
 
 	const noMatch = evaluateMailRules(parsed, {
 		envelopeRecipient: "alias@example.com",
@@ -59,6 +65,10 @@ test("validates and evaluates ordered rules with AND semantics", () => {
 		conditions: { sender: "person@example.net" },
 		action: { tags: ["disposition:review"] },
 	}).success, false);
+	assert.equal(MailRuleInputSchema.parse({
+		conditions: { sender: "person@example.net" },
+		action: { tags: ["source:newsletter"] },
+	}).enabled, true);
 	const tooManyRules = Array.from({ length: 101 }, (_, index) => ({
 		...firstRule,
 		id: `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
@@ -158,6 +168,7 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 	assert.equal(response.status, 201);
 	const created = await response.json() as typeof firstRule;
 	assert.match(created.id, /^[0-9a-f-]{36}$/);
+	assert.equal(created.enabled, true);
 	assert.deepEqual(created.action.tags, ["source:job-board"]);
 
 	response = await request(base, {
@@ -204,11 +215,13 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
+			enabled: false,
 			conditions: { sender: "updated@example.net" },
 			action: { folderId: "career" },
 		}),
 	});
 	assert.equal(response.status, 200);
+	assert.equal((await response.json() as { enabled: boolean }).enabled, false);
 
 	response = await request(`${base}/${created.id}`, { method: "DELETE" });
 	assert.equal(response.status, 204);

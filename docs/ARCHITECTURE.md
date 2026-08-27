@@ -149,7 +149,8 @@ Deterministic inbound mail rules are managed with mailbox-scoped endpoints:
 
 Rule conditions use `envelopeRecipient`, `sender`, `senderDomain`, and
 `subjectContains`. Conditions in one rule are ANDed. A rule action can assign
-one existing `folderId` and/or add namespaced rule-provenance tags.
+one existing `folderId` and/or add namespaced rule-provenance tags. Rules also
+have an `enabled` flag; disabled rules remain in order but are skipped.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
@@ -292,7 +293,8 @@ If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or 
 Rules are stored in the selected mailbox's R2 settings JSON under `rules`.
 They do not create category-specific mailboxes or require a schema migration.
 The receiver evaluates each rule in stored order using only the original SMTP
-envelope recipient, parsed sender address/domain, and subject. The first rule
+envelope recipient, parsed sender address/domain, and subject. Disabled rules
+are skipped; the first enabled rule
 whose conditions all match is applied; later rules are not evaluated.
 
 Rule evaluation never calls an AI model or performs external side effects.
