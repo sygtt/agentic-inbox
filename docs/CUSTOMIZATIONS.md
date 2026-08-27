@@ -95,7 +95,9 @@ LLM.
 
 ### Behavior
 
-- Rules are stored per mailbox in the existing R2 settings JSON.
+- Rules are stored per mailbox in the existing R2 settings JSON. The full
+  enabled-aware list is kept in `rules_v2`; the legacy `rules` key contains
+  only enabled rules without the status field so older workers can read it.
 - Conditions support SMTP envelope recipient, sender address, sender domain,
   and case-insensitive subject containment.
 - Conditions within a rule use AND semantics; rules are evaluated in stored
@@ -125,8 +127,10 @@ None. Rules are managed through authenticated mailbox-scoped API endpoints.
 
 ### Persistence / migration implications
 
-No database migration. The existing mailbox settings JSON gains an optional
-`rules` array. Existing settings and emails remain compatible.
+No database migration. The existing mailbox settings JSON gains the optional
+`rules_v2` array when a rule is changed through the new UI. Existing settings
+and emails remain compatible, and the legacy `rules` array remains readable by
+older Workers during rollback.
 
 ### Validation
 

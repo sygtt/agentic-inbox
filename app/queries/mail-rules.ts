@@ -23,7 +23,7 @@ function useMailRuleMutation<TVariables>(
 		mutationFn,
 		onSuccess: (_data, variables) => {
 			const mailboxId = (variables as { mailboxId: string }).mailboxId;
-			queryClient.invalidateQueries({ queryKey: queryKeys.rules.list(mailboxId) });
+			return queryClient.invalidateQueries({ queryKey: queryKeys.rules.list(mailboxId) });
 		},
 	});
 }
@@ -36,6 +36,11 @@ export function useCreateMailRule() {
 export function useUpdateMailRule() {
 	return useMailRuleMutation(({ mailboxId, id, rule }: { mailboxId: string; id: string; rule: MailRuleInput }) =>
 		api.updateMailRule(mailboxId, id, rule));
+}
+
+export function useSetMailRuleEnabled() {
+	return useMailRuleMutation(({ mailboxId, id, enabled }: { mailboxId: string; id: string; enabled: boolean }) =>
+		api.setMailRuleEnabled(mailboxId, id, enabled));
 }
 
 export function useDeleteMailRule() {

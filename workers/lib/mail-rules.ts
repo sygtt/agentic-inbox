@@ -52,6 +52,8 @@ export const MailRuleInputSchema = z
 	})
 	.strict();
 
+export const MailRuleEnabledSchema = z.object({ enabled: z.boolean() }).strict();
+
 export const MailRuleSchema = MailRuleInputSchema.extend({
 	id: z.string().uuid(),
 });
@@ -82,6 +84,8 @@ export const MailRuleReorderRequestSchema = z
 export type MailRule = z.infer<typeof MailRuleSchema>;
 export type MailRuleInput = z.infer<typeof MailRuleInputSchema>;
 
+export type MailRuleEnabled = z.infer<typeof MailRuleEnabledSchema>;
+
 export type MailRuleMutation =
 	| { operation: "create" | "update"; rule: MailRule }
 	| { operation: "reorder"; ruleIds: string[] };
@@ -95,6 +99,20 @@ export interface RuleMatchInput {
 	envelopeRecipient: string;
 	sender: string;
 	subject: string;
+}
+
+/**
+ * Keep the legacy rules key readable by workers deployed before enabled rules
+ * existed. The full ordered representation lives in rules_v2.
+ */
+export function serializeMailboxRules(
+	settings: MailboxSettings,
+	rules: MailRule[],
+): MailboxSettings {
+	const legacyRules = rules
+		.filter((rule) => rule.enabled)
+		.map(({ enabled: _enabled, ...rule }) => rule);
+	return { ...settings, rules: legacyRules, rules_v2: rules };
 }
 
 export function matchesMailRule(rule: MailRule, input: RuleMatchInput): boolean {
@@ -134,7 +152,8 @@ export async function readMailboxRules(
 	if (!object) return null;
 
 	const settings = await object.json<MailboxSettings>();
-	const parsed = MailRuleListSchema.safeParse(settings.rules === undefined ? [] : settings.rules);
+	const rawRules = settings.rules_v2 !== undefined ? settings.rules_v2 : settings.rules;
+	const parsed = MailRuleListSchema.safeParse(rawRules === undefined ? [] : rawRules);
 	if (!parsed.success) throw new Error(`Invalid mail rules for mailbox ${mailboxId}`);
 
 	return { settings, rules: parsed.data };

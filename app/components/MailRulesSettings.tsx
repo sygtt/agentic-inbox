@@ -27,6 +27,7 @@ import {
 	useDeleteMailRule,
 	useMailRules,
 	useReorderMailRules,
+	useSetMailRuleEnabled,
 	useUpdateMailRule,
 } from "~/queries/mail-rules";
 import type { Folder, MailRule, MailRuleInput } from "~/types";
@@ -120,6 +121,7 @@ export default function MailRulesSettings({ mailboxId }: { mailboxId: string }) 
 	const { data: folders = [] } = useFolders(mailboxId);
 	const createMutation = useCreateMailRule();
 	const updateMutation = useUpdateMailRule();
+	const setEnabledMutation = useSetMailRuleEnabled();
 	const deleteMutation = useDeleteMailRule();
 	const reorderMutation = useReorderMailRules();
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -128,7 +130,7 @@ export default function MailRulesSettings({ mailboxId }: { mailboxId: string }) 
 	const [formError, setFormError] = useState<string | null>(null);
 	const [mutationError, setMutationError] = useState<string | null>(null);
 
-	const isBusy = createMutation.isPending || updateMutation.isPending ||
+	const isBusy = createMutation.isPending || updateMutation.isPending || setEnabledMutation.isPending ||
 		deleteMutation.isPending || reorderMutation.isPending;
 
 	const openCreate = () => {
@@ -179,12 +181,7 @@ export default function MailRulesSettings({ mailboxId }: { mailboxId: string }) 
 	const handleToggle = async (rule: MailRule, enabled: boolean) => {
 		setMutationError(null);
 		try {
-			const { id: _id, ...ruleInput } = rule;
-			await updateMutation.mutateAsync({
-				mailboxId,
-				id: rule.id,
-				rule: { ...ruleInput, enabled },
-			});
+			await setEnabledMutation.mutateAsync({ mailboxId, id: rule.id, enabled });
 		} catch (error) {
 			setMutationError(errorMessage(error, "Failed to update mail rule"));
 		}

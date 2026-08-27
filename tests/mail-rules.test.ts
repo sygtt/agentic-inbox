@@ -8,6 +8,7 @@ import {
 	MailRuleInputSchema,
 	MailRuleListSchema,
 	readMailboxRules,
+	serializeMailboxRules,
 } from "../workers/lib/mail-rules.ts";
 
 const firstRule = {
@@ -88,6 +89,18 @@ test("rejects malformed rules stored in mailbox settings", async () => {
 	);
 });
 
+test("keeps the legacy rules key safe for older workers", () => {
+	const settings = serializeMailboxRules({ fromName: "Test" }, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+	assert.deepEqual(settings.rules, [{ ...firstRule }]);
+	assert.deepEqual(settings.rules_v2, [
+		{ ...firstRule, enabled: true },
+		{ ...laterRule, enabled: false },
+	]);
+});
+
 function createApiTestContext(initialRules: unknown[] = []) {
 	let settings: Record<string, unknown> = { fromName: "Test", rules: initialRules };
 	const stub = {
@@ -127,6 +140,15 @@ function createApiTestContext(initialRules: unknown[] = []) {
 			if (!rules.some((rule) => rule.id === id)) return { kind: "not-found" };
 			settings = { ...settings, rules: rules.filter((rule) => rule.id !== id) };
 			return { kind: "deleted" };
+		},
+		setMailRuleEnabled: async (_mailboxId: string, id: string, enabled: boolean) => {
+			const rules = settings.rules as any[];
+			const index = rules.findIndex((rule) => rule.id === id);
+			if (index < 0) return { kind: "not-found" };
+			const updated = [...rules];
+			updated[index] = { ...updated[index], enabled };
+			settings = { ...settings, rules: updated };
+			return { kind: "updated", rule: updated[index] };
 		},
 	};
 	const env = {
@@ -222,6 +244,14 @@ test("supports authenticated mailbox-scoped rule CRUD and reorder", async () => 
 	});
 	assert.equal(response.status, 200);
 	assert.equal((await response.json() as { enabled: boolean }).enabled, false);
+
+	response = await request(`${base}/${created.id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ enabled: true }),
+	});
+	assert.equal(response.status, 200);
+	assert.equal((await response.json() as { enabled: boolean }).enabled, true);
 
 	response = await request(`${base}/${created.id}`, { method: "DELETE" });
 	assert.equal(response.status, 204);

@@ -81,6 +81,13 @@ function put<T>(url: string, body?: unknown) {
 	});
 }
 
+function patch<T>(url: string, body?: unknown) {
+	return request<T>(url, {
+		method: "PATCH",
+		body: body != null ? JSON.stringify(body) : undefined,
+	});
+}
+
 function del<T>(url: string) {
 	return request<T>(url, { method: "DELETE" });
 }
@@ -117,6 +124,8 @@ const api = {
 		post<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules`, rule),
 	updateMailRule: (mailboxId: string, id: string, rule: MailRuleInput) =>
 		put<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`, rule),
+	setMailRuleEnabled: (mailboxId: string, id: string, enabled: boolean) =>
+		patch<MailRule>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`, { enabled }),
 	deleteMailRule: (mailboxId: string, id: string) =>
 		del<void>(`/api/v1/mailboxes/${mailboxId}/rules/${id}`),
 	reorderMailRules: (mailboxId: string, ruleIds: string[]) =>
