@@ -129,6 +129,7 @@ Major API areas include:
 - search
 - attachment download
 - email tag and disposition management
+- deterministic inbound mail rule management
 
 Email tag endpoints are mailbox-scoped and inherit the existing Cloudflare
 Access and `requireMailbox` checks:
@@ -137,6 +138,18 @@ Access and `requireMailbox` checks:
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
 - `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
+
+Deterministic inbound mail rules are managed with mailbox-scoped endpoints:
+
+- `GET /api/v1/mailboxes/:mailboxId/rules`
+- `POST /api/v1/mailboxes/:mailboxId/rules`
+- `PUT /api/v1/mailboxes/:mailboxId/rules/:id`
+- `DELETE /api/v1/mailboxes/:mailboxId/rules/:id`
+- `PUT /api/v1/mailboxes/:mailboxId/rules/reorder` with `{ ruleIds }`
+
+Rule conditions use `envelopeRecipient`, `sender`, `senderDomain`, and
+`subjectContains`. Conditions in one rule are ANDed. A rule action can assign
+one existing `folderId` and/or add namespaced rule-provenance tags.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
@@ -162,7 +175,7 @@ Creating a mailbox performs two distinct operations:
 
 The R2 settings object acts as the current mailbox registry. A mailbox can have a Durable Object identity even if no registry object exists, so application code explicitly checks R2 when deciding whether a mailbox exists.
 
-Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, and optional per-mailbox agent system prompt.
+Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, optional per-mailbox agent system prompt, and the ordered deterministic mail rules.
 
 ## Mailbox storage
 
@@ -252,7 +265,9 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
+10. Evaluate the mailbox's deterministic rules in order and select the first match.
+11. Apply the selected folder and rule-provenance tags atomically; if rule configuration or application fails, keep the email in Inbox and continue processing.
+12. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
 
 ### Recipient resolution and catch-all behavior
 
@@ -271,6 +286,21 @@ The home screen protects the configured catch-all mailbox from deletion. When on
 The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
 
 If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
+
+### Deterministic inbound mail rules
+
+Rules are stored in the selected mailbox's R2 settings JSON under `rules`.
+They do not create category-specific mailboxes or require a schema migration.
+The receiver evaluates each rule in stored order using only the original SMTP
+envelope recipient, parsed sender address/domain, and subject. The first rule
+whose conditions all match is applied; later rules are not evaluated.
+
+Rule evaluation never calls an AI model or performs external side effects.
+The email is first persisted in Inbox, then the selected existing folder and
+`rule`-provenance tags are applied in one MailboxDO transaction. Invalid stored
+rules, deleted target folders, or application errors leave the persisted email
+in Inbox and are logged, so a rule problem does not silently discard inbound
+mail. An unmatched email retains the normal Inbox behavior.
 
 ## Threading
 

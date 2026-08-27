@@ -626,6 +626,44 @@ export class MailboxDO extends DurableObject<Env> {
 		return { tag, provenance };
 	}
 
+	async applyInboundMailRule(id: string, folderId: string | null, tags: string[]) {
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return false;
+
+		if (folderId) {
+			const folder = this.db
+				.select({ id: schema.folders.id })
+				.from(schema.folders)
+				.where(eq(schema.folders.id, folderId))
+				.get();
+			if (!folder) return false;
+		}
+
+		this.ctx.storage.transactionSync(() => {
+			if (folderId) {
+				this.ctx.storage.sql.exec(
+					"UPDATE emails SET folder_id = ?1 WHERE id = ?2",
+					folderId,
+					id,
+				);
+			}
+			for (const tag of tags) {
+				this.ctx.storage.sql.exec(
+					`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, 'rule')
+					 ON CONFLICT(email_id, tag) DO UPDATE SET provenance = 'rule'`,
+					id,
+					tag,
+				);
+			}
+		});
+
+		return true;
+	}
+
 	async markThreadRead(threadId: string) {
 		this.ctx.storage.sql.exec(
 			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,

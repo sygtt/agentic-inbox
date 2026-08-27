@@ -21,6 +21,8 @@ import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
+import { registerMailRuleRoutes } from "./lib/mail-rules-api";
+import { evaluateMailRules, readMailboxRules } from "./lib/mail-rules";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -264,6 +266,7 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 });
 
 registerEmailTagRoutes(app);
+registerMailRuleRoutes(app);
 
 // -- Threads --------------------------------------------------------
 
@@ -405,6 +408,24 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 	const messageId = crypto.randomUUID();
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
+	const sender = (parsedEmail.from?.address || "").toLowerCase();
+	let matchingRule: ReturnType<typeof evaluateMailRules>["rule"] = null;
+	try {
+		const mailboxSettings = await readMailboxRules(env.BUCKET, mailboxId);
+		if (!mailboxSettings) throw new Error(`Mailbox settings not found for ${mailboxId}`);
+		const evaluation = evaluateMailRules(mailboxSettings.rules, {
+			envelopeRecipient: route.envelopeRecipient,
+			sender,
+			subject: parsedEmail.subject || "",
+		});
+		if (evaluation.invalid) throw new Error(`Invalid mail rules for ${mailboxId}`);
+		matchingRule = evaluation.rule;
+	} catch (error) {
+		console.error(
+			`Inbound mail rule processing failed; storing ${messageId} in Inbox:`,
+			(error as Error).message,
+		);
+	}
 
 	const attachmentData: StoredAttachment[] = [];
 	if (parsedEmail.attachments) {
@@ -432,7 +453,7 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 
 	await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
-		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
+		sender, recipient: allRecipients.join(", "),
 		envelope_recipient: route.envelopeRecipient,
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
 		date: new Date().toISOString(), // uses receive time, not the email's Date header
@@ -441,10 +462,28 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
+	if (matchingRule) {
+		try {
+			const applied = await stub.applyInboundMailRule(
+				messageId,
+				matchingRule.action.folderId || null,
+				matchingRule.action.tags,
+			);
+			if (!applied) {
+				console.error(`Inbound mail rule target is unavailable; keeping ${messageId} in Inbox`);
+			}
+		} catch (error) {
+			console.error(
+				`Inbound mail rule application failed; keeping ${messageId} in Inbox:`,
+				(error as Error).message,
+			);
+		}
+	}
+
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
 		method: "POST", headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
+		body: JSON.stringify({ mailboxId, emailId: messageId, sender, subject: parsedEmail.subject || "", threadId }),
 	})).catch((e) => console.error("Auto-draft trigger failed:", (e as Error).message)));
 }
 
