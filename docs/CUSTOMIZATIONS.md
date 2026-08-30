@@ -575,7 +575,7 @@ At minimum cover:
 - invalid/out-of-domain recipient
 - malformed message
 - attachment handling remains correct
-- auto-draft trigger targets the storage mailbox intentionally
+- auto-summary trigger targets the storage mailbox intentionally
 
 The focused routing tests run with the repository's `npm test` script. Also run:
 
@@ -663,6 +663,48 @@ Do not attempt to add per-mailbox authorization incidentally while implementing 
 The normal Email Agent tool set creates drafts but does not directly send email.
 
 This explicit operator-review boundary is desirable and should remain unless a separate, intentionally designed automation feature changes it.
+
+## Automatic incoming-email summaries
+
+**Status:** Active
+
+### Why
+
+New-mail automation should provide triage context without creating outbound
+content or changing mailbox state without operator intent.
+
+### Behavior
+
+- A new inbound message triggers a summary in the storage mailbox's Agent chat history.
+- The unattended agent receives only `get_email` and `get_thread` read tools.
+- It does not create reply drafts, send mail, move messages, or delete messages.
+- Prompt-injection detection blocks the summary attempt while retaining the inbound message.
+
+### Main affected areas
+
+- `workers/agent/index.ts`
+- `workers/lib/ai.ts`
+
+### Configuration involved
+
+None. The summary prompt is fixed and does not use the interactive mailbox
+system prompt, so mailbox-specific instructions cannot expand unattended
+capabilities.
+
+### Persistence / migration implications
+
+None. Summaries are stored in the existing Agent chat history; email and mailbox
+schemas are unchanged.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to the inbound Agent trigger or agent tool construction
+may reintroduce automatic draft creation or broaden the unattended tool set.
+
+### Removal / replacement condition
+
+Remove this customization if upstream provides an equivalent operator-safe
+incoming-email summarization flow.
 
 ## Unknown recipient without catch-all is rejected
 

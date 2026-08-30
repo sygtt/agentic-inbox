@@ -44,7 +44,7 @@ Cloudflare Email Routing
              |
              +-------> MailboxDO
              +-------> R2 attachments
-             +-------> EmailAgent auto-draft trigger
+             +-------> EmailAgent auto-summary trigger
 
 Outbound UI/API
              |
@@ -257,7 +257,7 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
+10. Trigger the corresponding `EmailAgent` asynchronously to generate a summary.
 
 ### Recipient resolution and catch-all behavior
 
@@ -331,13 +331,13 @@ The agent has tools for operations including:
 - moving messages
 - discarding drafts
 
-The default agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action.
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. The separate inbound trigger only generates a summary and does not create drafts.
 
-### Auto-draft flow
+### Auto-summary flow
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent reads the relevant message/thread context and attempts to create a draft reply. Auto-draft failure is logged but does not roll back the already stored inbound message.
+The agent reads the relevant message/thread context and generates a concise summary in the agent chat history. The unattended path receives only read-only email/thread tools and does not create drafts or mutate mailbox state. Auto-summary failure is logged but does not roll back the already stored inbound message.
 
 ### Prompt safety
 

@@ -44,16 +44,16 @@ export async function isPromptInjection(ai: Ai, bodyHtml: string | null | undefi
 		const result = (response?.response || "NO").trim().toUpperCase();
 		
 		if (result.includes("YES")) {
-			console.warn("Prompt injection detected in incoming email, blocking auto-draft");
+			console.warn("Prompt injection detected in incoming email, blocking auto-summary");
 			return true;
 		}
 		
 		return false;
 	} catch (e) {
-		console.error("Prompt injection scanner failed, skipping auto-draft:", (e as Error).message);
+		console.error("Prompt injection scanner failed, skipping auto-summary:", (e as Error).message);
 		// Fail closed: treat scanner failures as potential injection to avoid
-		// auto-drafting replies to emails we couldn't verify.
-		// The email is still stored in the inbox — only auto-draft is skipped.
+		// generating summaries for emails we couldn't verify.
+		// The email is still stored in the inbox — only auto-summary is skipped.
 		return true;
 	}
 }
