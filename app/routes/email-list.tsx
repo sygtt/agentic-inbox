@@ -273,7 +273,7 @@ export default function EmailListRoute() {
 		if (!mailboxId || moveEmail.isPending || moveThread.isPending) return;
 		try {
 			const sourceFolderId = folder || email.folder_id;
-			if ((email.thread_count ?? 1) > 1 && sourceFolderId) {
+			if (folder !== Folders.DRAFT && (email.thread_count ?? 1) > 1 && sourceFolderId) {
 				await moveThread.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId, sourceFolderId });
 			} else {
 				await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId });

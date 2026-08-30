@@ -33,7 +33,7 @@ const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
 
 function normalizeSubject(subject: string | null | undefined): string {
 	return (subject || "")
-		.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
+		.replace(/^(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*/i, "")
 		.trim()
 		.toLowerCase();
 }
@@ -774,16 +774,16 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.thread_id, threadId))
 			.all();
-		if (messages.length > 0) {
-			this.ctx.storage.sql.exec(
-				`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
-				threadId,
-			);
-		} else if (legacyIds.length > 0) {
-			const placeholders = legacyIds.map((_, index) => `?${index + 1}`).join(",");
+		const memberIds = [...new Set([
+			...messages.map((message) => message.id),
+			...legacyIds,
+			...(target?.thread_id == null && target ? [target.id] : []),
+		])];
+		if (memberIds.length > 0) {
+			const placeholders = memberIds.map((_, index) => `?${index + 1}`).join(",");
 			this.ctx.storage.sql.exec(
 				`UPDATE emails SET read = 1 WHERE read = 0 AND id IN (${placeholders})`,
-				...legacyIds,
+				...memberIds,
 			);
 		}
 		return { threadId, markedRead: true };
@@ -920,7 +920,7 @@ export class MailboxDO extends DurableObject<Env> {
 		if (!folder) return false;
 
 		const target = this.db
-			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject })
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
@@ -932,23 +932,21 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.thread_id, threadId))
 			.all();
-		if (!target && messages.length === 0) return false;
+		const memberIds = [...new Set([
+			...messages.map((message) => message.id),
+			...legacyIds,
+			...(target?.thread_id == null && target?.folder_id === sourceFolderId ? [target.id] : []),
+		])];
+		if (!target && memberIds.length === 0) return false;
 
 		this.ctx.storage.transactionSync(() => {
-			if (messages.length > 0) {
-				this.db
-					.update(schema.emails)
-					.set({ folder_id: folderId })
-					.where(and(eq(schema.emails.thread_id, threadId), eq(schema.emails.folder_id, sourceFolderId)))
-					.run();
-				return;
-			}
-			if (legacyIds.length > 0) {
-				const placeholders = legacyIds.map((_, index) => `?${index + 2}`).join(",");
+			if (memberIds.length > 0) {
+				const placeholders = memberIds.map((_, index) => `?${index + 3}`).join(",");
 				this.ctx.storage.sql.exec(
-					`UPDATE emails SET folder_id = ?1 WHERE id IN (${placeholders})`,
+					`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
 					folderId,
-					...legacyIds,
+					sourceFolderId,
+					...memberIds,
 				);
 				return;
 			}
@@ -1075,10 +1073,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const normalizedSender = senderAddress?.toLowerCase().trim();
 
 		for (const row of result) {
-			const rowSubject = String((row as any).subject || "")
-				.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-				.trim()
-				.toLowerCase();
+			const rowSubject = normalizeSubject((row as any).subject);
 			if (rowSubject !== normalized) continue;
 
 			if (normalizedSender) {

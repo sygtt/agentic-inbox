@@ -117,7 +117,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		if (!mailboxId || threadActionsDisabled) return;
 		try {
 			const sourceFolderId = folder || email.folder_id;
-			if (allMessages.length > 1 && sourceFolderId) {
+			if (!isDraftFolder && allMessages.length > 1 && sourceFolderId) {
 				await moveThreadMut.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId, sourceFolderId });
 			} else {
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
