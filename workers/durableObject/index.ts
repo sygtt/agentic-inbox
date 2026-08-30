@@ -17,12 +17,24 @@ import { createEmailSnippet } from "../lib/email-content";
  * reply/forward prefixes (Re:, Fwd:, FW:, AW:, WG:, Réf:, SV:).
  * Used for conversation grouping. Hardcoded to the `subject` column.
  */
-const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
-	REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-		LOWER(subject),
-		'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
-		're: ', ''), 'fwd: ', ''), 'fw: ', '')
-))`;
+const SUBJECT_PREFIXES = ["aw :", "aw:", "wg :", "wg:", "réf :", "réf:", "sv :", "sv:", "re :", "re:", "fwd :", "fwd:", "fw :", "fw:"];
+const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(${SUBJECT_PREFIXES.reduce(
+	(expression, prefix) => `REPLACE(${expression}, '${prefix}', '')`,
+	"LOWER(COALESCE(subject, ''))",
+)}))`;
+const PARTICIPANT_KEY_SQL = `CASE WHEN LOWER(TRIM(COALESCE(sender, ''))) <= LOWER(TRIM(COALESCE(recipient, '')))
+	THEN LOWER(TRIM(COALESCE(sender, ''))) || '|' || LOWER(TRIM(COALESCE(recipient, '')))
+	ELSE LOWER(TRIM(COALESCE(recipient, ''))) || '|' || LOWER(TRIM(COALESCE(sender, '')))
+END`;
+
+function participantKey(participants: (string | null | undefined)[]): string {
+	return participants.map((value) => (value || "").trim().toLowerCase()).sort().join("|");
+}
+
+function normalizeSubject(subject: string | null | undefined): string {
+	return SUBJECT_PREFIXES.reduce((value, prefix) => value.replaceAll(prefix, ""), (subject || "").toLowerCase())
+		.trim();
+}
 
 const ALLOWED_SORT_COLUMNS = [
 	"id",
@@ -66,6 +78,7 @@ interface SearchFilterOptions {
 interface GetEmailsOptions {
 	folder?: string;
 	thread_id?: string;
+	needs_reply?: boolean;
 	page?: number;
 	limit?: number;
 	sortColumn?: SortColumn;
@@ -126,6 +139,22 @@ export class MailboxDO extends DurableObject<Env> {
 		return createEmailSnippet(row?.body);
 	}
 
+	private getLegacySubjectMessageIds(subject: string | null | undefined, folderId?: string, participants: (string | null | undefined)[] = []): string[] {
+		const normalized = normalizeSubject(subject);
+		if (!normalized) return [];
+		const targetParticipantKey = participants.length > 0 ? participantKey(participants) : null;
+		const rows = folderId
+			? [...this.ctx.storage.sql.exec(
+				`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL AND folder_id = ?`,
+				folderId,
+			)]
+			: [...this.ctx.storage.sql.exec(`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL`)]
+		return (rows as { id: string; subject?: string | null; sender?: string | null; recipient?: string | null }[])
+			.filter((row) => normalizeSubject(row.subject) === normalized)
+			.filter((row) => targetParticipantKey === null || participantKey([row.sender, row.recipient]) === targetParticipantKey)
+			.map((row) => row.id);
+	}
+
 	// ── Email CRUD (Drizzle) ───────────────────────────────────────
 
 	async getEmails(options: GetEmailsOptions = {}) {
@@ -178,6 +207,7 @@ export class MailboxDO extends DurableObject<Env> {
 				email_references: schema.emails.email_references,
 				thread_id: schema.emails.thread_id,
 				folder_id: schema.emails.folder_id,
+				has_attachment: sql<number>`EXISTS (SELECT 1 FROM attachments WHERE email_id = ${schema.emails.id})`,
 			})
 			.from(schema.emails)
 			.where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -191,6 +221,7 @@ export class MailboxDO extends DurableObject<Env> {
 			snippet: this.getEmailSnippet(email.id),
 			read: !!email.read,
 			starred: !!email.starred,
+			has_attachment: !!email.has_attachment,
 		}));
 	}
 
@@ -231,6 +262,7 @@ export class MailboxDO extends DurableObject<Env> {
 	async getThreadedEmails(options: GetEmailsOptions = {}) {
 		const {
 			folder,
+			needs_reply = false,
 			page = 1,
 			limit: rawLimit = 25,
 		} = options;
@@ -253,6 +285,7 @@ export class MailboxDO extends DurableObject<Env> {
 		//   2. Fallback: group by normalized subject (strips Re:/Fwd:/FW: prefixes)
 		//      for legacy emails that lack threading headers (thread_id IS NULL).
 		const isDraftFolder = folder === Folders.DRAFT;
+		if (isDraftFolder && needs_reply) return [];
 
 		if (isDraftFolder) {
 			const result = this.ctx.storage.sql.exec(
@@ -260,6 +293,7 @@ export class MailboxDO extends DurableObject<Env> {
 				folder_emails AS (
 					SELECT id, subject, sender, recipient, date, read, starred,
 						thread_id, folder_id, in_reply_to, email_references,
+						EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = emails.id) as has_attachment,
 						COALESCE(in_reply_to, id) as draft_group_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
@@ -269,7 +303,8 @@ export class MailboxDO extends DurableObject<Env> {
 						draft_group_key,
 						COUNT(*) as thread_count,
 						SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
-						GROUP_CONCAT(DISTINCT sender) as participants
+						GROUP_CONCAT(DISTINCT sender) as participants,
+						MAX(has_attachment) as has_attachment
 					FROM folder_emails
 					GROUP BY draft_group_key
 				),
@@ -286,7 +321,7 @@ export class MailboxDO extends DurableObject<Env> {
 					lp.id, lp.subject, lp.sender, lp.recipient, lp.date,
 					lp.read, lp.starred, lp.thread_id, lp.folder_id,
 					lp.in_reply_to, lp.email_references,
-					ds.thread_count, ds.thread_unread_count, ds.participants
+					ds.thread_count, ds.thread_unread_count, ds.participants, ds.has_attachment
 				FROM latest_per_group lp
 				JOIN draft_stats ds ON lp.draft_group_key = ds.draft_group_key
 				WHERE lp.rn = 1
@@ -296,14 +331,17 @@ export class MailboxDO extends DurableObject<Env> {
 			);
 
 			const rows = [...result];
+			const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
 			return rows.map((row: any) => ({
 				...row,
+				tags: tagsByEmail[row.id] || [],
 				snippet: this.getEmailSnippet(row.id),
 				read: !!row.read,
 				starred: !!row.starred,
 				thread_count: row.thread_count || 1,
 				thread_unread_count: row.thread_unread_count || 0,
 				participants: row.participants || row.sender,
+				has_attachment: !!row.has_attachment,
 			}));
 		}
 
@@ -314,24 +352,34 @@ export class MailboxDO extends DurableObject<Env> {
 				SELECT id, subject, sender, recipient, date, read, starred,
 					thread_id, folder_id, in_reply_to, email_references,
 					COALESCE(thread_id, id) as raw_thread_id,
-					${NORMALIZED_SUBJECT_SQL} as normalized_subject
+					${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+					${PARTICIPANT_KEY_SQL} as participant_key
 				FROM emails
 				WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 			),
-			thread_to_conversation AS (
+			thread_to_conversation_candidates AS (
 				SELECT
 					raw_thread_id,
-					normalized_subject,
+					thread_id,
 					CASE
 						WHEN thread_id IS NOT NULL THEN raw_thread_id
-						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject)
+						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END
 					END as conversation_id
 				FROM folder_emails
-				GROUP BY raw_thread_id, normalized_subject, thread_id
+				GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
+			),
+			thread_to_conversation AS (
+				SELECT raw_thread_id,
+					CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+						THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+				FROM thread_to_conversation_candidates
+				GROUP BY raw_thread_id
 			),
 			all_emails_with_conversation AS (
 				SELECT
 					e.sender, e.read, e.folder_id, e.date,
+					EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 					COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
 				FROM emails e
 				LEFT JOIN thread_to_conversation tc
@@ -344,7 +392,8 @@ export class MailboxDO extends DurableObject<Env> {
 					SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
 					SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count,
 					GROUP_CONCAT(DISTINCT sender) as participants,
-					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft
+					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft,
+					MAX(has_attachment) as has_attachment
 				FROM all_emails_with_conversation
 				WHERE conversation_id IN (
 					SELECT DISTINCT conversation_id FROM all_emails_with_conversation
@@ -376,6 +425,7 @@ export class MailboxDO extends DurableObject<Env> {
 				lif.read, lif.starred, lif.thread_id, lif.folder_id,
 				lif.in_reply_to, lif.email_references,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
+				cs.has_attachment,
 				CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
 					AND cs.thread_read_count > 0
@@ -386,20 +436,26 @@ export class MailboxDO extends DurableObject<Env> {
 			LEFT JOIN latest_message_per_conversation lmc
 				ON lmc.conversation_id = lif.conversation_id AND lmc.rn = 1
 			WHERE lif.rn = 1
+				AND (?4 = 0 OR (CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
+					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
+					AND cs.thread_read_count > 0 THEN 1 ELSE 0 END) = 1)
 			ORDER BY lif.date DESC
 			LIMIT ?2 OFFSET ?3`,
-			folder, limit, offset
+			folder, limit, offset, needs_reply ? 1 : 0
 		);
 
 		const rows = [...result];
+		const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
 		return rows.map((row: any) => ({
 			...row,
+			tags: tagsByEmail[row.id] || [],
 			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
 			thread_count: row.thread_count || 1,
 			thread_unread_count: row.thread_unread_count || 0,
 			participants: row.participants || row.sender,
+			has_attachment: !!row.has_attachment,
 			needs_reply: !!row.needs_reply,
 			has_draft: !!row.has_draft,
 		}));
@@ -409,8 +465,9 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Count threaded conversations in a folder (for pagination).
 	 * Returns the number of conversation groups, not individual emails.
 	 */
-	async countThreadedEmails(folder: string) {
+	async countThreadedEmails(folder: string, needs_reply = false) {
 		const isDraftFolder = folder === Folders.DRAFT;
+		if (isDraftFolder && needs_reply) return 0;
 
 		if (isDraftFolder) {
 			const row = [
@@ -424,30 +481,94 @@ export class MailboxDO extends DurableObject<Env> {
 			return row?.total ?? 0;
 		}
 
+		if (!needs_reply) {
+			const row = [
+				...this.ctx.storage.sql.exec(
+					`WITH
+					folder_emails AS (
+						SELECT COALESCE(thread_id, id) as raw_thread_id, thread_id,
+						${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+						${PARTICIPANT_KEY_SQL} as participant_key
+						FROM emails
+						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+					),
+					thread_to_conversation_candidates AS (
+						SELECT raw_thread_id, thread_id,
+						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
+							ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+								ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END END as conversation_id
+						FROM folder_emails
+						GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
+					),
+					thread_to_conversation AS (
+						SELECT raw_thread_id,
+							CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+								THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+						FROM thread_to_conversation_candidates
+						GROUP BY raw_thread_id
+					)
+					SELECT COUNT(DISTINCT conversation_id) as total FROM thread_to_conversation`,
+					folder,
+				),
+			][0] as { total: number } | undefined;
+			return row?.total ?? 0;
+		}
+
 		const row = [
 			...this.ctx.storage.sql.exec(
 				`WITH
 				folder_emails AS (
-					SELECT
+					SELECT id, sender, read, folder_id, date,
 						COALESCE(thread_id, id) as raw_thread_id,
 						thread_id,
-					${NORMALIZED_SUBJECT_SQL} as normalized_subject
+					${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+					${PARTICIPANT_KEY_SQL} as participant_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 				),
+				thread_to_conversation_candidates AS (
+					SELECT raw_thread_id, normalized_subject, thread_id,
+					CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
+					ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END END as conversation_id
+				FROM folder_emails
+				GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
+				),
 				thread_to_conversation AS (
-					SELECT
-						raw_thread_id,
-						CASE
-							WHEN thread_id IS NOT NULL THEN raw_thread_id
-							WHEN normalized_subject != '' THEN MIN(raw_thread_id) OVER (PARTITION BY normalized_subject)
-							ELSE raw_thread_id
-						END as conversation_id
-					FROM folder_emails
-					GROUP BY raw_thread_id, normalized_subject, thread_id
+					SELECT raw_thread_id,
+						CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+							THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+					FROM thread_to_conversation_candidates
+					GROUP BY raw_thread_id
+				),
+				all_emails_with_conversation AS (
+					SELECT e.sender, e.read, e.folder_id, e.date,
+						COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
+					FROM emails e
+					LEFT JOIN thread_to_conversation tc ON COALESCE(e.thread_id, e.id) = tc.raw_thread_id
+				),
+				conversation_stats AS (
+					SELECT conversation_id,
+						SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count
+					FROM all_emails_with_conversation
+					WHERE conversation_id IN (
+						SELECT DISTINCT conversation_id FROM all_emails_with_conversation
+						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+					)
+					GROUP BY conversation_id
+				),
+				latest_message_per_conversation AS (
+					SELECT conversation_id, folder_id,
+						ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY date DESC) as rn
+					FROM all_emails_with_conversation
 				)
-				SELECT COUNT(DISTINCT conversation_id) as total
-				FROM thread_to_conversation`,
+				SELECT COUNT(*) as total
+				FROM conversation_stats cs
+				JOIN latest_message_per_conversation lmc
+					ON lmc.conversation_id = cs.conversation_id AND lmc.rn = 1
+				WHERE lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
+					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
+					AND cs.thread_read_count > 0`,
 				folder,
 			),
 		][0] as { total: number } | undefined;
@@ -484,13 +605,36 @@ export class MailboxDO extends DurableObject<Env> {
 	 * two queries (one for emails, one for attachments) instead of
 	 * N+1 individual getEmail calls.
 	 */
-	async getThreadEmails(threadId: string) {
-		const emailRows = [
+	async getThreadEmails(threadId: string, folderId?: string) {
+		let emailRows = [
 			...this.ctx.storage.sql.exec(
 				`SELECT * FROM emails WHERE thread_id = ?1 ORDER BY date ASC`,
 				threadId,
 			),
 		] as any[];
+
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const legacyIds = target && target.folder_id !== Folders.DRAFT && target.thread_id == null
+			? this.getLegacySubjectMessageIds(target.subject, folderId, [target.sender, target.recipient])
+			: [];
+		const threadEmailIds = [...new Set([
+			...emailRows.map((email) => email.id as string),
+			...legacyIds,
+			...(target && target.folder_id !== Folders.DRAFT && target.thread_id == null && (!folderId || target.folder_id === folderId) ? [target.id] : []),
+		])];
+		if (threadEmailIds.length > 0) {
+			const placeholders = threadEmailIds.map((_, index) => `?${index + 1}`).join(",");
+			emailRows = [
+				...this.ctx.storage.sql.exec(
+					`SELECT * FROM emails WHERE id IN (${placeholders}) ORDER BY date ASC`,
+					...threadEmailIds,
+				),
+			] as any[];
+		}
 
 		if (emailRows.length === 0) return [];
 
@@ -647,11 +791,32 @@ export class MailboxDO extends DurableObject<Env> {
 		return { tag, provenance };
 	}
 
-	async markThreadRead(threadId: string) {
-		this.ctx.storage.sql.exec(
-			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
-			threadId,
-		);
+	async markThreadRead(threadId: string, folderId?: string) {
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const legacyIds = target?.thread_id == null
+			? this.getLegacySubjectMessageIds(target?.subject, folderId, target ? [target.sender, target.recipient] : [])
+			: [];
+		const messages = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.thread_id, threadId))
+			.all();
+		const memberIds = [...new Set([
+			...messages.map((message) => message.id),
+			...legacyIds,
+			...(target?.thread_id == null && target && (!folderId || target.folder_id === folderId) ? [target.id] : []),
+		])];
+		if (memberIds.length > 0) {
+			const placeholders = memberIds.map((_, index) => `?${index + 1}`).join(",");
+			this.ctx.storage.sql.exec(
+				`UPDATE emails SET read = 1 WHERE read = 0 AND id IN (${placeholders})`,
+				...memberIds,
+			);
+		}
 		return { threadId, markedRead: true };
 	}
 
@@ -743,6 +908,13 @@ export class MailboxDO extends DurableObject<Env> {
 		if (!folder || folder.is_deletable === 0) {
 			return false;
 		}
+		const hasEmails = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.folder_id, id))
+			.limit(1)
+			.get();
+		if (hasEmails) return false;
 
 		this.db
 			.delete(schema.folders)
@@ -767,6 +939,54 @@ export class MailboxDO extends DurableObject<Env> {
 			.where(eq(schema.emails.id, id))
 			.run();
 
+		return true;
+	}
+
+	async moveThread(threadId: string, folderId: string, sourceFolderId: string) {
+		const folder = this.db
+			.select({ id: schema.folders.id })
+			.from(schema.folders)
+			.where(eq(schema.folders.id, folderId))
+			.get();
+		if (!folder) return false;
+
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const legacyIds = target?.thread_id == null
+			? this.getLegacySubjectMessageIds(target?.subject, sourceFolderId, target ? [target.sender, target.recipient] : [])
+			: [];
+		const messages = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.thread_id, threadId))
+			.all();
+		const memberIds = [...new Set([
+			...messages.map((message) => message.id),
+			...legacyIds,
+			...(target?.thread_id == null && target?.folder_id === sourceFolderId ? [target.id] : []),
+		])];
+		if (!target && memberIds.length === 0) return false;
+
+		this.ctx.storage.transactionSync(() => {
+			if (memberIds.length > 0) {
+				const placeholders = memberIds.map((_, index) => `?${index + 3}`).join(",");
+				this.ctx.storage.sql.exec(
+					`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
+					folderId,
+					sourceFolderId,
+					...memberIds,
+				);
+				return;
+			}
+			this.db
+				.update(schema.emails)
+				.set({ folder_id: folderId })
+				.where(and(eq(schema.emails.id, threadId), eq(schema.emails.folder_id, sourceFolderId)))
+				.run();
+		});
 		return true;
 	}
 
@@ -828,6 +1048,7 @@ export class MailboxDO extends DurableObject<Env> {
 				e.envelope_recipient,
 				e.read, e.starred, e.in_reply_to, e.email_references,
 				e.thread_id, e.folder_id,
+				EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 				f.name as folder_name
 			FROM emails e
 			LEFT JOIN folders f ON e.folder_id = f.id
@@ -836,11 +1057,15 @@ export class MailboxDO extends DurableObject<Env> {
 		params.push(limit, offset);
 
 		const result = this.ctx.storage.sql.exec(query, ...params);
-		return [...result].map((row: any) => ({
+		const rows = [...result];
+		const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
+		return rows.map((row: any) => ({
 			...row,
+			tags: tagsByEmail[row.id] || [],
 			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
+			has_attachment: !!row.has_attachment,
 		}));
 	}
 
@@ -862,10 +1087,7 @@ export class MailboxDO extends DurableObject<Env> {
 	// ── Threading helpers (raw SQL) ────────────────────────────────
 
 	async findThreadBySubject(subject: string, senderAddress?: string): Promise<string | null> {
-		const normalized = subject
-			.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-			.trim()
-			.toLowerCase();
+		const normalized = normalizeSubject(subject);
 
 		if (!normalized) return null;
 
@@ -885,10 +1107,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const normalizedSender = senderAddress?.toLowerCase().trim();
 
 		for (const row of result) {
-			const rowSubject = String((row as any).subject || "")
-				.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-				.trim()
-				.toLowerCase();
+			const rowSubject = normalizeSubject((row as any).subject);
 			if (rowSubject !== normalized) continue;
 
 			if (normalizedSender) {

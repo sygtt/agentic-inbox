@@ -6,6 +6,21 @@ body {
   margin: 0;
 }
 
+.mobile-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.mobile-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-motion {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 /* TipTap list styles */
 .ProseMirror ul {
   list-style-type: disc;

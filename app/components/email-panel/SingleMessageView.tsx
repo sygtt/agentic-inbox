@@ -12,16 +12,18 @@ interface SingleMessageViewProps {
 	email: Email;
 	mailboxId?: string;
 	onPreviewImage: (url: string, filename: string) => void;
+	showHeader?: boolean;
 }
 
 export default function SingleMessageView({
 	email,
 	mailboxId,
 	onPreviewImage,
+	showHeader = true,
 }: SingleMessageViewProps) {
 	return (
 		<div className="flex flex-col h-full">
-			<div className="px-4 py-4 border-b border-kumo-line md:px-6">
+			{showHeader && <div className="px-4 py-4 border-b border-kumo-line md:px-6">
 				<div className="flex items-center justify-between gap-3">
 					<div className="flex items-center gap-2.5 min-w-0">
 						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-kumo-fill text-xs font-bold text-kumo-default">
@@ -41,7 +43,7 @@ export default function SingleMessageView({
 						{formatDetailDate(email.date)}
 					</span>
 				</div>
-			</div>
+			</div>}
 
 			<VerificationCodeAction
 				messageId={email.id}

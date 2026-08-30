@@ -42,6 +42,8 @@ export interface Email {
 	message_id?: string | null;
 	raw_headers?: string | null;
 	attachments?: Attachment[];
+	has_attachment?: boolean;
+	tags?: EmailTag[];
 	snippet?: string | null;
 	// Thread aggregate fields (only present in threaded list view)
 	thread_count?: number;
@@ -49,6 +51,11 @@ export interface Email {
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;
+}
+
+export interface EmailTag {
+	tag: string;
+	provenance: "manual" | "rule" | "agent" | string;
 }
 
 export interface Attachment {

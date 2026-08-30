@@ -154,6 +154,7 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const folder = c.req.query("folder");
 	const thread_id = c.req.query("thread_id");
 	const threaded = boolQuery(c, "threaded");
+	const needs_reply = boolQuery(c, "needs_reply");
 	const page = intQuery(c, "page");
 	const limit = intQuery(c, "limit");
 	const sortColumn = c.req.query("sortColumn") as any;
@@ -161,8 +162,8 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const stub = c.var.mailboxStub;
 
 	if (threaded && folder) {
-		const emails = await (stub as any).getThreadedEmails({ folder, page, limit });
-		const totalCount = await (stub as any).countThreadedEmails(folder);
+		const emails = await (stub as any).getThreadedEmails({ folder, page, limit, needs_reply });
+		const totalCount = await (stub as any).countThreadedEmails(folder, needs_reply);
 		return c.json({ emails, totalCount });
 	}
 	const emails = await stub.getEmails({ folder, thread_id, page, limit, sortColumn, sortDirection });
@@ -263,16 +264,24 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 	return success ? c.json({ status: "moved" }) : c.json({ error: "Folder not found" }, 400);
 });
 
+app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/move", async (c: AppContext) => {
+	const { folderId, sourceFolderId } = (await c.req.json()) as { folderId?: string; sourceFolderId?: string };
+	if (!folderId || !sourceFolderId) return c.json({ error: "Both source and destination folders are required" }, 400);
+	const success = await (c.var.mailboxStub as any).moveThread(c.req.param("threadId")!, folderId, sourceFolderId);
+	return success ? c.json({ status: "moved" }) : c.json({ error: "Thread or folder not found" }, 400);
+});
+
 registerEmailTagRoutes(app);
 
 // -- Threads --------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/threads/:threadId", async (c: AppContext) => {
-	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!));
+	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!, c.req.query("folder")));
 });
 
 app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/read", async (c: AppContext) => {
-	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!);
+	const body = await c.req.json().catch(() => ({})) as { folderId?: string };
+	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!, body.folderId);
 	return c.json({ status: "marked_read" });
 });
 

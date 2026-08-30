@@ -12,6 +12,7 @@ import { useUpdateEmail } from "~/queries/emails";
 import { useSearchEmails, SEARCH_PAGE_SIZE } from "~/queries/search";
 import { useUIStore } from "~/hooks/useUIStore";
 import type { Email } from "~/types";
+import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 
 function highlightTerms(text: string, query: string): React.ReactNode {
 	if (!query || !text) return text;
@@ -31,11 +32,12 @@ function highlightTerms(text: string, query: string): React.ReactNode {
 
 export default function SearchResultsRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
-	const [searchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
 	const { selectedEmailId, isComposing, selectEmail, closePanel } = useUIStore();
 	const updateEmail = useUpdateEmail();
 	const urlQuery = searchParams.get("q") || "";
+	const [mobileQuery, setMobileQuery] = useState(urlQuery);
 	const [page, setPage] = useState(1);
 	const searchKey = useMemo(
 		() => `${mailboxId ?? ""}::${urlQuery}`,
@@ -46,6 +48,7 @@ export default function SearchResultsRoute() {
 	const currentPage = searchChanged ? 1 : page;
 
 	useEffect(() => {
+		setMobileQuery(urlQuery);
 		if (!searchChanged) {
 			return;
 		}
@@ -53,9 +56,20 @@ export default function SearchResultsRoute() {
 		prevSearchKeyRef.current = searchKey;
 		setPage(1);
 		closePanel();
-	}, [closePanel, searchChanged, searchKey]);
+	}, [closePanel, searchChanged, searchKey, urlQuery]);
 
-	const { data: searchData, isLoading } = useSearchEmails(
+	const submitMobileSearch = (event: React.FormEvent) => {
+		event.preventDefault();
+		const query = mobileQuery.trim();
+		setSearchParams(query ? { q: query } : {});
+	};
+
+	const addMobileOperator = (operator: string) => {
+		if (mobileQuery.toLowerCase().includes(operator)) return;
+		setMobileQuery((current) => `${current} ${operator}`.trim());
+	};
+
+	const { data: searchData, isLoading, isError, refetch } = useSearchEmails(
 		mailboxId,
 		urlQuery,
 		currentPage,
@@ -73,12 +87,30 @@ export default function SearchResultsRoute() {
 			isComposing={isComposing}
 		>
 			<>
+				<div className="flex h-full flex-col bg-kumo-recessed md:hidden">
+					<div className="shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
+						<h1 className="text-xl font-semibold text-kumo-default">Search</h1>
+						<form onSubmit={submitMobileSearch} className="mt-3 flex items-center gap-2 rounded-xl border border-kumo-line bg-kumo-recessed px-3 py-2">
+							<MagnifyingGlassIcon size={18} className="shrink-0 text-kumo-subtle" />
+							<input value={mobileQuery} onChange={(event) => setMobileQuery(event.target.value)} placeholder="Search mail" aria-label="Search emails" className="min-w-0 flex-1 bg-transparent text-sm text-kumo-default outline-none placeholder:text-kumo-subtle" />
+							{mobileQuery && <button type="button" onClick={() => setMobileQuery("")} className="text-xs text-kumo-subtle" aria-label="Clear search">Clear</button>}
+						</form>
+						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+							{[["is:unread", "Unread"], ["is:starred", "Starred"], ["has:attachment", "Attachments"]].map(([operator, label]) => <button key={operator} type="button" onClick={() => addMobileOperator(operator)} className="shrink-0 rounded-full bg-kumo-fill px-3 py-1.5 text-xs text-kumo-subtle">{label}</button>)}
+						</div>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+						{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? <div className="px-6 py-20 text-center"><MagnifyingGlassIcon size={42} weight="thin" className="text-kumo-subtle" /><p className="mt-3 text-sm font-medium text-kumo-default">No results found</p><p className="mt-1 text-xs text-kumo-subtle">{urlQuery ? `Nothing matched "${urlQuery}".` : "Enter a search term to find emails."}</p></div> : results.map((email) => <MobileEmailRow key={email.id} email={email} swipeable={false} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onToggleRead={() => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } }); }} />)}
+					</div>
+					{totalCount > SEARCH_PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
+				</div>
+				<div className="hidden h-full flex-col md:flex">
 				<div className="flex items-center gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
 					<Tooltip content="Back to inbox" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={18} />} onClick={() => navigate(`/mailbox/${mailboxId}/emails/inbox`)} aria-label="Back to inbox" /></Tooltip>
 					<div className="min-w-0 flex-1"><h1 className="text-lg font-semibold text-kumo-default truncate">Search Results</h1>{!isLoading && <span className="text-sm text-kumo-subtle">{totalCount} result{totalCount !== 1 ? "s" : ""}{urlQuery ? ` for "${urlQuery}"` : ""}</span>}</div>
 				</div>
 				<div className="flex-1 overflow-y-auto">
-					{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : results.length === 0 ? (
+					{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-24 px-6 text-center">
 							<div className="mb-4"><MagnifyingGlassIcon size={48} weight="thin" className="text-kumo-subtle" /></div>
 							<h3 className="text-base font-semibold text-kumo-default mb-1.5">No results found</h3>
@@ -104,7 +136,12 @@ export default function SearchResultsRoute() {
 					)}
 				</div>
 				{totalCount > SEARCH_PAGE_SIZE && <div className="flex justify-center py-3 border-t border-kumo-line shrink-0"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
+				</div>
 			</>
 		</MailboxSplitView>
 	);
+}
+
+function SearchError({ onRetry }: { onRetry: () => void }) {
+	return <div className="flex flex-col items-center justify-center px-6 py-20 text-center"><p className="text-sm font-medium text-kumo-destructive">Could not load search results.</p><button type="button" onClick={onRetry} className="mt-3 rounded-lg border border-kumo-line px-3 py-1.5 text-xs text-kumo-default hover:bg-kumo-tint">Retry</button></div>;
 }

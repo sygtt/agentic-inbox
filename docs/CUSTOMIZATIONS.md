@@ -137,7 +137,7 @@ HTML and text-only content across list, agent, and reply paths.
 
 ### Why
 
-Issue #3 adds a deliberately small mobile workflow for checking incoming mail,
+Issues #3 and #17 add a deliberately small mobile workflow for checking incoming mail,
 copying verification codes, deleting messages from the list, and opening links
 without introducing a separate mobile client or new persistence.
 
@@ -149,6 +149,10 @@ without introducing a separate mobile client or new persistence.
 - Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
 - The web app declares a standalone manifest using the repository's generic favicon.
 - No service worker or offline mailbox support is added.
+- At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar and split view at `md` and above.
+- Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
+- Mobile detail reuses the existing thread, body, attachment, reply, move, star, delete, and structured tag/disposition flows; it does not add mock summaries, Snoozed, Mute, or Pin state.
+- Mobile folder management reads counts and custom folders from the existing folder API; non-empty custom folders cannot be deleted because folder deletion cascades to contained mail. Tag editing lazily reads the selected message's structured tags to avoid list-wide N+1 requests.
 
 ### Main affected areas
 
@@ -157,6 +161,10 @@ without introducing a separate mobile client or new persistence.
 - `app/components/VerificationCodeAction.tsx`
 - `app/components/EmailIframe.tsx`
 - `app/routes/email-list.tsx`
+- `app/routes/folders.tsx`
+- `app/routes/search-results.tsx`
+- `app/components/mobile/`
+- `app/lib/mobile-gestures.ts`
 - `app/root.tsx`
 - `public/manifest.webmanifest`
 
@@ -171,8 +179,10 @@ deletion reuses the existing email API and semantics.
 
 ### Upstream synchronization risk
 
-Low to medium. The email iframe and list route may change upstream, while the
-standalone helper and manifest are isolated additions.
+Medium. The shared mailbox shell, list/detail routes, and email APIs may change
+upstream. The mobile layer is intentionally isolated under
+`app/components/mobile/`, but route and mutation integration still needs review
+when synchronizing upstream.
 
 ### Removal / replacement condition
 
