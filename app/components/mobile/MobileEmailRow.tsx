@@ -93,6 +93,13 @@ export default function MobileEmailRow({
 		setOffset(0);
 	};
 
+	const onPointerCancel = () => {
+		clearLongPress();
+		start.current = null;
+		horizontal.current = false;
+		setOffset(0);
+	};
+
 	const copyCode = async (event: React.MouseEvent) => {
 		event.stopPropagation();
 		if (!navigator.clipboard?.writeText || !code) {
@@ -132,7 +139,7 @@ export default function MobileEmailRow({
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerEnd}
-				onPointerCancel={onPointerEnd}
+				onPointerCancel={onPointerCancel}
 				onContextMenu={(event) => {
 					event.preventDefault();
 					onLongPress?.();

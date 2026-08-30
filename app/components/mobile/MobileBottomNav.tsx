@@ -5,11 +5,13 @@
 import {
 	GearSixIcon,
 	MagnifyingGlassIcon,
+	PencilSimpleIcon,
 	TrayIcon,
 	FolderIcon,
 } from "@phosphor-icons/react";
 import { NavLink } from "react-router";
 import { Folders } from "shared/folders";
+import { useUIStore } from "~/hooks/useUIStore";
 import { useFolders } from "~/queries/folders";
 
 export default function MobileBottomNav({
@@ -20,6 +22,7 @@ export default function MobileBottomNav({
 	visible: boolean;
 }) {
 	const { data: folders = [] } = useFolders(mailboxId);
+	const { startCompose } = useUIStore();
 	if (!visible || !mailboxId) return null;
 
 	const inboxUnread = folders.find((folder) => folder.id === Folders.INBOX)?.unreadCount ?? 0;
@@ -31,7 +34,7 @@ export default function MobileBottomNav({
 	];
 
 	return (
-		<nav className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden" aria-label="Mailbox navigation">
+		<nav className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden" aria-label="Mailbox navigation">
 			{links.map(({ to, label, icon: Icon, end }) => (
 				<NavLink
 					key={to}
@@ -48,6 +51,14 @@ export default function MobileBottomNav({
 					)}
 				</NavLink>
 			))}
+			<button
+				type="button"
+				onClick={() => startCompose()}
+				className="relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
+			>
+				<PencilSimpleIcon size={21} weight="regular" />
+				<span>Compose</span>
+			</button>
 		</nav>
 	);
 }
