@@ -232,10 +232,10 @@ export default function EmailListRoute() {
 		prevFolderRef.current = `${mailboxId}/${folder}`;
 
 		if (folderChanged) {
-			closePanel();
+			if (!isComposing) closePanel();
 			setPage(1);
 		}
-	}, [mailboxId, folder, closePanel]);
+	}, [mailboxId, folder, isComposing, closePanel]);
 
 	const toggleStar = (e: React.MouseEvent, email: Email) => {
 		e.preventDefault();

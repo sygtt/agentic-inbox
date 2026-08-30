@@ -348,10 +348,10 @@ export class MailboxDO extends DurableObject<Env> {
 				FROM emails
 				WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 			),
-			thread_to_conversation AS (
+			thread_to_conversation_candidates AS (
 				SELECT
 					raw_thread_id,
-					normalized_subject,
+					thread_id,
 					CASE
 						WHEN thread_id IS NOT NULL THEN raw_thread_id
 						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
@@ -359,6 +359,13 @@ export class MailboxDO extends DurableObject<Env> {
 					END as conversation_id
 				FROM folder_emails
 				GROUP BY raw_thread_id, normalized_subject, thread_id
+			),
+			thread_to_conversation AS (
+				SELECT raw_thread_id,
+					CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+						THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+				FROM thread_to_conversation_candidates
+				GROUP BY raw_thread_id
 			),
 			all_emails_with_conversation AS (
 				SELECT
@@ -475,13 +482,20 @@ export class MailboxDO extends DurableObject<Env> {
 						FROM emails
 						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 					),
-					thread_to_conversation AS (
-						SELECT raw_thread_id,
+					thread_to_conversation_candidates AS (
+						SELECT raw_thread_id, thread_id,
 						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
 							ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
 								ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
 						FROM folder_emails
 						GROUP BY raw_thread_id, normalized_subject, thread_id
+					),
+					thread_to_conversation AS (
+						SELECT raw_thread_id,
+							CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+								THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+						FROM thread_to_conversation_candidates
+						GROUP BY raw_thread_id
 					)
 					SELECT COUNT(DISTINCT conversation_id) as total FROM thread_to_conversation`,
 					folder,
@@ -501,13 +515,20 @@ export class MailboxDO extends DurableObject<Env> {
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 				),
-				thread_to_conversation AS (
-					SELECT raw_thread_id, normalized_subject,
+				thread_to_conversation_candidates AS (
+					SELECT raw_thread_id, normalized_subject, thread_id,
 						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
 						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
 							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
 					FROM folder_emails
 					GROUP BY raw_thread_id, normalized_subject, thread_id
+				),
+				thread_to_conversation AS (
+					SELECT raw_thread_id,
+						CASE WHEN MAX(CASE WHEN thread_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+							THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
+					FROM thread_to_conversation_candidates
+					GROUP BY raw_thread_id
 				),
 				all_emails_with_conversation AS (
 					SELECT e.sender, e.read, e.folder_id, e.date,
