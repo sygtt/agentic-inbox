@@ -547,12 +547,31 @@ export class MailboxDO extends DurableObject<Env> {
 	 * N+1 individual getEmail calls.
 	 */
 	async getThreadEmails(threadId: string) {
-		const emailRows = [
+		let emailRows = [
 			...this.ctx.storage.sql.exec(
 				`SELECT * FROM emails WHERE thread_id = ?1 ORDER BY date ASC`,
 				threadId,
 			),
 		] as any[];
+
+		if (emailRows.length === 0) {
+			const target = this.db
+				.select({ thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
+				.from(schema.emails)
+				.where(eq(schema.emails.id, threadId))
+				.get();
+			const normalizedSubject = target?.subject
+				?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
+				.trim();
+			if (target && target.folder_id !== Folders.DRAFT && target.thread_id == null && normalizedSubject) {
+				emailRows = [
+					...this.ctx.storage.sql.exec(
+						`SELECT * FROM emails WHERE thread_id IS NULL AND ${NORMALIZED_SUBJECT_SQL} = (SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?) ORDER BY date ASC`,
+						threadId,
+					),
+				] as any[];
+			}
+		}
 
 		if (emailRows.length === 0) return [];
 
@@ -715,6 +734,9 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
+		const normalizedSubject = target?.subject
+			?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
+			.trim();
 		const messages = this.db
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
@@ -725,7 +747,7 @@ export class MailboxDO extends DurableObject<Env> {
 				`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
 				threadId,
 			);
-		} else if (target && target.thread_id == null && target.subject) {
+		} else if (target && target.thread_id == null && normalizedSubject) {
 			this.ctx.storage.sql.exec(
 				`UPDATE emails SET read = 1 WHERE thread_id IS NULL AND ${NORMALIZED_SUBJECT_SQL} = (SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?)`,
 				threadId,
@@ -869,6 +891,9 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
+		const normalizedSubject = target?.subject
+			?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
+			.trim();
 		const messages = this.db
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
@@ -885,7 +910,7 @@ export class MailboxDO extends DurableObject<Env> {
 					.run();
 				return;
 			}
-			if (target && target.thread_id == null && target.subject) {
+			if (target && target.thread_id == null && normalizedSubject) {
 				this.ctx.storage.sql.exec(
 					`UPDATE emails SET folder_id = ?1
 					 WHERE thread_id IS NULL

@@ -14,7 +14,7 @@ import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
-import { useDeleteEmail, useEmail, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
+import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
@@ -34,10 +34,11 @@ function EmailPanelSkeleton() {
 export default function EmailPanel({ emailId }: { emailId: string }) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
 	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
-	const { data: threadRepliesRaw } = useThreadReplies(mailboxId, email?.thread_id) as {
+	const { data: threadRepliesRaw } = useThreadReplies(mailboxId, email?.thread_id || email?.id) as {
 		data?: Email[];
 	};
 	const updateEmail = useUpdateEmail();
+	const markThreadRead = useMarkThreadRead();
 	const deleteEmailMut = useDeleteEmail();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
 	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
@@ -101,6 +102,14 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	if (!email) return <EmailPanelSkeleton />;
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
+	const handleToggleRead = () => {
+		if (!mailboxId) return;
+		if (allMessages.length > 1 && allMessages.some((message) => !message.read)) {
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
+			return;
+		}
+		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
+	};
 	const handleMove = async (folderId: string) => {
 		if (!mailboxId) return;
 		try {
@@ -199,7 +208,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					onBack={closePanel}
 					onArchive={handleArchive}
 					onMove={handleMove}
-					onToggleRead={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { read: !email.read } })}
+					onToggleRead={handleToggleRead}
 					onToggleStar={toggleStar}
 					onDelete={handleDelete}
 					onReply={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })}
@@ -231,15 +240,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				}
 				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
 				onToggleStar={toggleStar}
-				onToggleRead={() => {
-					if (mailboxId) {
-						updateEmail.mutate({
-							mailboxId,
-							id: email.id,
-							data: { read: !email.read },
-						});
-					}
-				}}
+				onToggleRead={handleToggleRead}
 				onMove={handleMove}
 				onViewSource={() => setSourceViewEmail(email)}
 				onDelete={handleDelete}

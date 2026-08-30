@@ -284,7 +284,7 @@ The first reference, `In-Reply-To`, or the new internal message ID is used as th
 
 For messages without threading headers, the mailbox Durable Object can fall back to subject/sender-based conversation discovery.
 
-Thread list queries contain additional subject-normalization fallback logic for legacy messages without explicit thread IDs. Thread-level read operations use the same fallback so a legacy subject-grouped conversation is handled as one conversation. Thread moves are scoped to the source folder, preserving Sent and Draft copies that share the same conversation.
+Thread list and detail queries contain additional subject-normalization fallback logic for legacy messages without explicit thread IDs. Thread-level read operations use the same fallback so a legacy subject-grouped conversation is handled as one conversation. Thread moves are scoped to the source folder, preserving Sent and Draft copies that share the same conversation.
 
 ## Outbound email flow
 
