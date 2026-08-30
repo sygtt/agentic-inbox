@@ -1042,22 +1042,26 @@ export class MailboxDO extends DurableObject<Env> {
 
 		this.ctx.storage.transactionSync(() => {
 			if (memberIds.length > 0) {
-				const placeholders = memberIds.map((_, index) => `?${index + 3}`).join(",");
-				if (preserveTrashTimestamp) {
-					this.ctx.storage.sql.exec(
-						`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
-						folder.id,
-						sourceFolderId,
-						...memberIds,
-					);
-				} else {
-					this.ctx.storage.sql.exec(
-						`UPDATE emails SET folder_id = ?1, trashed_at = ?${memberIds.length + 3} WHERE folder_id = ?2 AND id IN (${placeholders})`,
-						folder.id,
-						sourceFolderId,
-						...memberIds,
-						trashedAt,
-					);
+				const batchSize = preserveTrashTimestamp ? 98 : 97;
+				for (let start = 0; start < memberIds.length; start += batchSize) {
+					const batch = memberIds.slice(start, start + batchSize);
+					const placeholders = batch.map((_, index) => `?${index + 3}`).join(",");
+					if (preserveTrashTimestamp) {
+						this.ctx.storage.sql.exec(
+							`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
+							folder.id,
+							sourceFolderId,
+							...batch,
+						);
+					} else {
+						this.ctx.storage.sql.exec(
+							`UPDATE emails SET folder_id = ?1, trashed_at = ?${batch.length + 3} WHERE folder_id = ?2 AND id IN (${placeholders})`,
+							folder.id,
+							sourceFolderId,
+							...batch,
+							trashedAt,
+						);
+					}
 				}
 				return;
 			}
