@@ -1,6 +1,7 @@
 import { Folders } from "../../shared/folders.ts";
 
 export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const TRASH_PURGE_BATCH_SIZE = 98;
 
 export function canPermanentlyDelete(folderId: string): boolean {
 	return folderId === Folders.TRASH || folderId === Folders.DRAFT;

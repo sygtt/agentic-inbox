@@ -9,7 +9,7 @@ import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { MailboxRoutingError } from "./lib/mailbox-routing";
 import { listMailboxes } from "./lib/email-helpers";
-import { getTrashCutoff } from "./lib/trash";
+import { getTrashCutoff, TRASH_PURGE_BATCH_SIZE } from "./lib/trash";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
 
@@ -118,11 +118,15 @@ export default {
 		for (const mailbox of await listMailboxes(env.BUCKET)) {
 			try {
 				const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailbox.id));
-				await (stub as unknown as {
+				const mailboxStub = stub as unknown as {
 					purgeExpiredTrash: (expiration: string) => Promise<{
 						purgedCount: number;
 					}>;
-				}).purgeExpiredTrash(cutoff);
+				};
+				let purgedCount: number;
+				do {
+					purgedCount = (await mailboxStub.purgeExpiredTrash(cutoff)).purgedCount;
+				} while (purgedCount === TRASH_PURGE_BATCH_SIZE);
 			} catch (error) {
 				console.error("Failed to purge expired Trash emails for one mailbox:", (error as Error).message);
 			}
