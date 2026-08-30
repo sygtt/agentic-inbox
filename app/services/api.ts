@@ -125,10 +125,10 @@ const api = {
 		post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${id}/move`, { folderId }),
 	moveThread: (mailboxId: string, threadId: string, folderId: string, sourceFolderId: string) =>
 		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/move`, { folderId, sourceFolderId }),
-	getThread: (mailboxId: string, threadId: string, opts?: { signal?: AbortSignal }) =>
-		get<Email[]>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}`, { signal: opts?.signal }),
-	markThreadRead: (mailboxId: string, threadId: string) =>
-		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`),
+	getThread: (mailboxId: string, threadId: string, opts?: { signal?: AbortSignal; folderId?: string }) =>
+		get<Email[]>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}`, { signal: opts?.signal, params: opts?.folderId ? { folder: opts.folderId } : undefined }),
+	markThreadRead: (mailboxId: string, threadId: string, folderId?: string) =>
+		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`, folderId ? { folderId } : undefined),
 	getAttachment: (mailboxId: string, emailId: string, attachmentId: string) =>
 		get<Blob>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/attachments/${attachmentId}`, { responseType: "blob" }),
 	getEmailTags: (mailboxId: string, emailId: string) =>

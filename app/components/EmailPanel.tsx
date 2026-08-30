@@ -34,7 +34,7 @@ function EmailPanelSkeleton() {
 export default function EmailPanel({ emailId }: { emailId: string }) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
 	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
-	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id) as {
+	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id, folder || email?.folder_id) as {
 		data?: Email[];
 		isPending: boolean;
 		isError: boolean;
@@ -109,7 +109,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const handleToggleRead = () => {
 		if (!mailboxId || threadActionsDisabled) return;
 		if (!isThreadError && allMessages.length > 1 && allMessages.some((message) => !message.read)) {
-			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id, folderId: folder || email.folder_id || undefined });
 			return;
 		}
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });

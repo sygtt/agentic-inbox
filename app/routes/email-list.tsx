@@ -206,12 +206,12 @@ export default function EmailListRoute() {
 	const { data: needsReplyData } = useEmails(
 		mailboxId,
 		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
-		{ enabled: folder === Folders.INBOX },
+		{ enabled: folder === Folders.INBOX && isMobileViewport },
 	);
 	const { data: allFolderData } = useEmails(
 		mailboxId,
 		{ folder: folder || "", page: "1", limit: "1" },
-		{ enabled: !!folder },
+		{ enabled: !!folder && isMobileViewport },
 	);
 
 	const { data: folders = [] } = useFolders(mailboxId);
@@ -310,6 +310,7 @@ export default function EmailListRoute() {
 				markThreadRead.mutate({
 					mailboxId,
 					threadId: email.thread_id || email.id,
+					folderId: folder || email.folder_id || undefined,
 				});
 			} else {
 				updateEmail.mutate({
@@ -324,7 +325,7 @@ export default function EmailListRoute() {
 	const handleToggleRead = (email: Email) => {
 		if (!mailboxId) return;
 		if (hasUnread(email) && (email.thread_count ?? 1) > 1) {
-			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id, folderId: folder || email.folder_id || undefined });
 			return;
 		}
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });

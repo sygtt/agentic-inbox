@@ -133,17 +133,19 @@ export class MailboxDO extends DurableObject<Env> {
 		return createEmailSnippet(row?.body);
 	}
 
-	private getLegacySubjectMessageIds(subject: string | null | undefined, folderId?: string): string[] {
+	private getLegacySubjectMessageIds(subject: string | null | undefined, folderId?: string, participants: (string | null | undefined)[] = []): string[] {
 		const normalized = normalizeSubject(subject);
 		if (!normalized) return [];
+		const participantSet = new Set(participants.flatMap((value) => (value || "").split(",").map((part) => part.trim().toLowerCase())).filter(Boolean));
 		const rows = folderId
 			? [...this.ctx.storage.sql.exec(
-				`SELECT id, subject FROM emails WHERE thread_id IS NULL AND folder_id = ?`,
+				`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL AND folder_id = ?`,
 				folderId,
 			)]
-			: [...this.ctx.storage.sql.exec(`SELECT id, subject FROM emails WHERE thread_id IS NULL`)];
-		return (rows as { id: string; subject?: string | null }[])
+			: [...this.ctx.storage.sql.exec(`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL`)]
+		return (rows as { id: string; subject?: string | null; sender?: string | null; recipient?: string | null }[])
 			.filter((row) => normalizeSubject(row.subject) === normalized)
+			.filter((row) => participantSet.size === 0 || participantSet.size <= [...new Set(`${row.sender || ""},${row.recipient || ""}`.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean))].filter((part) => participantSet.has(part)).length)
 			.map((row) => row.id);
 	}
 
@@ -594,7 +596,7 @@ export class MailboxDO extends DurableObject<Env> {
 	 * two queries (one for emails, one for attachments) instead of
 	 * N+1 individual getEmail calls.
 	 */
-	async getThreadEmails(threadId: string) {
+	async getThreadEmails(threadId: string, folderId?: string) {
 		let emailRows = [
 			...this.ctx.storage.sql.exec(
 				`SELECT * FROM emails WHERE thread_id = ?1 ORDER BY date ASC`,
@@ -603,16 +605,17 @@ export class MailboxDO extends DurableObject<Env> {
 		] as any[];
 
 		const target = this.db
-			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
 		const legacyIds = target && target.folder_id !== Folders.DRAFT && target.thread_id == null
-			? this.getLegacySubjectMessageIds(target.subject)
+			? this.getLegacySubjectMessageIds(target.subject, folderId, [target.sender, target.recipient])
 			: [];
 		const threadEmailIds = [...new Set([
 			...emailRows.map((email) => email.id as string),
 			...legacyIds,
+			...(target && target.folder_id !== Folders.DRAFT && target.thread_id == null && (!folderId || target.folder_id === folderId) ? [target.id] : []),
 		])];
 		if (threadEmailIds.length > 0) {
 			const placeholders = threadEmailIds.map((_, index) => `?${index + 1}`).join(",");
@@ -779,14 +782,14 @@ export class MailboxDO extends DurableObject<Env> {
 		return { tag, provenance };
 	}
 
-	async markThreadRead(threadId: string) {
+	async markThreadRead(threadId: string, folderId?: string) {
 		const target = this.db
-			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject })
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
 		const legacyIds = target?.thread_id == null
-			? this.getLegacySubjectMessageIds(target?.subject)
+			? this.getLegacySubjectMessageIds(target?.subject, folderId, target ? [target.sender, target.recipient] : [])
 			: [];
 		const messages = this.db
 			.select({ id: schema.emails.id })
@@ -796,7 +799,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const memberIds = [...new Set([
 			...messages.map((message) => message.id),
 			...legacyIds,
-			...(target?.thread_id == null && target ? [target.id] : []),
+			...(target?.thread_id == null && target && (!folderId || target.folder_id === folderId) ? [target.id] : []),
 		])];
 		if (memberIds.length > 0) {
 			const placeholders = memberIds.map((_, index) => `?${index + 1}`).join(",");
@@ -939,12 +942,12 @@ export class MailboxDO extends DurableObject<Env> {
 		if (!folder) return false;
 
 		const target = this.db
-			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id, sender: schema.emails.sender, recipient: schema.emails.recipient })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
 		const legacyIds = target?.thread_id == null
-			? this.getLegacySubjectMessageIds(target?.subject, sourceFolderId)
+			? this.getLegacySubjectMessageIds(target?.subject, sourceFolderId, target ? [target.sender, target.recipient] : [])
 			: [];
 		const messages = this.db
 			.select({ id: schema.emails.id })

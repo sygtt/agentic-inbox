@@ -63,18 +63,19 @@ export function useEmail(
 export function useThreadReplies(
 	mailboxId: string | undefined,
 	threadId: string | undefined | null,
+	folderId?: string | null,
 ) {
 	const qc = useQueryClient();
 
 	return useQuery<Email[]>({
 		queryKey: mailboxId && threadId
-			? queryKeys.emails.thread(mailboxId, threadId)
+			? queryKeys.emails.thread(mailboxId, threadId, folderId || undefined)
 			: ["emails", "_disabled_thread"],
 		queryFn: async ({ signal }) => {
 			// Single request returns all thread emails with full bodies +
 			// attachments. Eliminates the previous N+1 pattern that fired
 			// a separate getEmail call per thread message.
-			const emails = await api.getThread(mailboxId!, threadId!, { signal }) as Email[];
+			const emails = await api.getThread(mailboxId!, threadId!, { signal, folderId: folderId || undefined }) as Email[];
 
 			// Populate individual email detail caches so clicking a thread
 			// message in the panel doesn't re-fetch.
@@ -194,8 +195,9 @@ export function useMarkThreadRead() {
 		mutationFn: ({
 			mailboxId,
 			threadId,
-		}: { mailboxId: string; threadId: string }) =>
-			api.markThreadRead(mailboxId, threadId),
+			folderId,
+		}: { mailboxId: string; threadId: string; folderId?: string }) =>
+			api.markThreadRead(mailboxId, threadId, folderId),
 		onSuccess: (_data, { mailboxId }) => {
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
 			qc.invalidateQueries({

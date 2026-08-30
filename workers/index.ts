@@ -276,11 +276,12 @@ registerEmailTagRoutes(app);
 // -- Threads --------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/threads/:threadId", async (c: AppContext) => {
-	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!));
+	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!, c.req.query("folder")));
 });
 
 app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/read", async (c: AppContext) => {
-	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!);
+	const body = await c.req.json().catch(() => ({})) as { folderId?: string };
+	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!, body.folderId);
 	return c.json({ status: "marked_read" });
 });
 
