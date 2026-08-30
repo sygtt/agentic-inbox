@@ -17,18 +17,58 @@ export default function MobileBottomSheet({
 }) {
 	const [offset, setOffset] = useState(0);
 	const startY = useRef<number | null>(null);
+	const dialogRef = useRef<HTMLElement>(null);
+	const previousFocusRef = useRef<HTMLElement | null>(null);
+	const onCloseRef = useRef(onClose);
+	const wasOpenRef = useRef(false);
+	useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			if (wasOpenRef.current && previousFocusRef.current?.isConnected) previousFocusRef.current.focus();
+			wasOpenRef.current = false;
+			previousFocusRef.current = null;
+			return;
+		}
+
+		wasOpenRef.current = true;
+		previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		const getFocusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])") || []).filter((element) => !element.hasAttribute("disabled"));
+		const frame = requestAnimationFrame(() => getFocusable()[0]?.focus());
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") onClose();
+			if (event.key === "Escape") {
+				onCloseRef.current();
+				return;
+			}
+			if (event.key !== "Tab") return;
+			const focusable = getFocusable();
+			if (focusable.length === 0) {
+				event.preventDefault();
+				return;
+			}
+			const active = document.activeElement;
+			if (!dialogRef.current?.contains(active) || (event.shiftKey && active === focusable[0])) {
+				event.preventDefault();
+				focusable[focusable.length - 1].focus();
+			} else if (!event.shiftKey && active === focusable[focusable.length - 1]) {
+				event.preventDefault();
+				focusable[0].focus();
+			}
 		};
 		document.addEventListener("keydown", onKeyDown);
-		return () => document.removeEventListener("keydown", onKeyDown);
-	}, [open, onClose]);
+		return () => {
+			cancelAnimationFrame(frame);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
 
 	if (!open) return null;
 	const finishDrag = () => {
 		if (offset > 80) onClose();
+		startY.current = null;
+		setOffset(0);
+	};
+	const cancelDrag = () => {
 		startY.current = null;
 		setOffset(0);
 	};
@@ -40,6 +80,7 @@ export default function MobileBottomSheet({
 			onClick={onClose}
 		>
 			<section
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="mobile-sheet-title"
@@ -57,7 +98,7 @@ export default function MobileBottomSheet({
 						if (startY.current !== null) setOffset(Math.max(0, Math.min(180, event.clientY - startY.current)));
 					}}
 					onPointerUp={finishDrag}
-					onPointerCancel={finishDrag}
+					onPointerCancel={cancelDrag}
 					aria-hidden="true"
 				/>
 				<div className="mb-3 flex items-center justify-between gap-3">

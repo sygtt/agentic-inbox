@@ -68,7 +68,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
 	const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 	const [previewImage, setPreviewImage] = useState<{ url: string; filename: string } | null>(null);
-	const isDraftFolder = folder === Folders.DRAFT;
+	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
 
 	const threadReplies = useMemo(() => {
 		if (!threadRepliesRaw || !email) return [];
