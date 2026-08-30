@@ -102,7 +102,7 @@ export default function SearchResultsRoute() {
 					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
 						{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? <div className="px-6 py-20 text-center"><MagnifyingGlassIcon size={42} weight="thin" className="text-kumo-subtle" /><p className="mt-3 text-sm font-medium text-kumo-default">No results found</p><p className="mt-1 text-xs text-kumo-subtle">{urlQuery ? `Nothing matched "${urlQuery}".` : "Enter a search term to find emails."}</p></div> : results.map((email) => <MobileEmailRow key={email.id} email={email} swipeable={false} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onToggleRead={() => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } }); }} />)}
 					</div>
-					{totalCount > SEARCH_PAGE_SIZE && <div className="flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
+					{totalCount > SEARCH_PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				<div className="flex items-center gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">

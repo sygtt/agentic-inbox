@@ -17,16 +17,22 @@ import { createEmailSnippet } from "../lib/email-content";
  * reply/forward prefixes (Re:, Fwd:, FW:, AW:, WG:, Réf:, SV:).
  * Used for conversation grouping. Hardcoded to the `subject` column.
  */
-const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
-	REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-		LOWER(COALESCE(subject, '')),
-		'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
-		're: ', ''), 'fwd: ', ''), 'fw: ', '')
-))`;
+const SUBJECT_PREFIXES = ["aw :", "aw:", "wg :", "wg:", "réf :", "réf:", "sv :", "sv:", "re :", "re:", "fwd :", "fwd:", "fw :", "fw:"];
+const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(${SUBJECT_PREFIXES.reduce(
+	(expression, prefix) => `REPLACE(${expression}, '${prefix}', '')`,
+	"LOWER(COALESCE(subject, ''))",
+)}))`;
+const PARTICIPANT_KEY_SQL = `CASE WHEN LOWER(TRIM(COALESCE(sender, ''))) <= LOWER(TRIM(COALESCE(recipient, '')))
+	THEN LOWER(TRIM(COALESCE(sender, ''))) || '|' || LOWER(TRIM(COALESCE(recipient, '')))
+	ELSE LOWER(TRIM(COALESCE(recipient, ''))) || '|' || LOWER(TRIM(COALESCE(sender, '')))
+END`;
+
+function participantKey(participants: (string | null | undefined)[]): string {
+	return participants.map((value) => (value || "").trim().toLowerCase()).sort().join("|");
+}
 
 function normalizeSubject(subject: string | null | undefined): string {
-	return ["aw: ", "wg: ", "réf: ", "sv: ", "re: ", "fwd: ", "fw: "]
-		.reduce((value, prefix) => value.replaceAll(prefix, ""), (subject || "").toLowerCase())
+	return SUBJECT_PREFIXES.reduce((value, prefix) => value.replaceAll(prefix, ""), (subject || "").toLowerCase())
 		.trim();
 }
 
@@ -136,7 +142,7 @@ export class MailboxDO extends DurableObject<Env> {
 	private getLegacySubjectMessageIds(subject: string | null | undefined, folderId?: string, participants: (string | null | undefined)[] = []): string[] {
 		const normalized = normalizeSubject(subject);
 		if (!normalized) return [];
-		const participantSet = new Set(participants.flatMap((value) => (value || "").split(",").map((part) => part.trim().toLowerCase())).filter(Boolean));
+		const targetParticipantKey = participants.length > 0 ? participantKey(participants) : null;
 		const rows = folderId
 			? [...this.ctx.storage.sql.exec(
 				`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL AND folder_id = ?`,
@@ -145,7 +151,7 @@ export class MailboxDO extends DurableObject<Env> {
 			: [...this.ctx.storage.sql.exec(`SELECT id, subject, sender, recipient FROM emails WHERE thread_id IS NULL`)]
 		return (rows as { id: string; subject?: string | null; sender?: string | null; recipient?: string | null }[])
 			.filter((row) => normalizeSubject(row.subject) === normalized)
-			.filter((row) => participantSet.size === 0 || participantSet.size <= [...new Set(`${row.sender || ""},${row.recipient || ""}`.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean))].filter((part) => participantSet.has(part)).length)
+			.filter((row) => targetParticipantKey === null || participantKey([row.sender, row.recipient]) === targetParticipantKey)
 			.map((row) => row.id);
 	}
 
@@ -346,7 +352,8 @@ export class MailboxDO extends DurableObject<Env> {
 				SELECT id, subject, sender, recipient, date, read, starred,
 					thread_id, folder_id, in_reply_to, email_references,
 					COALESCE(thread_id, id) as raw_thread_id,
-					${NORMALIZED_SUBJECT_SQL} as normalized_subject
+					${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+					${PARTICIPANT_KEY_SQL} as participant_key
 				FROM emails
 				WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 			),
@@ -357,10 +364,10 @@ export class MailboxDO extends DurableObject<Env> {
 					CASE
 						WHEN thread_id IS NOT NULL THEN raw_thread_id
 						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
-							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END
+							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END
 					END as conversation_id
 				FROM folder_emails
-				GROUP BY raw_thread_id, normalized_subject, thread_id
+				GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
 			),
 			thread_to_conversation AS (
 				SELECT raw_thread_id,
@@ -480,7 +487,8 @@ export class MailboxDO extends DurableObject<Env> {
 					`WITH
 					folder_emails AS (
 						SELECT COALESCE(thread_id, id) as raw_thread_id, thread_id,
-						${NORMALIZED_SUBJECT_SQL} as normalized_subject
+						${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+						${PARTICIPANT_KEY_SQL} as participant_key
 						FROM emails
 						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 					),
@@ -488,9 +496,9 @@ export class MailboxDO extends DurableObject<Env> {
 						SELECT raw_thread_id, thread_id,
 						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
 							ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
-								ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
+								ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END END as conversation_id
 						FROM folder_emails
-						GROUP BY raw_thread_id, normalized_subject, thread_id
+						GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
 					),
 					thread_to_conversation AS (
 						SELECT raw_thread_id,
@@ -513,17 +521,18 @@ export class MailboxDO extends DurableObject<Env> {
 					SELECT id, sender, read, folder_id, date,
 						COALESCE(thread_id, id) as raw_thread_id,
 						thread_id,
-					${NORMALIZED_SUBJECT_SQL} as normalized_subject
+					${NORMALIZED_SUBJECT_SQL} as normalized_subject,
+					${PARTICIPANT_KEY_SQL} as participant_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 				),
 				thread_to_conversation_candidates AS (
 					SELECT raw_thread_id, normalized_subject, thread_id,
-						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
-						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
-							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
-					FROM folder_emails
-					GROUP BY raw_thread_id, normalized_subject, thread_id
+					CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
+					ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject, participant_key) END END as conversation_id
+				FROM folder_emails
+				GROUP BY raw_thread_id, normalized_subject, participant_key, thread_id
 				),
 				thread_to_conversation AS (
 					SELECT raw_thread_id,
