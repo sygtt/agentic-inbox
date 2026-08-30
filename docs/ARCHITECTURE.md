@@ -238,7 +238,7 @@ Attachment metadata is stored in the mailbox SQLite database while the actual co
 
 Permanent email deletion removes its attachment blobs. Normal UI deletion moves the message to Trash and retains its SQLite metadata and R2 attachments. `DELETE /api/v1/.../emails/:id` is a guarded permanent primitive: only Trash and Draft messages can use it. Moving into Trash sets `trashed_at`; moving out clears it, and moving an already trashed message to Trash does not reset it.
 
-The Worker `scheduled()` handler runs daily from the configured Cron Trigger. It enumerates registered mailboxes from the R2 mailbox registry, asks each `MailboxDO` to purge current Trash rows with `trashed_at` at least 30 days old, and deletes the returned attachment objects from R2. A failure for one mailbox is logged without stopping the remaining mailboxes.
+The Worker `scheduled()` handler runs daily from the configured Cron Trigger. It enumerates registered mailboxes from the R2 mailbox registry and asks each `MailboxDO` to purge current Trash rows with `trashed_at` at least 30 days old. The DO deletes attachment objects from R2 before deleting their SQLite rows, so an R2 failure leaves retryable metadata for the next run. A failure for one mailbox is logged without stopping the remaining mailboxes.
 
 Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
 

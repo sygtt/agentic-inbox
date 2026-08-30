@@ -8,7 +8,6 @@ import { jwtVerify, createRemoteJWKSet } from "jose";
 import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { MailboxRoutingError } from "./lib/mailbox-routing";
-import { deleteAttachmentObjects } from "./lib/attachments";
 import { listMailboxes } from "./lib/email-helpers";
 import { getTrashCutoff } from "./lib/trash";
 import { EmailMCP } from "./mcp";
@@ -119,20 +118,11 @@ export default {
 		for (const mailbox of await listMailboxes(env.BUCKET)) {
 			try {
 				const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailbox.id));
-				const result = await (stub as unknown as {
+				await (stub as unknown as {
 					purgeExpiredTrash: (expiration: string) => Promise<{
-						attachments: { email_id: string; id: string; filename: string }[];
+						purgedCount: number;
 					}>;
 				}).purgeExpiredTrash(cutoff);
-				const byEmail = new Map<string, { id: string; filename: string }[]>();
-				for (const attachment of result.attachments) {
-					const current = byEmail.get(attachment.email_id) || [];
-					current.push(attachment);
-					byEmail.set(attachment.email_id, current);
-				}
-				for (const [emailId, attachments] of byEmail) {
-					await deleteAttachmentObjects(env.BUCKET, emailId, attachments);
-				}
 			} catch (error) {
 				console.error("Failed to purge expired Trash emails for one mailbox:", (error as Error).message);
 			}

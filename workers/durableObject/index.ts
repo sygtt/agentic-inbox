@@ -850,26 +850,44 @@ export class MailboxDO extends DurableObject<Env> {
 	}
 
 	async purgeExpiredTrash(cutoff: string) {
+		const expired = [...this.ctx.storage.sql.exec(
+			`SELECT id FROM emails
+			 WHERE folder_id = ?1 AND trashed_at IS NOT NULL AND trashed_at <= ?2`,
+			Folders.TRASH,
+			cutoff,
+		)] as { id: string }[];
+		if (expired.length === 0) return { purgedCount: 0 };
+
+		const ids = expired.map((email) => email.id);
+		const placeholders = ids.map((_, index) => `?${index + 1}`).join(",");
+		const scopedPlaceholders = ids.map((_, index) => `?${index + 3}`).join(",");
+		const attachments = [...this.ctx.storage.sql.exec(
+			`SELECT email_id, id, filename FROM attachments WHERE email_id IN (${placeholders})`,
+			...ids,
+		)] as { email_id: string; id: string; filename: string }[];
+		if (attachments.length > 0) {
+			await this.env.BUCKET.delete(attachments.map((attachment) =>
+				`attachments/${attachment.email_id}/${attachment.id}/${attachment.filename}`,
+			));
+		}
+
 		return this.ctx.storage.transactionSync(() => {
-			const expired = [...this.ctx.storage.sql.exec(
+			const stillExpired = [...this.ctx.storage.sql.exec(
 				`SELECT id FROM emails
-				 WHERE folder_id = ?1 AND trashed_at IS NOT NULL AND trashed_at <= ?2`,
+				 WHERE folder_id = ?1 AND trashed_at IS NOT NULL AND trashed_at <= ?2
+				   AND id IN (${scopedPlaceholders})`,
 				Folders.TRASH,
 				cutoff,
+				...ids,
 			)] as { id: string }[];
-			if (expired.length === 0) return { purgedCount: 0, attachments: [] };
-
-			const ids = expired.map((email) => email.id);
-			const placeholders = ids.map((_, index) => `?${index + 1}`).join(",");
-			const attachments = [...this.ctx.storage.sql.exec(
-				`SELECT email_id, id, filename FROM attachments WHERE email_id IN (${placeholders})`,
-				...ids,
-			)] as { email_id: string; id: string; filename: string }[];
+			if (stillExpired.length === 0) return { purgedCount: 0 };
+			const currentIds = stillExpired.map((email) => email.id);
+			const currentPlaceholders = currentIds.map((_, index) => `?${index + 1}`).join(",");
 			this.ctx.storage.sql.exec(
-				`DELETE FROM emails WHERE id IN (${placeholders})`,
-				...ids,
+				`DELETE FROM emails WHERE id IN (${currentPlaceholders})`,
+				...currentIds,
 			);
-			return { purgedCount: ids.length, attachments };
+			return { purgedCount: currentIds.length };
 		});
 	}
 
