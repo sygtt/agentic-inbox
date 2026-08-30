@@ -61,7 +61,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	} = useUIStore();
 	const isSendingEmail = isDraftSending || isSendingMutation;
 	const isDeletionBlocked = isDeleting || isSavingDraft || isSendingEmail;
-	const threadActionsDisabled = isThreadPending || isThreadError;
+	// A failed thread fetch must not block safe single-message actions.
+	const threadActionsDisabled = isThreadPending;
 	const toastManager = useKumoToastManager();
 	const [isSending, setIsSending] = useState(false);
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
@@ -107,7 +108,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleToggleRead = () => {
 		if (!mailboxId || threadActionsDisabled) return;
-		if (allMessages.length > 1 && allMessages.some((message) => !message.read)) {
+		if (!isThreadError && allMessages.length > 1 && allMessages.some((message) => !message.read)) {
 			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
 			return;
 		}
@@ -117,7 +118,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		if (!mailboxId || threadActionsDisabled) return;
 		try {
 			const sourceFolderId = folder || email.folder_id;
-			if (!isDraftFolder && allMessages.length > 1 && sourceFolderId) {
+			if (!isThreadError && !isDraftFolder && allMessages.length > 1 && sourceFolderId) {
 				await moveThreadMut.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId, sourceFolderId });
 			} else {
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
