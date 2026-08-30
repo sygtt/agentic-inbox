@@ -69,7 +69,7 @@ export default function SearchResultsRoute() {
 		setMobileQuery((current) => `${current} ${operator}`.trim());
 	};
 
-	const { data: searchData, isLoading } = useSearchEmails(
+	const { data: searchData, isLoading, isError, refetch } = useSearchEmails(
 		mailboxId,
 		urlQuery,
 		currentPage,
@@ -100,7 +100,7 @@ export default function SearchResultsRoute() {
 						</div>
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
-						{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : results.length === 0 ? <div className="px-6 py-20 text-center"><MagnifyingGlassIcon size={42} weight="thin" className="text-kumo-subtle" /><p className="mt-3 text-sm font-medium text-kumo-default">No results found</p><p className="mt-1 text-xs text-kumo-subtle">{urlQuery ? `Nothing matched "${urlQuery}".` : "Enter a search term to find emails."}</p></div> : results.map((email) => <MobileEmailRow key={email.id} email={email} swipeable={false} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onToggleRead={() => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } }); }} />)}
+						{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? <div className="px-6 py-20 text-center"><MagnifyingGlassIcon size={42} weight="thin" className="text-kumo-subtle" /><p className="mt-3 text-sm font-medium text-kumo-default">No results found</p><p className="mt-1 text-xs text-kumo-subtle">{urlQuery ? `Nothing matched "${urlQuery}".` : "Enter a search term to find emails."}</p></div> : results.map((email) => <MobileEmailRow key={email.id} email={email} swipeable={false} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onToggleRead={() => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } }); }} />)}
 					</div>
 					{totalCount > SEARCH_PAGE_SIZE && <div className="flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
@@ -110,7 +110,7 @@ export default function SearchResultsRoute() {
 					<div className="min-w-0 flex-1"><h1 className="text-lg font-semibold text-kumo-default truncate">Search Results</h1>{!isLoading && <span className="text-sm text-kumo-subtle">{totalCount} result{totalCount !== 1 ? "s" : ""}{urlQuery ? ` for "${urlQuery}"` : ""}</span>}</div>
 				</div>
 				<div className="flex-1 overflow-y-auto">
-					{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : results.length === 0 ? (
+					{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-24 px-6 text-center">
 							<div className="mb-4"><MagnifyingGlassIcon size={48} weight="thin" className="text-kumo-subtle" /></div>
 							<h3 className="text-base font-semibold text-kumo-default mb-1.5">No results found</h3>
@@ -140,4 +140,8 @@ export default function SearchResultsRoute() {
 			</>
 		</MailboxSplitView>
 	);
+}
+
+function SearchError({ onRetry }: { onRetry: () => void }) {
+	return <div className="flex flex-col items-center justify-center px-6 py-20 text-center"><p className="text-sm font-medium text-kumo-destructive">Could not load search results.</p><button type="button" onClick={onRetry} className="mt-3 rounded-lg border border-kumo-line px-3 py-1.5 text-xs text-kumo-default hover:bg-kumo-tint">Retry</button></div>;
 }

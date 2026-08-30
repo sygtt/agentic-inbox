@@ -28,6 +28,7 @@ import {
 	useEmails,
 	useMarkThreadRead,
 	useMoveEmail,
+	useMoveThread,
 	useUpdateEmail,
 } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
@@ -169,6 +170,7 @@ export default function EmailListRoute() {
 	const markThreadRead = useMarkThreadRead();
 	const deleteEmail = useDeleteEmail();
 	const moveEmail = useMoveEmail();
+	const moveThread = useMoveThread();
 	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
@@ -179,8 +181,9 @@ export default function EmailListRoute() {
 			folder: folder || "",
 			page: String(page),
 			limit: String(PAGE_SIZE),
+			...(mobileFilter === "needs" ? { needs_reply: "true" } : {}),
 		}),
-		[folder, page],
+		[folder, mobileFilter, page],
 	);
 
 	const {
@@ -191,6 +194,11 @@ export default function EmailListRoute() {
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
+	const { data: needsReplyData } = useEmails(
+		mailboxId,
+		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
+		{ enabled: folder === Folders.INBOX },
+	);
 
 	const { data: folders = [] } = useFolders(mailboxId);
 
@@ -247,15 +255,21 @@ export default function EmailListRoute() {
 		await deleteById(emailId);
 	};
 
-	const handleArchive = async (email: Email) => {
-		if (!mailboxId || moveEmail.isPending) return;
+	const handleMoveToFolder = async (email: Email, folderId: string) => {
+		if (!mailboxId || moveEmail.isPending || moveThread.isPending) return;
 		try {
-			await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId: Folders.ARCHIVE });
-			toastManager.add({ title: "Email archived" });
+			if ((email.thread_count ?? 1) > 1) {
+				await moveThread.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId });
+			} else {
+				await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId });
+			}
+			toastManager.add({ title: folderId === Folders.ARCHIVE ? "Email archived" : "Email moved" });
 		} catch {
-			toastManager.add({ title: "Failed to archive email", variant: "error" });
+			toastManager.add({ title: "Failed to move email", variant: "error" });
 		}
 	};
+
+	const handleArchive = (email: Email) => handleMoveToFolder(email, Folders.ARCHIVE);
 
 	const handleRefresh = () => {
 		if (mailboxId) {
@@ -294,7 +308,7 @@ export default function EmailListRoute() {
 
 	const handleToggleRead = (email: Email) => {
 		if (!mailboxId) return;
-		if (!email.read && email.thread_id && (email.thread_count ?? 1) > 1) {
+		if (hasUnread(email) && email.thread_id && (email.thread_count ?? 1) > 1) {
 			markThreadRead.mutate({ mailboxId, threadId: email.thread_id });
 			return;
 		}
@@ -313,10 +327,8 @@ export default function EmailListRoute() {
 		return email.sender.split("@")[0];
 	};
 
-	const needsReplyCount = emails.filter((email) => email.needs_reply).length;
-	const mobileEmails = mobileFilter === "needs"
-		? emails.filter((email) => email.needs_reply)
-		: emails;
+	const needsReplyCount = needsReplyData?.totalCount ?? 0;
+	const mobileEmails = emails;
 
 	return (
 		<MailboxSplitView
@@ -537,7 +549,7 @@ export default function EmailListRoute() {
 					isArchived={folder === Folders.ARCHIVE}
 					onClose={() => setQuickActionEmail(null)}
 					onArchive={() => { if (quickActionEmail) void handleArchive(quickActionEmail); setQuickActionEmail(null); }}
-					onMoveToInbox={() => { if (quickActionEmail && mailboxId) { void moveEmail.mutateAsync({ mailboxId, id: quickActionEmail.id, folderId: Folders.INBOX }).catch(() => toastManager.add({ title: "Failed to move email", variant: "error" })); } setQuickActionEmail(null); }}
+					onMoveToInbox={() => { if (quickActionEmail) void handleMoveToFolder(quickActionEmail, Folders.INBOX); setQuickActionEmail(null); }}
 					onToggleRead={() => { if (quickActionEmail) handleToggleRead(quickActionEmail); setQuickActionEmail(null); }}
 					onToggleStar={() => { if (quickActionEmail && mailboxId) updateEmail.mutate({ mailboxId, id: quickActionEmail.id, data: { starred: !quickActionEmail.starred } }); setQuickActionEmail(null); }}
 					onOpenTags={() => { setTagsEmail(quickActionEmail); setQuickActionEmail(null); }}

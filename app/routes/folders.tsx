@@ -71,7 +71,7 @@ export default function FoldersRoute() {
 	};
 
 	return (
-		<div className="h-full overflow-y-auto bg-kumo-recessed px-4 pb-24 pt-4 md:hidden">
+		<div className="h-full max-w-2xl overflow-y-auto bg-kumo-recessed px-4 pb-24 pt-4 md:bg-kumo-base md:px-8 md:py-6">
 			<div className="mb-5">
 				<h1 className="text-xl font-semibold text-kumo-default">Folders</h1>
 				<p className="mt-1 text-sm text-kumo-subtle">Your mailbox, organized.</p>

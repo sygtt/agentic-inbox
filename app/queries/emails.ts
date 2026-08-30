@@ -231,6 +231,15 @@ export function useMoveEmail() {
 	});
 }
 
+export function useMoveThread() {
+	const invalidate = useInvalidateEmailData();
+	return useMutation({
+		mutationFn: ({ mailboxId, threadId, folderId }: { mailboxId: string; threadId: string; folderId: string }) =>
+			api.moveThread(mailboxId, threadId, folderId),
+		onSuccess: (_data, { mailboxId }) => invalidate(mailboxId),
+	});
+}
+
 export function useSaveDraft() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({

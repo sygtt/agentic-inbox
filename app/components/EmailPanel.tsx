@@ -14,7 +14,7 @@ import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
-import { useDeleteEmail, useEmail, useMoveEmail, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
+import { useDeleteEmail, useEmail, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
@@ -43,6 +43,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const moveEmailMut = useMoveEmail();
+	const moveThreadMut = useMoveThread();
 	const sendEmailMut = useSendEmail();
 	const replyMut = useReplyToEmail();
 	const { data: folders = [] } = useFolders(mailboxId) as { data?: Folder[] };
@@ -103,7 +104,11 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const handleMove = async (folderId: string) => {
 		if (!mailboxId) return;
 		try {
-			await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
+			if (allMessages.length > 1) {
+				await moveThreadMut.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId });
+			} else {
+				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
+			}
 			closePanel();
 		} catch {
 			toastManager.add({ title: "Failed to move email", variant: "error" });

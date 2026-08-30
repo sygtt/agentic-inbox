@@ -66,6 +66,7 @@ interface SearchFilterOptions {
 interface GetEmailsOptions {
 	folder?: string;
 	thread_id?: string;
+	needs_reply?: boolean;
 	page?: number;
 	limit?: number;
 	sortColumn?: SortColumn;
@@ -231,6 +232,7 @@ export class MailboxDO extends DurableObject<Env> {
 	async getThreadedEmails(options: GetEmailsOptions = {}) {
 		const {
 			folder,
+			needs_reply = false,
 			page = 1,
 			limit: rawLimit = 25,
 		} = options;
@@ -253,6 +255,7 @@ export class MailboxDO extends DurableObject<Env> {
 		//   2. Fallback: group by normalized subject (strips Re:/Fwd:/FW: prefixes)
 		//      for legacy emails that lack threading headers (thread_id IS NULL).
 		const isDraftFolder = folder === Folders.DRAFT;
+		if (isDraftFolder && needs_reply) return [];
 
 		if (isDraftFolder) {
 			const result = this.ctx.storage.sql.exec(
@@ -386,9 +389,12 @@ export class MailboxDO extends DurableObject<Env> {
 			LEFT JOIN latest_message_per_conversation lmc
 				ON lmc.conversation_id = lif.conversation_id AND lmc.rn = 1
 			WHERE lif.rn = 1
+				AND (?4 = 0 OR (CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
+					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
+					AND cs.thread_read_count > 0 THEN 1 ELSE 0 END) = 1)
 			ORDER BY lif.date DESC
 			LIMIT ?2 OFFSET ?3`,
-			folder, limit, offset
+			folder, limit, offset, needs_reply ? 1 : 0
 		);
 
 		const rows = [...result];
@@ -409,8 +415,9 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Count threaded conversations in a folder (for pagination).
 	 * Returns the number of conversation groups, not individual emails.
 	 */
-	async countThreadedEmails(folder: string) {
+	async countThreadedEmails(folder: string, needs_reply = false) {
 		const isDraftFolder = folder === Folders.DRAFT;
+		if (isDraftFolder && needs_reply) return 0;
 
 		if (isDraftFolder) {
 			const row = [
@@ -424,11 +431,35 @@ export class MailboxDO extends DurableObject<Env> {
 			return row?.total ?? 0;
 		}
 
+		if (!needs_reply) {
+			const row = [
+				...this.ctx.storage.sql.exec(
+					`WITH
+					folder_emails AS (
+						SELECT COALESCE(thread_id, id) as raw_thread_id, thread_id,
+						${NORMALIZED_SUBJECT_SQL} as normalized_subject
+						FROM emails
+						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+					),
+					thread_to_conversation AS (
+						SELECT raw_thread_id,
+						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
+							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END as conversation_id
+						FROM folder_emails
+						GROUP BY raw_thread_id, normalized_subject, thread_id
+					)
+					SELECT COUNT(DISTINCT conversation_id) as total FROM thread_to_conversation`,
+					folder,
+				),
+			][0] as { total: number } | undefined;
+			return row?.total ?? 0;
+		}
+
 		const row = [
 			...this.ctx.storage.sql.exec(
 				`WITH
 				folder_emails AS (
-					SELECT
+					SELECT id, sender, read, folder_id, date,
 						COALESCE(thread_id, id) as raw_thread_id,
 						thread_id,
 					${NORMALIZED_SUBJECT_SQL} as normalized_subject
@@ -436,18 +467,40 @@ export class MailboxDO extends DurableObject<Env> {
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
 				),
 				thread_to_conversation AS (
-					SELECT
-						raw_thread_id,
-						CASE
-							WHEN thread_id IS NOT NULL THEN raw_thread_id
-							WHEN normalized_subject != '' THEN MIN(raw_thread_id) OVER (PARTITION BY normalized_subject)
-							ELSE raw_thread_id
-						END as conversation_id
+					SELECT raw_thread_id, normalized_subject,
+						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
+						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END as conversation_id
 					FROM folder_emails
 					GROUP BY raw_thread_id, normalized_subject, thread_id
+				),
+				all_emails_with_conversation AS (
+					SELECT e.sender, e.read, e.folder_id, e.date,
+						COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
+					FROM emails e
+					LEFT JOIN thread_to_conversation tc ON COALESCE(e.thread_id, e.id) = tc.raw_thread_id
+				),
+				conversation_stats AS (
+					SELECT conversation_id,
+						SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count
+					FROM all_emails_with_conversation
+					WHERE conversation_id IN (
+						SELECT DISTINCT conversation_id FROM all_emails_with_conversation
+						WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+					)
+					GROUP BY conversation_id
+				),
+				latest_message_per_conversation AS (
+					SELECT conversation_id, folder_id,
+						ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY date DESC) as rn
+					FROM all_emails_with_conversation
 				)
-				SELECT COUNT(DISTINCT conversation_id) as total
-				FROM thread_to_conversation`,
+				SELECT COUNT(*) as total
+				FROM conversation_stats cs
+				JOIN latest_message_per_conversation lmc
+					ON lmc.conversation_id = cs.conversation_id AND lmc.rn = 1
+				WHERE lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
+					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
+					AND cs.thread_read_count > 0`,
 				folder,
 			),
 		][0] as { total: number } | undefined;
@@ -767,6 +820,55 @@ export class MailboxDO extends DurableObject<Env> {
 			.where(eq(schema.emails.id, id))
 			.run();
 
+		return true;
+	}
+
+	async moveThread(threadId: string, folderId: string) {
+		const folder = this.db
+			.select({ id: schema.folders.id })
+			.from(schema.folders)
+			.where(eq(schema.folders.id, folderId))
+			.get();
+		if (!folder) return false;
+
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const messages = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.thread_id, threadId))
+			.all();
+		if (!target && messages.length === 0) return false;
+
+		this.ctx.storage.transactionSync(() => {
+			if (messages.length > 0) {
+				this.db
+					.update(schema.emails)
+					.set({ folder_id: folderId })
+					.where(eq(schema.emails.thread_id, threadId))
+					.run();
+				return;
+			}
+			if (target && target.thread_id == null && target.subject) {
+				this.ctx.storage.sql.exec(
+					`UPDATE emails SET folder_id = ?1
+					 WHERE thread_id IS NULL
+					 AND ${NORMALIZED_SUBJECT_SQL} =
+						(SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?2)`,
+					folderId,
+					threadId,
+				);
+				return;
+			}
+			this.db
+				.update(schema.emails)
+				.set({ folder_id: folderId })
+				.where(eq(schema.emails.id, threadId))
+				.run();
+		});
 		return true;
 	}
 
