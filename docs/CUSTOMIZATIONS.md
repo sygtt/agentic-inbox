@@ -143,7 +143,7 @@ without introducing a separate mobile client or new persistence.
 
 ### Behavior
 
-- Contextual 4–8 digit verification codes are shown with a Clipboard API copy action.
+- Contextual 4–8 digit verification codes are shown in a medium-sized mobile action with a Clipboard API copy action.
 - Plain-text `http`/`https` URLs are converted to links after escaping the input.
 - Existing HTML mail continues through the sandboxed DOMPurify iframe path.
 - Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.

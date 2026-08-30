@@ -164,7 +164,21 @@ export default function MobileEmailRow({
 						{email.has_draft && <span className="rounded bg-kumo-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-warning">Draft</span>}
 						{email.needs_reply && <span className="rounded bg-kumo-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-brand">Needs reply</span>}
 						{email.tags?.filter((tag: EmailTag) => !tag.tag.startsWith("disposition:")) .slice(0, 3).map((tag: EmailTag) => <span key={tag.tag} className="rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] text-kumo-subtle">{tag.tag}</span>)}
-						{code && <button type="button" onClick={copyCode} className="inline-flex items-center gap-1 rounded-full bg-kumo-brand/10 px-2 py-0.5 text-[10px] font-semibold text-kumo-brand" aria-label={`Copy verification code ${code}`}><span>{code}</span>{copyState === "copied" ? <><CheckIcon size={12} /><span>Copied</span></> : copyState === "failed" ? <WarningCircleIcon size={12} /> : <CopyIcon size={12} />}</button>}
+						{code && (
+							<button
+								type="button"
+								onClick={copyCode}
+								className="inline-flex min-h-12 max-w-full min-w-0 flex-wrap items-center gap-2 rounded-xl border border-kumo-brand/20 bg-kumo-brand/10 px-3 py-2 text-kumo-brand"
+								aria-label={`Copy verification code ${code}`}
+							>
+								<code className="min-w-0 max-w-full break-all text-2xl font-bold leading-none tracking-[0.18em]">
+									{code}
+								</code>
+								<span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold">
+									{copyState === "copied" ? <><CheckIcon size={16} /><span>Copied</span></> : copyState === "failed" ? <WarningCircleIcon size={16} /> : <CopyIcon size={16} />}
+								</span>
+							</button>
+						)}
 					</div>
 					{copyState === "failed" && <span role="status" className="text-[10px] text-kumo-destructive">Copy unavailable</span>}
 				</div>
