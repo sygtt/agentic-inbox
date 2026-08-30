@@ -17,18 +17,21 @@ function ActionButton({
 	label,
 	icon,
 	onClick,
+	disabled = false,
 	danger = false,
 }: {
 	label: string;
 	icon: React.ReactNode;
 	onClick: () => void;
+	disabled?: boolean;
 	danger?: boolean;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-kumo-tint ${danger ? "text-kumo-destructive" : "text-kumo-default"}`}
+			disabled={disabled}
+			className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-kumo-tint disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "text-kumo-destructive" : "text-kumo-default"}`}
 		>
 			{icon}
 			{label}
@@ -39,7 +42,9 @@ function ActionButton({
 export default function MobileQuickActions({
 	open,
 	email,
+	unread: unreadOverride,
 	isArchived,
+	threadActionsDisabled = false,
 	onClose,
 	onArchive,
 	onMoveToInbox,
@@ -49,8 +54,10 @@ export default function MobileQuickActions({
 	onDelete,
 }: {
 	open: boolean;
-	email: { read: boolean; starred: boolean };
+	email: { read: boolean; starred: boolean; thread_unread_count?: number };
+	unread?: boolean;
 	isArchived: boolean;
+	threadActionsDisabled?: boolean;
 	onClose: () => void;
 	onArchive: () => void;
 	onMoveToInbox: () => void;
@@ -59,6 +66,7 @@ export default function MobileQuickActions({
 	onOpenTags: () => void;
 	onDelete: () => void;
 }) {
+	const unread = unreadOverride ?? (email.thread_unread_count !== undefined ? email.thread_unread_count > 0 : !email.read);
 	return (
 		<MobileBottomSheet open={open} title="Quick actions" onClose={onClose}>
 			<div className="space-y-1">
@@ -66,11 +74,13 @@ export default function MobileQuickActions({
 					label={isArchived ? "Move to Inbox" : "Archive"}
 					icon={isArchived ? <FolderSimpleIcon size={20} /> : <ArchiveIcon size={20} />}
 					onClick={isArchived ? onMoveToInbox : onArchive}
+					disabled={threadActionsDisabled}
 				/>
 				<ActionButton
-					label={email.read ? "Mark unread" : "Mark read"}
-					icon={email.read ? <EnvelopeSimpleIcon size={20} /> : <EnvelopeOpenIcon size={20} />}
+					label={unread ? "Mark read" : "Mark unread"}
+					icon={unread ? <EnvelopeOpenIcon size={20} /> : <EnvelopeSimpleIcon size={20} />}
 					onClick={() => { onToggleRead(); onClose(); }}
+					disabled={threadActionsDisabled}
 				/>
 				<ActionButton
 					label={email.starred ? "Remove star" : "Star"}

@@ -32,6 +32,7 @@ export default function MobileEmailDetail({
 	isDraftFolder,
 	isDeleting,
 	isSending,
+	threadActionsDisabled,
 	expandedMessages,
 	onToggleExpand,
 	onBack,
@@ -55,6 +56,7 @@ export default function MobileEmailDetail({
 	isDraftFolder: boolean;
 	isDeleting: boolean;
 	isSending: boolean;
+	threadActionsDisabled: boolean;
 	expandedMessages: Set<string>;
 	onToggleExpand: (id: string) => void;
 	onBack: () => void;
@@ -80,7 +82,7 @@ export default function MobileEmailDetail({
 			<div className="flex shrink-0 items-center gap-1 border-b border-kumo-line px-3 py-2">
 				<Button variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={19} />} onClick={onBack} aria-label="Back to list" />
 				<div className="min-w-0 flex-1" />
-				<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={18} />} onClick={onArchive} disabled={isDeleting} aria-label={isArchived ? "Move to inbox" : "Archive"} />
+				<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={18} />} onClick={onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isArchived ? "Move to inbox" : "Archive"} />
 				<Button variant="ghost" shape="square" size="sm" icon={<DotsThreeIcon size={21} />} onClick={() => setQuickActionsOpen(true)} aria-label="More actions" />
 			</div>
 
@@ -118,7 +120,7 @@ export default function MobileEmailDetail({
 				<Button variant="ghost" shape="square" icon={<StarIcon size={19} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-label={email.starred ? "Unstar" : "Star"} />
 			</div>
 
-			<MobileQuickActions open={isQuickActionsOpen} email={email} isArchived={isArchived} onClose={() => setQuickActionsOpen(false)} onArchive={onArchive} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />
+			<MobileQuickActions open={isQuickActionsOpen} email={email} unread={allMessages.some((message) => !message.read)} isArchived={isArchived} threadActionsDisabled={threadActionsDisabled} onClose={() => setQuickActionsOpen(false)} onArchive={onArchive} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />
 			<MobileTagSheet open={isTagsOpen} mailboxId={mailboxId} emailId={email.id} onClose={() => setTagsOpen(false)} />
 		</div>
 	);

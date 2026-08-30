@@ -110,7 +110,7 @@ export default function MobileEmailRow({
 	return (
 		<div className="relative overflow-hidden border-b border-kumo-line">
 			<div className={`absolute inset-y-0 flex w-24 items-center justify-center text-xs font-semibold ${offset < 0 ? "right-0 bg-kumo-warning/15 text-kumo-warning" : "left-0 bg-kumo-brand/15 text-kumo-brand"}`}>
-				{offset < 0 ? "Archive" : email.read ? "Mark unread" : "Mark read"}
+				{offset < 0 ? "Archive" : unread ? "Mark read" : "Mark unread"}
 			</div>
 			<div
 				role="button"

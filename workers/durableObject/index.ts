@@ -18,11 +18,25 @@ import { createEmailSnippet } from "../lib/email-content";
  * Used for conversation grouping. Hardcoded to the `subject` column.
  */
 const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
-	REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-		LOWER(subject),
-		'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
-		're: ', ''), 'fwd: ', ''), 'fw: ', '')
+	CASE
+		WHEN LOWER(TRIM(COALESCE(subject, ''))) LIKE 'aw:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'wg:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'réf:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'sv:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 're:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'fwd:%'
+			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'fw:%'
+			THEN LTRIM(SUBSTR(TRIM(COALESCE(subject, '')), INSTR(TRIM(COALESCE(subject, '')), ':') + 1))
+		ELSE TRIM(COALESCE(subject, ''))
+	END
 ))`;
+
+function normalizeSubject(subject: string | null | undefined): string {
+	return (subject || "")
+		.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
+		.trim()
+		.toLowerCase();
+}
 
 const ALLOWED_SORT_COLUMNS = [
 	"id",
@@ -125,6 +139,20 @@ export class MailboxDO extends DurableObject<Env> {
 			),
 		][0] as { body?: string | null } | undefined;
 		return createEmailSnippet(row?.body);
+	}
+
+	private getLegacySubjectMessageIds(subject: string | null | undefined, folderId?: string): string[] {
+		const normalized = normalizeSubject(subject);
+		if (!normalized) return [];
+		const rows = folderId
+			? [...this.ctx.storage.sql.exec(
+				`SELECT id, subject FROM emails WHERE thread_id IS NULL AND folder_id = ?`,
+				folderId,
+			)]
+			: [...this.ctx.storage.sql.exec(`SELECT id, subject FROM emails WHERE thread_id IS NULL`)];
+		return (rows as { id: string; subject?: string | null }[])
+			.filter((row) => normalizeSubject(row.subject) === normalized)
+			.map((row) => row.id);
 	}
 
 	// ── Email CRUD (Drizzle) ───────────────────────────────────────
@@ -332,7 +360,8 @@ export class MailboxDO extends DurableObject<Env> {
 					normalized_subject,
 					CASE
 						WHEN thread_id IS NOT NULL THEN raw_thread_id
-						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject)
+						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END
 					END as conversation_id
 				FROM folder_emails
 				GROUP BY raw_thread_id, normalized_subject, thread_id
@@ -453,7 +482,8 @@ export class MailboxDO extends DurableObject<Env> {
 					thread_to_conversation AS (
 						SELECT raw_thread_id,
 						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
-							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END as conversation_id
+							ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+								ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
 						FROM folder_emails
 						GROUP BY raw_thread_id, normalized_subject, thread_id
 					)
@@ -478,7 +508,8 @@ export class MailboxDO extends DurableObject<Env> {
 				thread_to_conversation AS (
 					SELECT raw_thread_id, normalized_subject,
 						CASE WHEN thread_id IS NOT NULL THEN raw_thread_id
-						ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END as conversation_id
+						ELSE CASE WHEN normalized_subject = '' THEN raw_thread_id
+							ELSE MIN(raw_thread_id) OVER (PARTITION BY normalized_subject) END END as conversation_id
 					FROM folder_emails
 					GROUP BY raw_thread_id, normalized_subject, thread_id
 				),
@@ -560,14 +591,15 @@ export class MailboxDO extends DurableObject<Env> {
 				.from(schema.emails)
 				.where(eq(schema.emails.id, threadId))
 				.get();
-			const normalizedSubject = target?.subject
-				?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-				.trim();
-			if (target && target.folder_id !== Folders.DRAFT && target.thread_id == null && normalizedSubject) {
+			const legacyIds = target && target.folder_id !== Folders.DRAFT && target.thread_id == null
+				? this.getLegacySubjectMessageIds(target.subject)
+				: [];
+			if (legacyIds.length > 0) {
+				const placeholders = legacyIds.map((_, index) => `?${index + 1}`).join(",");
 				emailRows = [
 					...this.ctx.storage.sql.exec(
-						`SELECT * FROM emails WHERE thread_id IS NULL AND ${NORMALIZED_SUBJECT_SQL} = (SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?) ORDER BY date ASC`,
-						threadId,
+						`SELECT * FROM emails WHERE id IN (${placeholders}) ORDER BY date ASC`,
+						...legacyIds,
 					),
 				] as any[];
 			}
@@ -734,9 +766,9 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
-		const normalizedSubject = target?.subject
-			?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-			.trim();
+		const legacyIds = target?.thread_id == null
+			? this.getLegacySubjectMessageIds(target?.subject)
+			: [];
 		const messages = this.db
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
@@ -747,10 +779,11 @@ export class MailboxDO extends DurableObject<Env> {
 				`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
 				threadId,
 			);
-		} else if (target && target.thread_id == null && normalizedSubject) {
+		} else if (legacyIds.length > 0) {
+			const placeholders = legacyIds.map((_, index) => `?${index + 1}`).join(",");
 			this.ctx.storage.sql.exec(
-				`UPDATE emails SET read = 1 WHERE thread_id IS NULL AND ${NORMALIZED_SUBJECT_SQL} = (SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?)`,
-				threadId,
+				`UPDATE emails SET read = 1 WHERE read = 0 AND id IN (${placeholders})`,
+				...legacyIds,
 			);
 		}
 		return { threadId, markedRead: true };
@@ -891,9 +924,9 @@ export class MailboxDO extends DurableObject<Env> {
 			.from(schema.emails)
 			.where(eq(schema.emails.id, threadId))
 			.get();
-		const normalizedSubject = target?.subject
-			?.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-			.trim();
+		const legacyIds = target?.thread_id == null
+			? this.getLegacySubjectMessageIds(target?.subject, sourceFolderId)
+			: [];
 		const messages = this.db
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
@@ -910,23 +943,19 @@ export class MailboxDO extends DurableObject<Env> {
 					.run();
 				return;
 			}
-			if (target && target.thread_id == null && normalizedSubject) {
+			if (legacyIds.length > 0) {
+				const placeholders = legacyIds.map((_, index) => `?${index + 2}`).join(",");
 				this.ctx.storage.sql.exec(
-					`UPDATE emails SET folder_id = ?1
-					 WHERE thread_id IS NULL
-					 AND folder_id = ?3
-					 AND ${NORMALIZED_SUBJECT_SQL} =
-						(SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?2)`,
+					`UPDATE emails SET folder_id = ?1 WHERE id IN (${placeholders})`,
 					folderId,
-					threadId,
-					sourceFolderId,
+					...legacyIds,
 				);
 				return;
 			}
 			this.db
 				.update(schema.emails)
 				.set({ folder_id: folderId })
-				.where(eq(schema.emails.id, threadId))
+				.where(and(eq(schema.emails.id, threadId), eq(schema.emails.folder_id, sourceFolderId)))
 				.run();
 		});
 		return true;
@@ -1026,10 +1055,7 @@ export class MailboxDO extends DurableObject<Env> {
 	// ── Threading helpers (raw SQL) ────────────────────────────────
 
 	async findThreadBySubject(subject: string, senderAddress?: string): Promise<string | null> {
-		const normalized = subject
-			.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
-			.trim()
-			.toLowerCase();
+		const normalized = normalizeSubject(subject);
 
 		if (!normalized) return null;
 

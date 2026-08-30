@@ -34,8 +34,10 @@ function EmailPanelSkeleton() {
 export default function EmailPanel({ emailId }: { emailId: string }) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
 	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
-	const { data: threadRepliesRaw } = useThreadReplies(mailboxId, email?.thread_id || email?.id) as {
+	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id) as {
 		data?: Email[];
+		isPending: boolean;
+		isError: boolean;
 	};
 	const updateEmail = useUpdateEmail();
 	const markThreadRead = useMarkThreadRead();
@@ -59,6 +61,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	} = useUIStore();
 	const isSendingEmail = isDraftSending || isSendingMutation;
 	const isDeletionBlocked = isDeleting || isSavingDraft || isSendingEmail;
+	const threadActionsDisabled = isThreadPending || isThreadError;
 	const toastManager = useKumoToastManager();
 	const [isSending, setIsSending] = useState(false);
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
@@ -103,7 +106,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleToggleRead = () => {
-		if (!mailboxId) return;
+		if (!mailboxId || threadActionsDisabled) return;
 		if (allMessages.length > 1 && allMessages.some((message) => !message.read)) {
 			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
 			return;
@@ -111,7 +114,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
 	};
 	const handleMove = async (folderId: string) => {
-		if (!mailboxId) return;
+		if (!mailboxId || threadActionsDisabled) return;
 		try {
 			const sourceFolderId = folder || email.folder_id;
 			if (allMessages.length > 1 && sourceFolderId) {
@@ -203,6 +206,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					isDraftFolder={isDraftFolder}
 					isDeleting={isDeletionBlocked}
 					isSending={isSending}
+					threadActionsDisabled={threadActionsDisabled}
 					expandedMessages={expandedMessages}
 					onToggleExpand={toggleExpand}
 					onBack={closePanel}
@@ -219,32 +223,34 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				/>
 			</div>
 			<div className="hidden h-full flex-col md:flex">
-			<EmailPanelToolbar
-				email={email}
-				mailboxId={mailboxId}
-				isDraftFolder={isDraftFolder}
-				isSending={isSending}
-				isDeleting={isDeletionBlocked}
-				moveToFolders={moveToFolders}
-				onBack={closePanel}
-				onSendDraft={() => handleSendDraft()}
-				onEditDraft={() => handleEditDraft()}
-				onReply={() =>
-					startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
-				}
-				onReplyAll={() =>
-					startCompose({
-						mode: "reply-all",
-						originalEmail: lastReceivedMessage,
-					})
-				}
-				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
-				onToggleStar={toggleStar}
-				onToggleRead={handleToggleRead}
-				onMove={handleMove}
-				onViewSource={() => setSourceViewEmail(email)}
-				onDelete={handleDelete}
-			/>
+				<EmailPanelToolbar
+					email={email}
+					mailboxId={mailboxId}
+					isDraftFolder={isDraftFolder}
+					isSending={isSending}
+					isDeleting={isDeletionBlocked}
+					threadActionsDisabled={threadActionsDisabled}
+					hasUnread={allMessages.some((message) => !message.read)}
+					moveToFolders={moveToFolders}
+					onBack={closePanel}
+					onSendDraft={() => handleSendDraft()}
+					onEditDraft={() => handleEditDraft()}
+					onReply={() =>
+						startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
+					}
+					onReplyAll={() =>
+						startCompose({
+							mode: "reply-all",
+							originalEmail: lastReceivedMessage,
+						})
+					}
+					onForward={() => startCompose({ mode: "forward", originalEmail: email })}
+					onToggleStar={toggleStar}
+					onToggleRead={handleToggleRead}
+					onMove={handleMove}
+					onViewSource={() => setSourceViewEmail(email)}
+					onDelete={handleDelete}
+				/>
 
 			<EmailPanelHeader
 				subject={email.subject}

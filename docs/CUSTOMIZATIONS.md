@@ -152,7 +152,7 @@ without introducing a separate mobile client or new persistence.
 - At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar and split view at `md` and above.
 - Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
 - Mobile detail reuses the existing thread, body, attachment, reply, move, star, delete, and structured tag/disposition flows; it does not add mock summaries, Snoozed, Mute, or Pin state.
-- Mobile folder management reads counts and custom folders from the existing folder API, and tag editing lazily reads the selected message's structured tags to avoid list-wide N+1 requests.
+- Mobile folder management reads counts and custom folders from the existing folder API; non-empty custom folders cannot be deleted because folder deletion cascades to contained mail. Tag editing lazily reads the selected message's structured tags to avoid list-wide N+1 requests.
 
 ### Main affected areas
 

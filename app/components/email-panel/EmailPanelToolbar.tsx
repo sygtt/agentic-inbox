@@ -27,6 +27,8 @@ interface EmailPanelToolbarProps {
 	isDraftFolder: boolean;
 	isSending: boolean;
 	isDeleting: boolean;
+	threadActionsDisabled: boolean;
+	hasUnread?: boolean;
 	moveToFolders: Folder[];
 	lastReceivedMessage?: Email;
 	onBack: () => void;
@@ -48,6 +50,8 @@ export default function EmailPanelToolbar({
 	isDraftFolder,
 	isSending,
 	isDeleting,
+	threadActionsDisabled,
+	hasUnread,
 	moveToFolders,
 	onBack,
 	onSendDraft,
@@ -61,6 +65,7 @@ export default function EmailPanelToolbar({
 	onViewSource,
 	onDelete,
 }: EmailPanelToolbarProps) {
+	const unread = hasUnread ?? !email.read;
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
 			<Button
@@ -152,18 +157,19 @@ export default function EmailPanelToolbar({
 				/>
 			</Tooltip>
 
-			<Tooltip content={email.read ? "Mark as unread" : "Mark as read"} side="bottom" asChild>
+			<Tooltip content={unread ? "Mark as read" : "Mark as unread"} side="bottom" asChild>
 				<Button
 					variant="ghost"
 					shape="square"
 					size="sm"
-					icon={email.read ? <EnvelopeSimpleIcon size={18} /> : <EnvelopeOpenIcon size={18} />}
+					icon={unread ? <EnvelopeOpenIcon size={18} /> : <EnvelopeSimpleIcon size={18} />}
 					onClick={onToggleRead}
-					aria-label={email.read ? "Mark as unread" : "Mark as read"}
+					disabled={threadActionsDisabled}
+					aria-label={unread ? "Mark as read" : "Mark as unread"}
 				/>
 			</Tooltip>
 
-			<MoveToFolderMenu folders={moveToFolders} onMove={onMove} />
+			<MoveToFolderMenu folders={moveToFolders} onMove={onMove} disabled={threadActionsDisabled} />
 
 			<div className="ml-auto flex items-center gap-0.5">
 				<Tooltip content="View source" side="bottom" asChild>
@@ -203,7 +209,7 @@ export default function EmailPanelToolbar({
 	);
 }
 
-function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id: string) => void }) {
+function MoveToFolderMenu({ folders, onMove, disabled }: { folders: Folder[]; onMove: (id: string) => void; disabled: boolean }) {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -225,6 +231,7 @@ function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id:
 					size="sm"
 					icon={<FolderSimpleIcon size={18} />}
 					onClick={() => setOpen((o) => !o)}
+					disabled={disabled}
 					aria-label="Move to folder"
 				/>
 			</Tooltip>
