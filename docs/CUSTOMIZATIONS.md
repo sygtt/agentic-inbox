@@ -137,7 +137,7 @@ HTML and text-only content across list, agent, and reply paths.
 
 ### Why
 
-Issue #3 adds a deliberately small mobile workflow for checking incoming mail,
+Issues #3 and #17 add a deliberately small mobile workflow for checking incoming mail,
 copying verification codes, deleting messages from the list, and opening links
 without introducing a separate mobile client or new persistence.
 

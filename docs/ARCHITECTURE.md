@@ -123,7 +123,7 @@ Major API areas include:
 - drafts
 - read/star updates
 - delete/move
-- threads
+- thread retrieval, read, and move operations
 - reply/forward
 - folders
 - search
@@ -284,7 +284,7 @@ The first reference, `In-Reply-To`, or the new internal message ID is used as th
 
 For messages without threading headers, the mailbox Durable Object can fall back to subject/sender-based conversation discovery.
 
-Thread list queries contain additional subject-normalization fallback logic for legacy messages without explicit thread IDs.
+Thread list queries contain additional subject-normalization fallback logic for legacy messages without explicit thread IDs. Thread-level read and move operations use the same fallback so a legacy subject-grouped conversation is handled as one conversation.
 
 ## Outbound email flow
 
@@ -393,8 +393,10 @@ At viewport widths below `md`, `app/routes/mailbox.tsx` supplies the mailbox
 identity bar and safe-area-aware bottom navigation. The mobile layer under
 `app/components/mobile/` renders real list rows, pointer gestures, quick/tag
 sheets, and the narrow detail view while reusing the same TanStack Query and
-Zustand state as the desktop split view. The mobile folders route uses the
-existing folder API; search remains server-side through `useSearchEmails`.
+Zustand state as the desktop split view. Threaded list requests support the
+server-side `needs_reply` filter and thread-level read/move mutations. The
+mobile folders route uses the existing folder API; search remains server-side
+through `useSearchEmails`.
 
 ## Important files by responsibility
 

@@ -199,6 +199,11 @@ export default function EmailListRoute() {
 		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
 		{ enabled: folder === Folders.INBOX },
 	);
+	const { data: allFolderData } = useEmails(
+		mailboxId,
+		{ folder: folder || "", page: "1", limit: "1" },
+		{ enabled: !!folder },
+	);
 
 	const { data: folders = [] } = useFolders(mailboxId);
 
@@ -291,10 +296,10 @@ export default function EmailListRoute() {
 	const handleRowClick = (email: Email) => {
 		selectEmail(email.id);
 		if (mailboxId && hasUnread(email)) {
-			if (email.thread_id && email.thread_count && email.thread_count > 1) {
+			if ((email.thread_count ?? 1) > 1) {
 				markThreadRead.mutate({
 					mailboxId,
-					threadId: email.thread_id,
+					threadId: email.thread_id || email.id,
 				});
 			} else {
 				updateEmail.mutate({
@@ -308,8 +313,8 @@ export default function EmailListRoute() {
 
 	const handleToggleRead = (email: Email) => {
 		if (!mailboxId) return;
-		if (hasUnread(email) && email.thread_id && (email.thread_count ?? 1) > 1) {
-			markThreadRead.mutate({ mailboxId, threadId: email.thread_id });
+		if (hasUnread(email) && (email.thread_count ?? 1) > 1) {
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id });
 			return;
 		}
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
@@ -328,7 +333,12 @@ export default function EmailListRoute() {
 	};
 
 	const needsReplyCount = needsReplyData?.totalCount ?? 0;
+	const allFolderCount = allFolderData?.totalCount ?? totalCount;
 	const mobileEmails = emails;
+
+	useEffect(() => {
+		setPage(1);
+	}, [mobileFilter]);
 
 	return (
 		<MailboxSplitView
@@ -348,7 +358,7 @@ export default function EmailListRoute() {
 							<Button variant="ghost" shape="square" size="sm" icon={<ArrowsClockwiseIcon size={18} className={isRefreshing ? "animate-spin" : ""} />} onClick={handleRefresh} disabled={isRefreshing} aria-label="Refresh" />
 						</div>
 						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-							<button type="button" onClick={() => setMobileFilter("all")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "all" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>All {totalCount}</button>
+							<button type="button" onClick={() => setMobileFilter("all")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "all" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>All {allFolderCount}</button>
 							{needsReplyCount > 0 && <button type="button" onClick={() => setMobileFilter("needs")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "needs" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>Needs you {needsReplyCount}</button>}
 						</div>
 					</div>

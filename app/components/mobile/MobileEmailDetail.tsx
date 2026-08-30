@@ -64,9 +64,9 @@ export default function MobileEmailDetail({
 	onToggleStar: () => void;
 	onDelete: () => void;
 	onReply: () => void;
-	onEditDraft: () => void;
-	onSendDraft: () => void;
-	onDeleteDraft: () => void;
+	onEditDraft: (message?: Email) => void;
+	onSendDraft: (message?: Email) => void;
+	onDeleteDraft: (message?: Email) => void;
 	onPreviewImage: (url: string, filename: string) => void;
 }) {
 	const [isQuickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -109,12 +109,12 @@ export default function MobileEmailDetail({
 			<div className="min-h-0 flex-1 overflow-y-auto pb-20">
 				{hasThread ? allMessages.map((message, index) => {
 					const isDraft = message.folder_id === Folders.DRAFT || (isDraftFolder && message.id === email.id);
-					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? onSendDraft : undefined} onEditDraft={isDraft ? onEditDraft : undefined} onDeleteDraft={isDraft ? onDeleteDraft : undefined} onPreviewImage={onPreviewImage} />;
+					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
 				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} />}
 			</div>
 
 			<div className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t border-kumo-line bg-kumo-base/95 px-4 pb-2 pt-2 backdrop-blur md:hidden">
-				{isDraftFolder ? <Button variant="primary" className="flex-1" icon={<PencilSimpleIcon size={16} />} onClick={onEditDraft} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="flex-1" icon={<ArrowBendUpLeftIcon size={16} />} onClick={onReply} disabled={isDeleting}>Reply</Button>}
+				{isDraftFolder ? <Button variant="primary" className="flex-1" icon={<PencilSimpleIcon size={16} />} onClick={() => onEditDraft(email)} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="flex-1" icon={<ArrowBendUpLeftIcon size={16} />} onClick={onReply} disabled={isDeleting}>Reply</Button>}
 				<Button variant="ghost" shape="square" icon={<StarIcon size={19} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-label={email.starred ? "Unstar" : "Star"} />
 			</div>
 

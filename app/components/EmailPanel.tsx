@@ -202,9 +202,9 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					onToggleStar={toggleStar}
 					onDelete={handleDelete}
 					onReply={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })}
-					onEditDraft={() => handleEditDraft()}
-					onSendDraft={() => handleSendDraft()}
-					onDeleteDraft={() => handleDeleteDraft()}
+					onEditDraft={(message) => handleEditDraft(message)}
+					onSendDraft={(message) => handleSendDraft(message)}
+					onDeleteDraft={(message) => handleDeleteDraft(message)}
 					onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 				/>
 			</div>

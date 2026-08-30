@@ -701,10 +701,27 @@ export class MailboxDO extends DurableObject<Env> {
 	}
 
 	async markThreadRead(threadId: string) {
-		this.ctx.storage.sql.exec(
-			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
-			threadId,
-		);
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const messages = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.thread_id, threadId))
+			.all();
+		if (messages.length > 0) {
+			this.ctx.storage.sql.exec(
+				`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
+				threadId,
+			);
+		} else if (target && target.thread_id == null && target.subject) {
+			this.ctx.storage.sql.exec(
+				`UPDATE emails SET read = 1 WHERE thread_id IS NULL AND ${NORMALIZED_SUBJECT_SQL} = (SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?)`,
+				threadId,
+			);
+		}
 		return { threadId, markedRead: true };
 	}
 
