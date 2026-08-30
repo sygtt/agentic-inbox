@@ -346,7 +346,18 @@ export class EmailAgent extends AIChatAgent<any> {
 	}) {
 		const env = this.env as Env;
 		const workersai = createWorkersAI({ binding: env.AI });
-		const tools = createEmailTools(env, emailData.mailboxId);
+		const {
+			get_email: getEmail,
+			get_thread: getThread,
+			draft_reply: draftReply,
+		} = createEmailTools(env, emailData.mailboxId);
+		// Auto-drafting gets only the read/draft allowlist. Keep mailbox
+		// mutations out of the unattended model tool set.
+		const tools = {
+			get_email: getEmail,
+			get_thread: getThread,
+			draft_reply: draftReply,
+		};
 		const systemPrompt = await getSystemPrompt(env, emailData.mailboxId);
 
 		// Pre-read the email and thread so the agent has full context
