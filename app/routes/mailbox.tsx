@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useEffect, useRef } from "react";
-import { Link, Outlet, useParams } from "react-router";
+import { Link, Outlet, useNavigate, useParams } from "react-router";
 import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
 import Header from "~/components/Header";
@@ -14,6 +14,7 @@ import MobileBottomNav from "~/components/mobile/MobileBottomNav";
 
 export default function MailboxRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
+	const navigate = useNavigate();
 	// Prefetch mailbox data for child components
 	const { data: currentMailbox } = useMailbox(mailboxId);
 	const prevMailboxIdRef = useRef<string | undefined>(undefined);
@@ -25,7 +26,12 @@ export default function MailboxRoute() {
 		isAgentPanelOpen,
 		closePanel,
 		closeComposeModal,
+		startCompose,
 	} = useUIStore();
+	const openCompose = () => {
+		if (mailboxId) navigate(`/mailbox/${mailboxId}/emails/inbox`);
+		startCompose();
+	};
 
 	useEffect(() => {
 		if (
@@ -86,6 +92,7 @@ export default function MailboxRoute() {
 				<MobileBottomNav
 					mailboxId={mailboxId}
 					visible={!selectedEmailId && !isComposing}
+					onCompose={openCompose}
 				/>
 			</div>
 

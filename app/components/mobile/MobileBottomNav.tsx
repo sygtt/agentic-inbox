@@ -11,18 +11,18 @@ import {
 } from "@phosphor-icons/react";
 import { NavLink } from "react-router";
 import { Folders } from "shared/folders";
-import { useUIStore } from "~/hooks/useUIStore";
 import { useFolders } from "~/queries/folders";
 
 export default function MobileBottomNav({
 	mailboxId,
 	visible,
+	onCompose,
 }: {
 	mailboxId?: string;
 	visible: boolean;
+	onCompose: () => void;
 }) {
 	const { data: folders = [] } = useFolders(mailboxId);
-	const { startCompose } = useUIStore();
 	if (!visible || !mailboxId) return null;
 
 	const inboxUnread = folders.find((folder) => folder.id === Folders.INBOX)?.unreadCount ?? 0;
@@ -53,7 +53,7 @@ export default function MobileBottomNav({
 			))}
 			<button
 				type="button"
-				onClick={() => startCompose()}
+				onClick={onCompose}
 				className="relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
 			>
 				<PencilSimpleIcon size={21} weight="regular" />

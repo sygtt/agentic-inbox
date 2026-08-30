@@ -25,6 +25,7 @@ export function useUpsertEmailTag() {
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},
 	});
 }
@@ -37,6 +38,7 @@ export function useRemoveEmailTag() {
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},
 	});
 }
@@ -49,6 +51,7 @@ export function useSetEmailDisposition() {
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},
 	});
 }
