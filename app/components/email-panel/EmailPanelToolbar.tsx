@@ -25,6 +25,7 @@ interface EmailPanelToolbarProps {
 	email: Email;
 	mailboxId?: string;
 	isDraftFolder: boolean;
+	isTrash?: boolean;
 	isSending: boolean;
 	isDeleting: boolean;
 	threadActionsDisabled: boolean;
@@ -48,6 +49,7 @@ export default function EmailPanelToolbar({
 	email,
 	mailboxId,
 	isDraftFolder,
+	isTrash = false,
 	isSending,
 	isDeleting,
 	threadActionsDisabled,
@@ -66,6 +68,7 @@ export default function EmailPanelToolbar({
 	onDelete,
 }: EmailPanelToolbarProps) {
 	const unread = hasUnread ?? !email.read;
+	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
 			<Button
@@ -182,7 +185,7 @@ export default function EmailPanelToolbar({
 						aria-label="View source"
 					/>
 				</Tooltip>
-				<Tooltip content="Delete" side="bottom" asChild>
+				<Tooltip content={deleteLabel} side="bottom" asChild>
 					<Button
 						variant="ghost"
 						shape="square"
@@ -190,7 +193,7 @@ export default function EmailPanelToolbar({
 						icon={<TrashIcon size={18} />}
 						onClick={onDelete}
 						disabled={isDeleting}
-						aria-label="Delete"
+						aria-label={deleteLabel}
 					/>
 				</Tooltip>
 				<Tooltip content="Close" side="bottom" asChild>

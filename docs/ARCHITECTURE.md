@@ -191,6 +191,7 @@ Stores message metadata and body content, including:
 - thread metadata
 - original Message-ID
 - raw parsed headers
+- `trashed_at`, set when a message enters Trash and cleared when restored
 
 ### `attachments`
 
@@ -211,7 +212,7 @@ Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, and the additive email-tags table.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, and the nullable Trash timestamp with existing Trash backfill.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -235,7 +236,11 @@ attachments/<email-id>/<attachment-id>/<filename>
 
 Attachment metadata is stored in the mailbox SQLite database while the actual content lives in R2.
 
-Deleting an email removes its attachment blobs. Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
+Permanent email deletion removes its attachment blobs. Normal UI deletion moves the message to Trash and retains its SQLite metadata and R2 attachments. `DELETE /api/v1/.../emails/:id` is a guarded permanent primitive: only Trash and Draft messages can use it. Moving into Trash sets `trashed_at`; moving out clears it, and moving an already trashed message to Trash does not reset it.
+
+The Worker `scheduled()` handler runs daily from the configured Cron Trigger. It enumerates registered mailboxes from the R2 mailbox registry, asks each `MailboxDO` to purge current Trash rows with `trashed_at` at least 30 days old, and deletes the returned attachment objects from R2. A failure for one mailbox is logged without stopping the remaining mailboxes.
+
+Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
 
 ## Inbound email flow
 

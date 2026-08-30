@@ -131,10 +131,18 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	const handleArchive = () => handleMove(email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE);
 	const handleDelete = async () => {
 		if (!mailboxId || isDeletionBlocked) return;
-		if (!window.confirm("Are you sure you want to delete this email?")) return;
+		const permanent = isDraftFolder || folder === Folders.TRASH || email.folder_id === Folders.TRASH;
+		if (!window.confirm(permanent
+			? "Permanently delete this email? This cannot be undone."
+			: "Move this email to Trash?")) return;
 		try {
-			await deleteEmailMut.mutateAsync({ mailboxId, id: email.id });
-			toastManager.add({ title: "Email deleted" });
+			if (permanent) {
+				await deleteEmailMut.mutateAsync({ mailboxId, id: email.id });
+				toastManager.add({ title: "Email permanently deleted" });
+			} else {
+				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
+				toastManager.add({ title: "Email moved to Trash" });
+			}
 			closePanel();
 		} catch {
 			toastManager.add({ title: "Failed to delete email", variant: "error" });
@@ -228,6 +236,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					email={email}
 					mailboxId={mailboxId}
 					isDraftFolder={isDraftFolder}
+					isTrash={folder === Folders.TRASH || email.folder_id === Folders.TRASH}
 					isSending={isSending}
 					isDeleting={isDeletionBlocked}
 					threadActionsDisabled={threadActionsDisabled}

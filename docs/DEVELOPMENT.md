@@ -243,6 +243,16 @@ R2 stores:
 
 Changes to R2 key layout should be treated as persistence migrations even if no SQL schema changes.
 
+### Trash retention and scheduled cleanup
+
+Normal email deletion moves the message to the `Trash` folder. The message and
+its attachment objects remain available for 30 days; permanent deletion is
+explicitly available from Trash (and for discarded drafts). The daily Cron
+Trigger in `wrangler.jsonc` invokes the Worker scheduled handler, which lists
+registered mailboxes from R2 and purges expired Trash rows and their attachment
+objects. `npm run dev` does not automatically invoke scheduled events; use
+focused tests or an explicitly authorized local integration invocation.
+
 ### Workers AI
 
 The email agent uses the Workers AI binding directly. No separate OpenAI/Anthropic-style API token is required by the current default architecture.

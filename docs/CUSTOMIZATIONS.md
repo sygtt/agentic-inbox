@@ -188,6 +188,55 @@ when synchronizing upstream.
 
 Remove local helpers if upstream provides equivalent safe mobile behavior.
 
+## Trash-first deletion and 30-day retention
+
+**Status:** Active
+
+### Why
+
+Normal deletion should be recoverable while preserving the existing mailbox
+storage model and attachment provenance.
+
+### Behavior
+
+- UI deletion moves regular messages to Trash and retains SQLite metadata and R2 attachments.
+- Permanent deletion is guarded to Trash; draft discard remains permanent.
+- `emails.trashed_at` records the first move into Trash, is cleared on restore, and is not reset by a redundant Trash move.
+- A daily Cron Trigger purges current Trash messages after 30 days and removes their R2 attachment objects.
+- MCP and Agent workflows expose `trash_email`; permanent deletion is explicit and guarded.
+
+### Main affected areas
+
+- `workers/db/schema.ts`
+- `workers/durableObject/migrations.ts`
+- `workers/durableObject/index.ts`
+- `workers/app.ts`
+- `workers/lib/attachments.ts`
+- `workers/lib/trash.ts`
+- `workers/lib/tools.ts`
+- `workers/mcp/index.ts`
+- `app/components/`
+
+### Configuration involved
+
+The daily schedule is declared in `wrangler.jsonc`. No secret or personal
+configuration is required.
+
+### Persistence / migration implications
+
+Migration `11_add_trashed_at` adds a nullable column and gives existing Trash
+rows a fresh 30-day grace period. Non-Trash rows remain `NULL`.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to MailboxDO migrations, delete/move routes, attachment
+cleanup, or MCP tools may conflict with this customization.
+
+### Removal / replacement condition
+
+Remove the local behavior when upstream provides equivalent recoverable deletion
+and retention semantics.
+
 ## MCP plain-text email body contract
 
 **Status:** Active

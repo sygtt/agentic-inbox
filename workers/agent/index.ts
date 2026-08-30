@@ -28,6 +28,7 @@ import {
 	toolMarkEmailRead,
 	toolMoveEmail,
 	toolDiscardDraft,
+	toolTrashEmail,
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
@@ -85,7 +86,7 @@ You can ONLY draft emails. You do NOT have the ability to send emails directly.
 **Don't paste draft contents into the chat.** The drafts are saved via tools - the operator can see them in the Drafts folder. In your chat message, just briefly say what you drafted (e.g. "Drafted a reply to Tim"). Don't duplicate the full email body in the chat.
 
 ## Draft Management
-Use discard_draft to delete drafts that the operator rejects or that are no longer needed.`;
+Use discard_draft to delete drafts that the operator rejects or that are no longer needed. Use trash_email to remove regular emails without permanently deleting them.`;
 
 /**
  * Fetch the custom system prompt for a mailbox from its R2 settings.
@@ -253,6 +254,16 @@ function createEmailTools(env: Env, mailboxId: string) {
 			}),
 			execute: async ({ emailId, folderId }): Promise<unknown> => {
 				return toolMoveEmail(env, mailboxId, emailId, folderId);
+			},
+		}),
+
+		trash_email: defineTool({
+			description: "Move an email to Trash without permanently deleting it.",
+			parameters: z.object({
+				emailId: z.string().describe("The email ID"),
+			}),
+			execute: async ({ emailId }): Promise<unknown> => {
+				return toolTrashEmail(env, mailboxId, emailId);
 			},
 		}),
 

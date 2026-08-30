@@ -41,6 +41,7 @@ export interface Email {
 	email_references?: string | null;
 	message_id?: string | null;
 	raw_headers?: string | null;
+	trashed_at?: string | null;
 	attachments?: Attachment[];
 	has_attachment?: boolean;
 	tags?: EmailTag[];

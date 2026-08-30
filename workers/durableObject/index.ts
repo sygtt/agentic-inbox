@@ -11,6 +11,7 @@ import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
+import { canPermanentlyDelete, getTrashTimestamp } from "../lib/trash";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -102,6 +103,7 @@ interface EmailData {
 	thread_id?: string | null;
 	message_id?: string | null;
 	raw_headers?: string | null;
+	trashed_at?: string | null;
 }
 
 interface AttachmentData {
@@ -822,12 +824,13 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async deleteEmail(id: string) {
 		const email = this.db
-			.select({ id: schema.emails.id })
+			.select({ id: schema.emails.id, folder_id: schema.emails.folder_id })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, id))
 			.get();
 
 		if (!email) return null;
+		if (!canPermanentlyDelete(email.folder_id)) return false;
 
 		const emailAttachments = this.db
 			.select({
@@ -844,6 +847,30 @@ export class MailboxDO extends DurableObject<Env> {
 			.run();
 
 		return emailAttachments;
+	}
+
+	async purgeExpiredTrash(cutoff: string) {
+		return this.ctx.storage.transactionSync(() => {
+			const expired = [...this.ctx.storage.sql.exec(
+				`SELECT id FROM emails
+				 WHERE folder_id = ?1 AND trashed_at IS NOT NULL AND trashed_at <= ?2`,
+				Folders.TRASH,
+				cutoff,
+			)] as { id: string }[];
+			if (expired.length === 0) return { purgedCount: 0, attachments: [] };
+
+			const ids = expired.map((email) => email.id);
+			const placeholders = ids.map((_, index) => `?${index + 1}`).join(",");
+			const attachments = [...this.ctx.storage.sql.exec(
+				`SELECT email_id, id, filename FROM attachments WHERE email_id IN (${placeholders})`,
+				...ids,
+			)] as { email_id: string; id: string; filename: string }[];
+			this.ctx.storage.sql.exec(
+				`DELETE FROM emails WHERE id IN (${placeholders})`,
+				...ids,
+			);
+			return { purgedCount: ids.length, attachments };
+		});
 	}
 
 	async getAttachment(id: string) {
@@ -932,10 +959,19 @@ export class MailboxDO extends DurableObject<Env> {
 			.get();
 
 		if (!folder) return false;
+		const email = this.db
+			.select({ folder_id: schema.emails.folder_id, trashed_at: schema.emails.trashed_at })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+		if (!email) return false;
 
 		this.db
 			.update(schema.emails)
-			.set({ folder_id: folderId })
+			.set({
+				folder_id: folder.id,
+				trashed_at: getTrashTimestamp(email.folder_id, folder.id, email.trashed_at),
+			})
 			.where(eq(schema.emails.id, id))
 			.run();
 
@@ -969,23 +1005,34 @@ export class MailboxDO extends DurableObject<Env> {
 			...(target?.thread_id == null && target?.folder_id === sourceFolderId ? [target.id] : []),
 		])];
 		if (!target && memberIds.length === 0) return false;
+		const preserveTrashTimestamp = sourceFolderId === Folders.TRASH && folder.id === Folders.TRASH;
+		const trashedAt = getTrashTimestamp(sourceFolderId, folder.id, null);
 
 		this.ctx.storage.transactionSync(() => {
 			if (memberIds.length > 0) {
 				const placeholders = memberIds.map((_, index) => `?${index + 3}`).join(",");
-				this.ctx.storage.sql.exec(
-					`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
-					folderId,
-					sourceFolderId,
-					...memberIds,
-				);
+				if (preserveTrashTimestamp) {
+					this.ctx.storage.sql.exec(
+						`UPDATE emails SET folder_id = ?1 WHERE folder_id = ?2 AND id IN (${placeholders})`,
+						folder.id,
+						sourceFolderId,
+						...memberIds,
+					);
+				} else {
+					this.ctx.storage.sql.exec(
+						`UPDATE emails SET folder_id = ?1, trashed_at = ?${memberIds.length + 3} WHERE folder_id = ?2 AND id IN (${placeholders})`,
+						folder.id,
+						sourceFolderId,
+						...memberIds,
+						trashedAt,
+					);
+				}
 				return;
 			}
-			this.db
-				.update(schema.emails)
-				.set({ folder_id: folderId })
-				.where(and(eq(schema.emails.id, threadId), eq(schema.emails.folder_id, sourceFolderId)))
-				.run();
+			const update = this.db.update(schema.emails).set(
+				preserveTrashTimestamp ? { folder_id: folder.id } : { folder_id: folder.id, trashed_at: trashedAt },
+			);
+			update.where(and(eq(schema.emails.id, threadId), eq(schema.emails.folder_id, sourceFolderId))).run();
 		});
 		return true;
 	}
@@ -1204,6 +1251,7 @@ export class MailboxDO extends DurableObject<Env> {
 				thread_id: email.thread_id ?? null,
 				message_id: email.message_id ?? null,
 				raw_headers: email.raw_headers ?? null,
+				trashed_at: email.trashed_at ?? (folderId === Folders.TRASH ? new Date().toISOString() : null),
 			})
 			.run();
 

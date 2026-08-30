@@ -30,6 +30,7 @@ import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
+import { deleteAttachmentObjects } from "./attachments";
 
 // ── Type casts for DO methods not on the base stub type ────────────
 type MailboxSearchStub = {
@@ -300,7 +301,9 @@ export async function toolUpdateDraft(
 		return { error: "Draft verification failed — keeping existing draft unchanged. Please try again." };
 	}
 
-	await stub.deleteEmail(params.draftId);
+	const deleted = await stub.deleteEmail(params.draftId);
+	if (deleted === null || deleted === false) return { error: "Draft could not be replaced" };
+	await deleteAttachmentObjects(env.BUCKET, params.draftId, deleted);
 	await stub.createEmail(
 		Folders.DRAFT,
 		{
@@ -369,23 +372,56 @@ export async function toolDiscardDraft(
 	if (email.folder_id !== Folders.DRAFT) {
 		return { error: "Cannot discard: email is not a draft" };
 	}
-	await stub.deleteEmail(draftId);
+	const result = await stub.deleteEmail(draftId);
+	if (result === null || result === false) {
+		return { error: "Draft could not be discarded" };
+	}
+	await deleteAttachmentObjects(env.BUCKET, draftId, result);
 	return { status: "discarded", draftId };
 }
 
-// ── delete_email ───────────────────────────────────────────────────
+// ── trash_email ────────────────────────────────────────────────────
+
+export async function toolTrashEmail(
+	env: Env,
+	mailboxId: string,
+	emailId: string,
+) {
+	const stub = getMailboxStub(env, mailboxId);
+	const email = (await stub.getEmail(emailId)) as { folder_id?: string } | null;
+	if (!email) return { error: "Email not found", emailId };
+	if (email.folder_id === Folders.DRAFT) return { error: "Use discard_draft for draft emails", emailId };
+	if (!(await stub.moveEmail(emailId, Folders.TRASH))) {
+		return { error: "Failed to move email to Trash", emailId };
+	}
+	return { status: "trashed", emailId };
+}
+
+// ── permanently_delete_email ──────────────────────────────────────
+
+export async function toolPermanentlyDeleteEmail(
+	env: Env,
+	mailboxId: string,
+	emailId: string,
+) {
+	const stub = getMailboxStub(env, mailboxId);
+	const email = (await stub.getEmail(emailId)) as { folder_id?: string } | null;
+	if (!email) return { error: "Email not found", emailId };
+	if (email.folder_id !== Folders.TRASH) return { error: "Email must be in Trash before permanent deletion", emailId };
+	const result = await stub.deleteEmail(emailId);
+	if (result === null || result === false) return { error: "Email could not be permanently deleted", emailId };
+	await deleteAttachmentObjects(env.BUCKET, emailId, result);
+	return { status: "permanently_deleted", emailId };
+}
+
+// ── delete_email (backward-compatible alias) ──────────────────────
 
 export async function toolDeleteEmail(
 	env: Env,
 	mailboxId: string,
 	emailId: string,
 ) {
-	const stub = getMailboxStub(env, mailboxId);
-	const result = await stub.deleteEmail(emailId);
-	if (result === null) {
-		return { error: "Email not found", emailId };
-	}
-	return { status: "deleted", emailId };
+	return toolPermanentlyDeleteEmail(env, mailboxId, emailId);
 }
 
 // ── send_reply ─────────────────────────────────────────────────────

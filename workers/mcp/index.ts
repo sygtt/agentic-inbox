@@ -15,6 +15,8 @@ import {
 	toolDraftEmail,
 	toolUpdateDraft,
 	toolDeleteEmail,
+	toolTrashEmail,
+	toolPermanentlyDeleteEmail,
 	toolSendReply,
 	toolSendEmail,
 	toolMarkEmailRead,
@@ -329,10 +331,40 @@ export class EmailMCP extends McpAgent<Env> {
 			},
 		);
 
-		// ── delete_email ───────────────────────────────────────────
+		// ── trash_email ─────────────────────────────────────────────
+		this.server.tool(
+			"trash_email",
+			"Move an email to Trash without permanently deleting it. Use this for normal deletion.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+				emailId: z.string().describe("The email ID to move to Trash"),
+			},
+			async ({ mailboxId, emailId }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpResult(await toolTrashEmail(env, mailboxId, emailId));
+			},
+		);
+
+		// ── permanently_delete_email ────────────────────────────────
+		this.server.tool(
+			"permanently_delete_email",
+			"Permanently delete an email. The email must already be in Trash; use discard_draft for drafts.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+				emailId: z.string().describe("The email ID to permanently delete"),
+			},
+			async ({ mailboxId, emailId }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpResult(await toolPermanentlyDeleteEmail(env, mailboxId, emailId));
+			},
+		);
+
+		// ── delete_email (backward-compatible guarded alias) ────────
 		this.server.tool(
 			"delete_email",
-			"Permanently delete an email by ID.",
+			"Deprecated alias for permanently_delete_email. The email must already be in Trash.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
 				emailId: z.string().describe("The email ID to delete"),

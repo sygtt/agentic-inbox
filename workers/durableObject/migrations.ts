@@ -186,6 +186,15 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX idx_email_tags_tag ON email_tags(tag);
             CREATE UNIQUE INDEX idx_email_tags_one_disposition
                 ON email_tags(email_id) WHERE tag LIKE 'disposition:%';
-        `),
+		`),
+	},
+	{
+		name: "11_add_trashed_at",
+		sql: txn(`
+			ALTER TABLE emails ADD COLUMN trashed_at TEXT;
+			UPDATE emails
+			SET trashed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			WHERE folder_id = 'trash' AND trashed_at IS NULL;
+		`),
 	},
 ];
