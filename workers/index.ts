@@ -7,7 +7,7 @@ import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
 import { sendEmail } from "./email-sender";
-import { storeAttachments, type StoredAttachment } from "./lib/attachments";
+import { deleteAttachmentObjects, storeAttachments, type StoredAttachment } from "./lib/attachments";
 import {
 	validateSender,
 	SenderValidationError,
@@ -254,7 +254,8 @@ app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 	const id = c.req.param("id")!;
 	const attachments = await c.var.mailboxStub.deleteEmail(id);
 	if (attachments === null) return c.json({ error: "Not found" }, 404);
-	if (attachments.length > 0) await c.env.BUCKET.delete(attachments.map((att: any) => `attachments/${id}/${att.id}/${att.filename}`));
+	if (attachments === false) return c.json({ error: "Email must be in Trash before permanent deletion" }, 409);
+	await deleteAttachmentObjects(c.env.BUCKET, id, attachments);
 	return c.body(null, 204);
 });
 

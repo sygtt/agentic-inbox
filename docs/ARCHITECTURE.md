@@ -44,7 +44,7 @@ Cloudflare Email Routing
              |
              +-------> MailboxDO
              +-------> R2 attachments
-             +-------> EmailAgent auto-draft trigger
+             +-------> EmailAgent auto-summary trigger
 
 Outbound UI/API
              |
@@ -191,6 +191,7 @@ Stores message metadata and body content, including:
 - thread metadata
 - original Message-ID
 - raw parsed headers
+- `trashed_at`, set when a message enters Trash and cleared when restored
 
 ### `attachments`
 
@@ -211,7 +212,7 @@ Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, and the additive email-tags table.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, and the nullable Trash timestamp with existing Trash backfill.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -235,7 +236,11 @@ attachments/<email-id>/<attachment-id>/<filename>
 
 Attachment metadata is stored in the mailbox SQLite database while the actual content lives in R2.
 
-Deleting an email removes its attachment blobs. Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
+Permanent email deletion removes its attachment blobs. Normal UI deletion moves the message to Trash and retains its SQLite metadata and R2 attachments. `DELETE /api/v1/.../emails/:id` is a guarded permanent primitive: only Trash and Draft messages can use it. Moving into Trash sets `trashed_at`; moving out clears it, and moving an already trashed message to Trash does not reset it.
+
+The Worker `scheduled()` handler runs daily from the configured Cron Trigger. It enumerates registered mailboxes from the R2 mailbox registry and asks each `MailboxDO` to purge current Trash rows with `trashed_at` at least 30 days old. The DO deletes attachment objects from R2 before deleting their SQLite rows, so an R2 failure leaves retryable metadata for the next run. A failure for one mailbox is logged without stopping the remaining mailboxes.
+
+Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
 
 ## Inbound email flow
 
@@ -252,7 +257,7 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to generate a draft reply.
+10. Trigger the corresponding `EmailAgent` asynchronously to generate a summary.
 
 ### Recipient resolution and catch-all behavior
 
@@ -326,13 +331,13 @@ The agent has tools for operations including:
 - moving messages
 - discarding drafts
 
-The default agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action.
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. The separate inbound trigger only generates a summary and does not create drafts.
 
-### Auto-draft flow
+### Auto-summary flow
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent reads the relevant message/thread context and attempts to create a draft reply. Auto-draft failure is logged but does not roll back the already stored inbound message.
+The agent reads the relevant message/thread context and generates a concise summary in the agent chat history. The unattended path receives only read-only email/thread tools and does not create drafts or mutate mailbox state. Auto-summary failure is logged but does not roll back the already stored inbound message.
 
 ### Prompt safety
 

@@ -40,8 +40,14 @@ export function getMailboxStub(
 export async function listMailboxes(
 	bucket: R2Bucket,
 ): Promise<{ id: string; email: string }[]> {
-	const list = await bucket.list({ prefix: "mailboxes/" });
-	return list.objects.map((obj) => {
+	const objects: R2Object[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await bucket.list({ prefix: "mailboxes/", ...(cursor ? { cursor } : {}) });
+		objects.push(...page.objects);
+		cursor = page.truncated ? page.cursor : undefined;
+	} while (cursor);
+	return objects.map((obj) => {
 		const id = obj.key.replace("mailboxes/", "").replace(".json", "");
 		return { id, email: id };
 	});

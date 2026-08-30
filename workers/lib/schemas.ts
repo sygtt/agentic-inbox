@@ -29,6 +29,7 @@ export interface EmailMetadata {
 	email_references?: string | null;
 	thread_id?: string | null;
 	folder_id?: string | null;
+	trashed_at?: string | null;
 	snippet?: string | null;
 }
 

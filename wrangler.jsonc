@@ -6,6 +6,9 @@
 	"observability": {
 		"enabled": true
 	},
+	"triggers": {
+		"crons": ["0 3 * * *"]
+	},
 	"compatibility_flags": [
 		"nodejs_compat"
 	],

@@ -249,13 +249,21 @@ export default function EmailListRoute() {
 	};
 
 	const deleteById = async (emailId: string) => {
-		if (isDeleting || isSavingDraft || isSendingEmail) return;
+		if (isDeleting || moveEmail.isPending || isSavingDraft || isSendingEmail) return;
 		if (mailboxId) {
-			const confirmed = window.confirm("Are you sure you want to delete this email?");
+			const permanent = folder === Folders.TRASH || folder === Folders.DRAFT;
+			const confirmed = window.confirm(permanent
+				? "Permanently delete this email? This cannot be undone."
+				: "Move this email to Trash?");
 			if (!confirmed) return;
 			try {
-				await deleteEmail.mutateAsync({ mailboxId, id: emailId });
-				toastManager.add({ title: "Email deleted" });
+				if (permanent) {
+					await deleteEmail.mutateAsync({ mailboxId, id: emailId });
+					toastManager.add({ title: "Email permanently deleted" });
+				} else {
+					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
+					toastManager.add({ title: "Email moved to Trash" });
+				}
 				clearEmailSelection(emailId);
 			} catch {
 				toastManager.add({ title: "Failed to delete email", variant: "error" });
@@ -284,7 +292,7 @@ export default function EmailListRoute() {
 		}
 	};
 
-	const handleArchive = (email: Email) => handleMoveToFolder(email, Folders.ARCHIVE);
+	const handleArchive = (email: Email) => handleMoveToFolder(email, folder === Folders.ARCHIVE || folder === Folders.TRASH ? Folders.INBOX : Folders.ARCHIVE);
 
 	const handleRefresh = () => {
 		if (mailboxId) {
@@ -528,7 +536,7 @@ export default function EmailListRoute() {
 													aria-label={email.read ? "Mark unread" : "Mark read"}
 												/>
 											</Tooltip>
-											<Tooltip content="Delete" asChild>
+											<Tooltip content={folder === Folders.TRASH ? "Delete permanently" : "Delete"} asChild>
 												<Button
 													variant="ghost"
 													shape="square"
@@ -536,7 +544,7 @@ export default function EmailListRoute() {
 															icon={<TrashIcon size={14} />}
 															onClick={(e) => handleDelete(e, email.id)}
 															disabled={isDeleting || isSavingDraft || isSendingEmail}
-													aria-label="Delete"
+													aria-label={folder === Folders.TRASH ? "Delete permanently" : "Delete"}
 												/>
 											</Tooltip>
 										</div>
@@ -568,6 +576,7 @@ export default function EmailListRoute() {
 					open={quickActionEmail !== null}
 					email={quickActionEmail || { read: false, starred: false }}
 					isArchived={folder === Folders.ARCHIVE}
+					isTrash={folder === Folders.TRASH}
 					onClose={() => setQuickActionEmail(null)}
 					onArchive={() => { if (quickActionEmail) void handleArchive(quickActionEmail); setQuickActionEmail(null); }}
 					onMoveToInbox={() => { if (quickActionEmail) void handleMoveToFolder(quickActionEmail, Folders.INBOX); setQuickActionEmail(null); }}

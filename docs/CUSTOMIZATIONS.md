@@ -188,6 +188,55 @@ when synchronizing upstream.
 
 Remove local helpers if upstream provides equivalent safe mobile behavior.
 
+## Trash-first deletion and 30-day retention
+
+**Status:** Active
+
+### Why
+
+Normal deletion should be recoverable while preserving the existing mailbox
+storage model and attachment provenance.
+
+### Behavior
+
+- UI deletion moves regular messages to Trash and retains SQLite metadata and R2 attachments.
+- Permanent deletion is guarded to Trash; draft discard remains permanent.
+- `emails.trashed_at` records the first move into Trash, is cleared on restore, and is not reset by a redundant Trash move.
+- A daily Cron Trigger purges current Trash messages after 30 days and removes their R2 attachment objects.
+- MCP and Agent workflows expose `trash_email`; permanent deletion is explicit and guarded.
+
+### Main affected areas
+
+- `workers/db/schema.ts`
+- `workers/durableObject/migrations.ts`
+- `workers/durableObject/index.ts`
+- `workers/app.ts`
+- `workers/lib/attachments.ts`
+- `workers/lib/trash.ts`
+- `workers/lib/tools.ts`
+- `workers/mcp/index.ts`
+- `app/components/`
+
+### Configuration involved
+
+The daily schedule is declared in `wrangler.jsonc`. No secret or personal
+configuration is required.
+
+### Persistence / migration implications
+
+Migration `11_add_trashed_at` adds a nullable column and gives existing Trash
+rows a fresh 30-day grace period. Non-Trash rows remain `NULL`.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to MailboxDO migrations, delete/move routes, attachment
+cleanup, or MCP tools may conflict with this customization.
+
+### Removal / replacement condition
+
+Remove the local behavior when upstream provides equivalent recoverable deletion
+and retention semantics.
+
 ## MCP plain-text email body contract
 
 **Status:** Active
@@ -526,7 +575,7 @@ At minimum cover:
 - invalid/out-of-domain recipient
 - malformed message
 - attachment handling remains correct
-- auto-draft trigger targets the storage mailbox intentionally
+- auto-summary trigger targets the storage mailbox intentionally
 
 The focused routing tests run with the repository's `npm test` script. Also run:
 
@@ -614,6 +663,48 @@ Do not attempt to add per-mailbox authorization incidentally while implementing 
 The normal Email Agent tool set creates drafts but does not directly send email.
 
 This explicit operator-review boundary is desirable and should remain unless a separate, intentionally designed automation feature changes it.
+
+## Automatic incoming-email summaries
+
+**Status:** Active
+
+### Why
+
+New-mail automation should provide triage context without creating outbound
+content or changing mailbox state without operator intent.
+
+### Behavior
+
+- A new inbound message triggers a summary in the storage mailbox's Agent chat history.
+- The unattended agent receives only `get_email` and `get_thread` read tools.
+- It does not create reply drafts, send mail, move messages, or delete messages.
+- Prompt-injection detection blocks the summary attempt while retaining the inbound message.
+
+### Main affected areas
+
+- `workers/agent/index.ts`
+- `workers/lib/ai.ts`
+
+### Configuration involved
+
+None. The summary prompt is fixed and does not use the interactive mailbox
+system prompt, so mailbox-specific instructions cannot expand unattended
+capabilities.
+
+### Persistence / migration implications
+
+None. Summaries are stored in the existing Agent chat history; email and mailbox
+schemas are unchanged.
+
+### Upstream synchronization risk
+
+Medium. Upstream changes to the inbound Agent trigger or agent tool construction
+may reintroduce automatic draft creation or broaden the unattended tool set.
+
+### Removal / replacement condition
+
+Remove this customization if upstream provides an equivalent operator-safe
+incoming-email summarization flow.
 
 ## Unknown recipient without catch-all is rejected
 

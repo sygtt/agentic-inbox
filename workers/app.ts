@@ -8,6 +8,8 @@ import { jwtVerify, createRemoteJWKSet } from "jose";
 import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { MailboxRoutingError } from "./lib/mailbox-routing";
+import { listMailboxes } from "./lib/email-helpers";
+import { getTrashCutoff, TRASH_PURGE_BATCH_SIZE } from "./lib/trash";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
 
@@ -111,6 +113,25 @@ app.all("*", (c) => {
 // Export the Hono app as the default export with an email handler
 export default {
 	fetch: app.fetch,
+	async scheduled(_event: ScheduledEvent, env: Env) {
+		const cutoff = getTrashCutoff();
+		for (const mailbox of await listMailboxes(env.BUCKET)) {
+			try {
+				const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailbox.id));
+				const mailboxStub = stub as unknown as {
+					purgeExpiredTrash: (expiration: string) => Promise<{
+						purgedCount: number;
+					}>;
+				};
+				let purgedCount: number;
+				do {
+					purgedCount = (await mailboxStub.purgeExpiredTrash(cutoff)).purgedCount;
+				} while (purgedCount === TRASH_PURGE_BATCH_SIZE);
+			} catch (error) {
+				console.error("Failed to purge expired Trash emails for one mailbox:", (error as Error).message);
+			}
+		}
+	},
 	async email(
 		event: ForwardableEmailMessage,
 		env: Env,

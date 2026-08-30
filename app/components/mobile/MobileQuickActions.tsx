@@ -44,6 +44,7 @@ export default function MobileQuickActions({
 	email,
 	unread: unreadOverride,
 	isArchived,
+	isTrash = false,
 	threadActionsDisabled = false,
 	onClose,
 	onArchive,
@@ -57,6 +58,7 @@ export default function MobileQuickActions({
 	email: { read: boolean; starred: boolean; thread_unread_count?: number };
 	unread?: boolean;
 	isArchived: boolean;
+	isTrash?: boolean;
 	threadActionsDisabled?: boolean;
 	onClose: () => void;
 	onArchive: () => void;
@@ -71,9 +73,9 @@ export default function MobileQuickActions({
 		<MobileBottomSheet open={open} title="Quick actions" onClose={onClose}>
 			<div className="space-y-1">
 				<ActionButton
-					label={isArchived ? "Move to Inbox" : "Archive"}
-					icon={isArchived ? <FolderSimpleIcon size={20} /> : <ArchiveIcon size={20} />}
-					onClick={isArchived ? onMoveToInbox : onArchive}
+					label={isTrash ? "Restore to Inbox" : isArchived ? "Move to Inbox" : "Archive"}
+					icon={isTrash || isArchived ? <FolderSimpleIcon size={20} /> : <ArchiveIcon size={20} />}
+					onClick={isTrash || isArchived ? onMoveToInbox : onArchive}
 					disabled={threadActionsDisabled}
 				/>
 				<ActionButton
@@ -88,7 +90,7 @@ export default function MobileQuickActions({
 					onClick={() => { onToggleStar(); onClose(); }}
 				/>
 				<ActionButton label="Tags" icon={<TagIcon size={20} />} onClick={onOpenTags} />
-				<ActionButton label="Delete" icon={<TrashIcon size={20} />} onClick={onDelete} danger />
+				<ActionButton label={isTrash ? "Delete permanently" : "Delete"} icon={<TrashIcon size={20} />} onClick={onDelete} danger />
 			</div>
 		</MobileBottomSheet>
 	);
