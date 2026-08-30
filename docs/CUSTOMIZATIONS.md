@@ -147,7 +147,7 @@ without introducing a separate mobile client or new persistence.
 - Plain-text `http`/`https` URLs are converted to links after escaping the input.
 - Existing HTML mail continues through the sandboxed DOMPurify iframe path.
 - Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
-- The web app declares a standalone manifest using the repository's generic favicon.
+- The web app declares a Japanese standalone manifest with raster install icons derived from the repository's favicon.
 - No service worker or offline mailbox support is added.
 - At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar and split view at `md` and above.
 - Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
