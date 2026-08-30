@@ -161,9 +161,18 @@ export default function EmailListRoute() {
 	} = useUIStore();
 	const [page, setPage] = useState(1);
 	const [mobileFilter, setMobileFilter] = useState<"all" | "needs">("all");
+	const [isMobileViewport, setIsMobileViewport] = useState(false);
 	const [quickActionEmail, setQuickActionEmail] = useState<Email | null>(null);
 	const [tagsEmail, setTagsEmail] = useState<Email | null>(null);
 	const toastManager = useKumoToastManager();
+
+	useEffect(() => {
+		const media = window.matchMedia("(max-width: 767px)");
+		const update = () => setIsMobileViewport(media.matches);
+		update();
+		media.addEventListener("change", update);
+		return () => media.removeEventListener("change", update);
+	}, []);
 
 	const queryClient = useQueryClient();
 	const updateEmail = useUpdateEmail();
@@ -181,9 +190,9 @@ export default function EmailListRoute() {
 			folder: folder || "",
 			page: String(page),
 			limit: String(PAGE_SIZE),
-			...(mobileFilter === "needs" ? { needs_reply: "true" } : {}),
+			...(isMobileViewport && mobileFilter === "needs" ? { needs_reply: "true" } : {}),
 		}),
-		[folder, mobileFilter, page],
+		[folder, isMobileViewport, mobileFilter, page],
 	);
 
 	const {

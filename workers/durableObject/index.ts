@@ -179,6 +179,7 @@ export class MailboxDO extends DurableObject<Env> {
 				email_references: schema.emails.email_references,
 				thread_id: schema.emails.thread_id,
 				folder_id: schema.emails.folder_id,
+				has_attachment: sql<number>`EXISTS (SELECT 1 FROM attachments WHERE email_id = ${schema.emails.id})`,
 			})
 			.from(schema.emails)
 			.where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -192,6 +193,7 @@ export class MailboxDO extends DurableObject<Env> {
 			snippet: this.getEmailSnippet(email.id),
 			read: !!email.read,
 			starred: !!email.starred,
+			has_attachment: !!email.has_attachment,
 		}));
 	}
 
@@ -263,6 +265,7 @@ export class MailboxDO extends DurableObject<Env> {
 				folder_emails AS (
 					SELECT id, subject, sender, recipient, date, read, starred,
 						thread_id, folder_id, in_reply_to, email_references,
+						EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = emails.id) as has_attachment,
 						COALESCE(in_reply_to, id) as draft_group_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
@@ -272,7 +275,8 @@ export class MailboxDO extends DurableObject<Env> {
 						draft_group_key,
 						COUNT(*) as thread_count,
 						SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
-						GROUP_CONCAT(DISTINCT sender) as participants
+						GROUP_CONCAT(DISTINCT sender) as participants,
+						MAX(has_attachment) as has_attachment
 					FROM folder_emails
 					GROUP BY draft_group_key
 				),
@@ -289,7 +293,7 @@ export class MailboxDO extends DurableObject<Env> {
 					lp.id, lp.subject, lp.sender, lp.recipient, lp.date,
 					lp.read, lp.starred, lp.thread_id, lp.folder_id,
 					lp.in_reply_to, lp.email_references,
-					ds.thread_count, ds.thread_unread_count, ds.participants
+					ds.thread_count, ds.thread_unread_count, ds.participants, ds.has_attachment
 				FROM latest_per_group lp
 				JOIN draft_stats ds ON lp.draft_group_key = ds.draft_group_key
 				WHERE lp.rn = 1
@@ -307,6 +311,7 @@ export class MailboxDO extends DurableObject<Env> {
 				thread_count: row.thread_count || 1,
 				thread_unread_count: row.thread_unread_count || 0,
 				participants: row.participants || row.sender,
+				has_attachment: !!row.has_attachment,
 			}));
 		}
 
@@ -335,6 +340,7 @@ export class MailboxDO extends DurableObject<Env> {
 			all_emails_with_conversation AS (
 				SELECT
 					e.sender, e.read, e.folder_id, e.date,
+					EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 					COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
 				FROM emails e
 				LEFT JOIN thread_to_conversation tc
@@ -347,7 +353,8 @@ export class MailboxDO extends DurableObject<Env> {
 					SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
 					SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count,
 					GROUP_CONCAT(DISTINCT sender) as participants,
-					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft
+					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft,
+					MAX(has_attachment) as has_attachment
 				FROM all_emails_with_conversation
 				WHERE conversation_id IN (
 					SELECT DISTINCT conversation_id FROM all_emails_with_conversation
@@ -379,6 +386,7 @@ export class MailboxDO extends DurableObject<Env> {
 				lif.read, lif.starred, lif.thread_id, lif.folder_id,
 				lif.in_reply_to, lif.email_references,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
+				cs.has_attachment,
 				CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
 					AND cs.thread_read_count > 0
@@ -406,6 +414,7 @@ export class MailboxDO extends DurableObject<Env> {
 			thread_count: row.thread_count || 1,
 			thread_unread_count: row.thread_unread_count || 0,
 			participants: row.participants || row.sender,
+			has_attachment: !!row.has_attachment,
 			needs_reply: !!row.needs_reply,
 			has_draft: !!row.has_draft,
 		}));
@@ -947,6 +956,7 @@ export class MailboxDO extends DurableObject<Env> {
 				e.envelope_recipient,
 				e.read, e.starred, e.in_reply_to, e.email_references,
 				e.thread_id, e.folder_id,
+				EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 				f.name as folder_name
 			FROM emails e
 			LEFT JOIN folders f ON e.folder_id = f.id
@@ -960,6 +970,7 @@ export class MailboxDO extends DurableObject<Env> {
 			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
+			has_attachment: !!row.has_attachment,
 		}));
 	}
 
