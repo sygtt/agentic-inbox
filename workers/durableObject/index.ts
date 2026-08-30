@@ -581,24 +581,26 @@ export class MailboxDO extends DurableObject<Env> {
 			),
 		] as any[];
 
-		if (emailRows.length === 0) {
-			const target = this.db
-				.select({ thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
-				.from(schema.emails)
-				.where(eq(schema.emails.id, threadId))
-				.get();
-			const legacyIds = target && target.folder_id !== Folders.DRAFT && target.thread_id == null
-				? this.getLegacySubjectMessageIds(target.subject)
-				: [];
-			if (legacyIds.length > 0) {
-				const placeholders = legacyIds.map((_, index) => `?${index + 1}`).join(",");
-				emailRows = [
-					...this.ctx.storage.sql.exec(
-						`SELECT * FROM emails WHERE id IN (${placeholders}) ORDER BY date ASC`,
-						...legacyIds,
-					),
-				] as any[];
-			}
+		const target = this.db
+			.select({ id: schema.emails.id, thread_id: schema.emails.thread_id, subject: schema.emails.subject, folder_id: schema.emails.folder_id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, threadId))
+			.get();
+		const legacyIds = target && target.folder_id !== Folders.DRAFT && target.thread_id == null
+			? this.getLegacySubjectMessageIds(target.subject)
+			: [];
+		const threadEmailIds = [...new Set([
+			...emailRows.map((email) => email.id as string),
+			...legacyIds,
+		])];
+		if (threadEmailIds.length > 0) {
+			const placeholders = threadEmailIds.map((_, index) => `?${index + 1}`).join(",");
+			emailRows = [
+				...this.ctx.storage.sql.exec(
+					`SELECT * FROM emails WHERE id IN (${placeholders}) ORDER BY date ASC`,
+					...threadEmailIds,
+				),
+			] as any[];
 		}
 
 		if (emailRows.length === 0) return [];
