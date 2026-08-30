@@ -265,8 +265,9 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 });
 
 app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/move", async (c: AppContext) => {
-	const { folderId } = (await c.req.json()) as { folderId: string };
-	const success = await (c.var.mailboxStub as any).moveThread(c.req.param("threadId")!, folderId);
+	const { folderId, sourceFolderId } = (await c.req.json()) as { folderId?: string; sourceFolderId?: string };
+	if (!folderId || !sourceFolderId) return c.json({ error: "Both source and destination folders are required" }, 400);
+	const success = await (c.var.mailboxStub as any).moveThread(c.req.param("threadId")!, folderId, sourceFolderId);
 	return success ? c.json({ status: "moved" }) : c.json({ error: "Thread or folder not found" }, 400);
 });
 

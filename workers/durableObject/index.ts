@@ -822,6 +822,13 @@ export class MailboxDO extends DurableObject<Env> {
 		if (!folder || folder.is_deletable === 0) {
 			return false;
 		}
+		const hasEmails = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.folder_id, id))
+			.limit(1)
+			.get();
+		if (hasEmails) return false;
 
 		this.db
 			.delete(schema.folders)
@@ -849,7 +856,7 @@ export class MailboxDO extends DurableObject<Env> {
 		return true;
 	}
 
-	async moveThread(threadId: string, folderId: string) {
+	async moveThread(threadId: string, folderId: string, sourceFolderId: string) {
 		const folder = this.db
 			.select({ id: schema.folders.id })
 			.from(schema.folders)
@@ -874,7 +881,7 @@ export class MailboxDO extends DurableObject<Env> {
 				this.db
 					.update(schema.emails)
 					.set({ folder_id: folderId })
-					.where(eq(schema.emails.thread_id, threadId))
+					.where(and(eq(schema.emails.thread_id, threadId), eq(schema.emails.folder_id, sourceFolderId)))
 					.run();
 				return;
 			}
@@ -882,10 +889,12 @@ export class MailboxDO extends DurableObject<Env> {
 				this.ctx.storage.sql.exec(
 					`UPDATE emails SET folder_id = ?1
 					 WHERE thread_id IS NULL
+					 AND folder_id = ?3
 					 AND ${NORMALIZED_SUBJECT_SQL} =
 						(SELECT ${NORMALIZED_SUBJECT_SQL} FROM emails WHERE id = ?2)`,
 					folderId,
 					threadId,
+					sourceFolderId,
 				);
 				return;
 			}

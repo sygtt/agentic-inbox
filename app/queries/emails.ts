@@ -234,8 +234,8 @@ export function useMoveEmail() {
 export function useMoveThread() {
 	const invalidate = useInvalidateEmailData();
 	return useMutation({
-		mutationFn: ({ mailboxId, threadId, folderId }: { mailboxId: string; threadId: string; folderId: string }) =>
-			api.moveThread(mailboxId, threadId, folderId),
+		mutationFn: ({ mailboxId, threadId, folderId, sourceFolderId }: { mailboxId: string; threadId: string; folderId: string; sourceFolderId: string }) =>
+			api.moveThread(mailboxId, threadId, folderId, sourceFolderId),
 		onSuccess: (_data, { mailboxId }) => invalidate(mailboxId),
 	});
 }
