@@ -18,24 +18,16 @@ import { createEmailSnippet } from "../lib/email-content";
  * Used for conversation grouping. Hardcoded to the `subject` column.
  */
 const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
-	CASE
-		WHEN LOWER(TRIM(COALESCE(subject, ''))) LIKE 'aw:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'wg:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'réf:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'sv:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 're:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'fwd:%'
-			OR LOWER(TRIM(COALESCE(subject, ''))) LIKE 'fw:%'
-			THEN LTRIM(SUBSTR(TRIM(COALESCE(subject, '')), INSTR(TRIM(COALESCE(subject, '')), ':') + 1))
-		ELSE TRIM(COALESCE(subject, ''))
-	END
+	REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+		LOWER(COALESCE(subject, '')),
+		'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
+		're: ', ''), 'fwd: ', ''), 'fw: ', '')
 ))`;
 
 function normalizeSubject(subject: string | null | undefined): string {
-	return (subject || "")
-		.replace(/^(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*/i, "")
-		.trim()
-		.toLowerCase();
+	return ["aw: ", "wg: ", "réf: ", "sv: ", "re: ", "fwd: ", "fw: "]
+		.reduce((value, prefix) => value.replaceAll(prefix, ""), (subject || "").toLowerCase())
+		.trim();
 }
 
 const ALLOWED_SORT_COLUMNS = [
@@ -331,8 +323,10 @@ export class MailboxDO extends DurableObject<Env> {
 			);
 
 			const rows = [...result];
+			const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
 			return rows.map((row: any) => ({
 				...row,
+				tags: tagsByEmail[row.id] || [],
 				snippet: this.getEmailSnippet(row.id),
 				read: !!row.read,
 				starred: !!row.starred,
@@ -435,8 +429,10 @@ export class MailboxDO extends DurableObject<Env> {
 		);
 
 		const rows = [...result];
+		const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
 		return rows.map((row: any) => ({
 			...row,
+			tags: tagsByEmail[row.id] || [],
 			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,
@@ -1026,8 +1022,11 @@ export class MailboxDO extends DurableObject<Env> {
 		params.push(limit, offset);
 
 		const result = this.ctx.storage.sql.exec(query, ...params);
-		return [...result].map((row: any) => ({
+		const rows = [...result];
+		const tagsByEmail = await this.getEmailTagsForEmails(rows.map((row: any) => row.id));
+		return rows.map((row: any) => ({
 			...row,
+			tags: tagsByEmail[row.id] || [],
 			snippet: this.getEmailSnippet(row.id),
 			read: !!row.read,
 			starred: !!row.starred,

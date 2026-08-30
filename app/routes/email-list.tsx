@@ -190,7 +190,7 @@ export default function EmailListRoute() {
 			folder: folder || "",
 			page: String(page),
 			limit: String(PAGE_SIZE),
-			...(isMobileViewport && mobileFilter === "needs" ? { needs_reply: "true" } : {}),
+			...(isMobileViewport && folder === Folders.INBOX && mobileFilter === "needs" ? { needs_reply: "true" } : {}),
 		}),
 		[folder, isMobileViewport, mobileFilter, page],
 	);
