@@ -36,6 +36,10 @@ test("PWA manifest declares Japanese install metadata and raster icons", async (
 });
 
 test("PWA icon files have the declared dimensions", async () => {
+	const regularIcon = await readFile(new URL("icon-512.png", publicUrl));
+	const maskableIcon = await readFile(new URL("icon-maskable-512.png", publicUrl));
+	assert.notDeepEqual(maskableIcon, regularIcon);
+
 	for (const [filename, size] of [
 		["icon-192.png", 192],
 		["icon-512.png", 512],
