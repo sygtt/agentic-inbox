@@ -3,20 +3,23 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useEffect, useRef } from "react";
-import { Outlet, useParams } from "react-router";
+import { Link, Outlet, useParams } from "react-router";
 import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
 import Header from "~/components/Header";
 import Sidebar from "~/components/Sidebar";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
+import MobileBottomNav from "~/components/mobile/MobileBottomNav";
 
 export default function MailboxRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	// Prefetch mailbox data for child components
-	useMailbox(mailboxId);
+	const { data: currentMailbox } = useMailbox(mailboxId);
 	const prevMailboxIdRef = useRef<string | undefined>(undefined);
 	const {
+		selectedEmailId,
+		isComposing,
 		isSidebarOpen,
 		closeSidebar,
 		isAgentPanelOpen,
@@ -54,7 +57,7 @@ export default function MailboxRoute() {
 
 			{/* Sidebar: hidden on mobile by default, shown as overlay when open */}
 			<div
-				className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
+				className={`hidden md:block fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
 					isSidebarOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
@@ -63,10 +66,27 @@ export default function MailboxRoute() {
 
 			{/* Main content */}
 			<div className="flex-1 flex flex-col min-w-0 bg-kumo-base">
+				<div className="mobile-safe-top flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-4 py-3 md:hidden">
+					<Link to="/" className="text-sm text-kumo-subtle" aria-label="Back to mailboxes">
+						←
+					</Link>
+					<div className="min-w-0">
+						<div className="truncate text-sm font-semibold text-kumo-default">
+							{currentMailbox?.settings?.fromName || currentMailbox?.name || mailboxId}
+						</div>
+						<div className="truncate text-xs text-kumo-subtle">
+							{currentMailbox?.email || mailboxId}
+						</div>
+					</div>
+				</div>
 				<Header />
-				<main className="flex-1 overflow-hidden">
+				<main className="flex-1 min-h-0 overflow-hidden">
 					<Outlet />
 				</main>
+				<MobileBottomNav
+					mailboxId={mailboxId}
+					visible={!selectedEmailId && !isComposing}
+				/>
 			</div>
 
 			{/* Agent + MCP sidebar -- togglable on desktop */}

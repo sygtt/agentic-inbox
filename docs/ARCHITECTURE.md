@@ -389,6 +389,13 @@ app/routes.ts     route configuration
 
 The React application and API are served from the same Worker/origin.
 
+At viewport widths below `md`, `app/routes/mailbox.tsx` supplies the mailbox
+identity bar and safe-area-aware bottom navigation. The mobile layer under
+`app/components/mobile/` renders real list rows, pointer gestures, quick/tag
+sheets, and the narrow detail view while reusing the same TanStack Query and
+Zustand state as the desktop split view. The mobile folders route uses the
+existing folder API; search remains server-side through `useSearchEmails`.
+
 ## Important files by responsibility
 
 | Responsibility | Main files |

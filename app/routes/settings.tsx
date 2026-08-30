@@ -65,7 +65,7 @@ export default function SettingsRoute() {
 	const isCustomPrompt = agentPrompt.trim().length > 0;
 
 	return (
-		<div className="max-w-2xl px-4 py-4 md:px-8 md:py-6 h-full overflow-y-auto">
+		<div className="max-w-2xl px-4 pb-24 pt-4 md:px-8 md:py-6 h-full overflow-y-auto">
 			<h1 className="text-lg font-semibold text-kumo-default mb-6">Settings</h1>
 
 			<div className="space-y-6">
@@ -123,6 +123,13 @@ export default function SettingsRoute() {
 					<p className="text-xs text-kumo-subtle mt-2">
 						The prompt is sent as the system message to the AI model.
 						It controls the agent's personality, writing style, and behavior rules.
+					</p>
+				</div>
+
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+					<div className="text-sm font-medium text-kumo-default mb-2">Swipes</div>
+					<p className="text-xs leading-relaxed text-kumo-subtle">
+						On mobile inbox rows, swipe left to archive and swipe right to mark read or unread. Long press a row for quick actions.
 					</p>
 				</div>
 

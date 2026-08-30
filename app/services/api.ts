@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Email, Folder, Mailbox } from "~/types";
+import type { Email, EmailTag, Folder, Mailbox } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -129,6 +129,14 @@ const api = {
 		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`),
 	getAttachment: (mailboxId: string, emailId: string, attachmentId: string) =>
 		get<Blob>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/attachments/${attachmentId}`, { responseType: "blob" }),
+	getEmailTags: (mailboxId: string, emailId: string) =>
+		get<EmailTag[]>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`),
+	upsertEmailTag: (mailboxId: string, emailId: string, tag: string, provenance: "manual" | "rule" | "agent" = "manual") =>
+		put<EmailTag>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`, { tag, provenance }),
+	removeEmailTag: (mailboxId: string, emailId: string, tag: string) =>
+		del<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags/${encodeURIComponent(tag)}`),
+	setEmailDisposition: (mailboxId: string, emailId: string, value: string) =>
+		put<EmailTag>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/disposition`, { value, provenance: "manual" }),
 	saveDraft: (
 		mailboxId: string,
 		draft: {
