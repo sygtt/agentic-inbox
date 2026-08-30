@@ -14,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import { formatDetailDate } from "shared/dates";
 import { Folders } from "shared/folders";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Email, Folder } from "~/types";
 import { useEmailTags } from "~/queries/email-tags";
 import SingleMessageView from "~/components/email-panel/SingleMessageView";
@@ -73,7 +73,15 @@ export default function MobileEmailDetail({
 }) {
 	const [isQuickActionsOpen, setQuickActionsOpen] = useState(false);
 	const [isTagsOpen, setTagsOpen] = useState(false);
-	const { data: tags = [] } = useEmailTags(mailboxId, email.id, { enabled: true });
+	const [isMobileViewport, setIsMobileViewport] = useState(false);
+	useEffect(() => {
+		const media = window.matchMedia("(max-width: 767px)");
+		const update = () => setIsMobileViewport(media.matches);
+		update();
+		media.addEventListener("change", update);
+		return () => media.removeEventListener("change", update);
+	}, []);
+	const { data: tags = [] } = useEmailTags(mailboxId, email.id, { enabled: isMobileViewport });
 	const isArchived = folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE;
 	const hasThread = allMessages.length > 1;
 
