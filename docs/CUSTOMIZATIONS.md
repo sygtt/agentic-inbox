@@ -702,7 +702,10 @@ GLM-4.7-Flash path.
 
 Additive migration `12_add_email_triage_analysis` stores the validated feature
 JSON, Jev model version, schema/policy versions, predicted disposition, and
-analysis timestamp. Rows cascade when their email is deleted.
+analysis timestamp. Migration `13_add_email_triage_feedback` stores append-only
+manual disposition corrections, including the previous/new values and the
+latest available triage versions. Both tables cascade when their email is
+deleted.
 
 ### Upstream synchronization risk
 
@@ -714,6 +717,52 @@ manual-disposition protection.
 
 Remove or shrink this customization if upstream provides equivalent structured
 inbound triage with versioned persistence and manual disposition protection.
+
+## Human triage correction feedback
+
+**Status:** Active
+
+### Why
+
+Human disposition changes provide the small, explicit evaluation dataset needed
+to measure and improve the automated triage policy without introducing general
+activity logging.
+
+### Behavior
+
+- A manual disposition write reads the current disposition, replaces it using the existing semantics, and records a `manual_disposition` event only when the value changes.
+- Each event preserves the previous and new dispositions, timestamp, email identity, and the latest available triage schema, policy, and model versions.
+- Agent dispositions and idempotent manual writes do not create feedback events.
+- The tag update and feedback insert run in one Durable Object transaction, so a failed feedback write cannot leave a contradictory disposition state.
+- Automated re-analysis updates its prediction but preserves an existing manual disposition.
+- This v0.1 stage only captures observations; later policy or model changes should be based on accumulated real corrections rather than added here.
+
+### Main affected areas
+
+- `workers/durableObject/triage.ts`
+- `workers/durableObject/index.ts`
+- `workers/db/schema.ts`
+- `workers/durableObject/migrations.ts`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+Additive migration `13_add_email_triage_feedback` creates the append-only
+feedback table and an email/timestamp index. Feedback rows are deleted with
+their email.
+
+### Upstream synchronization risk
+
+Medium. Changes to disposition persistence, triage analysis storage, or the
+MailboxDO migration sequence may conflict with this feedback capture path.
+
+### Removal / replacement condition
+
+Remove or shrink this customization if upstream provides equivalent versioned
+triage feedback capture with the same manual-disposition invariants.
 
 ## Unknown recipient without catch-all is rejected
 

@@ -217,4 +217,24 @@ export const mailboxMigrations: Migration[] = [
 				ON email_triage_analysis(predicted_disposition);
 		`),
 	},
+	{
+		name: "13_add_email_triage_feedback",
+		sql: txn(`
+			CREATE TABLE email_triage_feedback (
+				id TEXT PRIMARY KEY NOT NULL,
+				email_id TEXT NOT NULL,
+				event_type TEXT NOT NULL CHECK (event_type IN ('manual_disposition')),
+				previous_value TEXT,
+				new_value TEXT NOT NULL,
+				feature_schema_version INTEGER,
+				policy_version INTEGER,
+				model TEXT,
+				created_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			CREATE INDEX idx_email_triage_feedback_email_created
+				ON email_triage_feedback(email_id, created_at);
+		`),
+	},
 ];

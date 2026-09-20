@@ -13,7 +13,10 @@ import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
 import type { PersistedEmailTriageResult } from "../lib/email-triage";
-import { applyEmailTriageResult as persistEmailTriageResult } from "./triage";
+import {
+	applyEmailTriageResult as persistEmailTriageResult,
+	setEmailDisposition as persistEmailDisposition,
+} from "./triage";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -772,28 +775,7 @@ export class MailboxDO extends DurableObject<Env> {
 	}
 
 	async setEmailDisposition(id: string, value: string, provenance: string) {
-		const email = this.db
-			.select({ id: schema.emails.id })
-			.from(schema.emails)
-			.where(eq(schema.emails.id, id))
-			.get();
-		if (!email) return null;
-
-		const tag = `disposition:${value}`;
-		this.ctx.storage.transactionSync(() => {
-			this.ctx.storage.sql.exec(
-				`DELETE FROM email_tags WHERE email_id = ?1 AND tag LIKE 'disposition:%'`,
-				id,
-			);
-			this.ctx.storage.sql.exec(
-				`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, ?3)`,
-				id,
-				tag,
-				provenance,
-			);
-		});
-
-		return { tag, provenance };
+		return persistEmailDisposition(this.ctx.storage, id, value, provenance);
 	}
 
 	async applyEmailTriageResult(id: string, result: PersistedEmailTriageResult) {
