@@ -468,6 +468,22 @@ A useful PR description should state:
 
 Do not deploy merely because a PR was merged.
 
+### Issue linkage and automatic closure
+
+For a PR that fully implements a GitHub issue, include an explicit closing reference in the PR body:
+
+```text
+Closes #123
+```
+
+This lets GitHub close the issue automatically when the PR is merged.
+
+When creating implementation issues, include this requirement in the issue body so AI coding agents preserve the lifecycle without needing an extra reminder.
+
+Use a non-closing reference such as `Refs #123` when the PR is partial. Roadmap, tracking, umbrella, and observation issues should not be closed by a child implementation PR unless that PR genuinely completes the entire tracking issue.
+
+Before merging, verify that the PR description contains the intended closing keyword and issue number.
+
 ## Production deployment checklist
 
 Only use this section when deployment was explicitly requested.
