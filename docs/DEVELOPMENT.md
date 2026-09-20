@@ -476,7 +476,7 @@ For a PR that fully implements a GitHub issue, include an explicit closing refer
 Closes #123
 ```
 
-Normal fork development PRs target `develop`, while the repository default branch is `main`. GitHub's built-in closing keywords are only interpreted for PRs targeting the default branch, so this repository includes `.github/workflows/close-linked-issues-on-develop-merge.yml`. When a PR is merged into `develop`, that workflow parses supported closing references such as `Closes #123` and closes those issues.
+Normal fork development PRs target `develop`, while the repository default branch is `main`. GitHub's built-in closing keywords are only interpreted for PRs targeting the default branch, so this repository includes `.github/workflows/close-linked-issues-on-develop-merge.yml`. The workflow runs on pushes to `develop`, finds the merged PR associated with the pushed commit, parses supported closing references such as `Closes #123`, and closes those issues.
 
 When creating implementation issues, include this requirement in the issue body so AI coding agents preserve the lifecycle without needing an extra reminder.
 
