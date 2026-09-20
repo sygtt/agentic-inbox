@@ -66,3 +66,17 @@ export const emailTriageAnalysis = sqliteTable("email_triage_analysis", {
 	predicted_disposition: text("predicted_disposition").notNull(),
 	analyzed_at: text("analyzed_at").notNull(),
 });
+
+export const emailTriageFeedback = sqliteTable("email_triage_feedback", {
+	id: text("id").primaryKey(),
+	email_id: text("email_id")
+		.notNull()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	event_type: text("event_type").notNull(),
+	previous_value: text("previous_value"),
+	new_value: text("new_value").notNull(),
+	feature_schema_version: integer("feature_schema_version"),
+	policy_version: integer("policy_version"),
+	model: text("model"),
+	created_at: text("created_at").notNull(),
+});

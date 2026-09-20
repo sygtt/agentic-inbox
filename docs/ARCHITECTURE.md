@@ -212,13 +212,22 @@ Stores the latest validated Jev feature set, returned model version, policy and
 schema versions, predicted disposition, and analysis timestamp for each email.
 Rows are upserted during re-analysis and cascade when the email is deleted.
 
+### `email_triage_feedback`
+
+Stores append-only `manual_disposition` events when a human changes an email's
+disposition. Each event records the previous and new values, the email,
+timestamp, and the latest available triage schema, policy, and model versions.
+Feedback rows cascade when their email is deleted. Repeated corrections remain
+separate events; an idempotent manual write and an agent disposition do not
+create feedback.
+
 ## Durable Object migrations
 
 Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, and structured inbound email triage analysis.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, structured inbound email triage analysis, and append-only manual triage feedback.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -343,7 +352,7 @@ The interactive agent policy is draft-oriented. The agent does not receive a dir
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent builds bounded plain-text current-email and recent-thread state, calls `typesafe/jev` through the existing Workers AI binding, validates the structured response, and stores it in `email_triage_analysis`. A deterministic policy then applies an `agent`-provenance `disposition:*` tag unless a manual disposition already exists. No folder move, draft, send, or delete occurs. Jev failure is logged and does not roll back the already stored inbound message.
+The agent builds bounded plain-text current-email and recent-thread state, calls `typesafe/jev` through the existing Workers AI binding, validates the structured response, and stores it in `email_triage_analysis`. A deterministic policy then applies an `agent`-provenance `disposition:*` tag unless a manual disposition already exists. Manual disposition changes through the existing disposition API replace the tag and, when the value changes, append a feedback event in the same Durable Object transaction. No folder move, draft, send, or delete occurs. Jev failure is logged and does not roll back the already stored inbound message.
 
 ### Prompt safety
 

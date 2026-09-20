@@ -83,3 +83,77 @@ export function applyEmailTriageResult(
 		};
 	});
 }
+
+export function setEmailDisposition(
+	storage: TriageStorage,
+	id: string,
+	value: string,
+	provenance: string,
+) {
+	return storage.transactionSync(() => {
+		const email = [
+			...storage.sql.exec(
+				"SELECT id FROM emails WHERE id = ?1",
+				id,
+			),
+		] as { id: string }[];
+		if (email.length === 0) return null;
+
+		const currentDisposition = [
+			...storage.sql.exec(
+				`SELECT tag FROM email_tags
+				 WHERE email_id = ?1
+				   AND tag LIKE 'disposition:%'
+				 LIMIT 1`,
+				id,
+			),
+		] as { tag: string }[];
+		const previousValue = currentDisposition[0]?.tag.startsWith("disposition:")
+			? currentDisposition[0].tag.slice("disposition:".length)
+			: null;
+		const analysis = [
+			...storage.sql.exec(
+				`SELECT schema_version, policy_version, model
+				 FROM email_triage_analysis
+				 WHERE email_id = ?1`,
+				id,
+			),
+		] as {
+			schema_version: number | null;
+			policy_version: number | null;
+			model: string | null;
+		}[];
+
+		const tag = `disposition:${value}`;
+		storage.sql.exec(
+			`DELETE FROM email_tags WHERE email_id = ?1 AND tag LIKE 'disposition:%'`,
+			id,
+		);
+		storage.sql.exec(
+			`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, ?3)`,
+			id,
+			tag,
+			provenance,
+		);
+
+		if (provenance === "manual" && previousValue !== value) {
+			const latestAnalysis = analysis[0];
+			storage.sql.exec(
+				`INSERT INTO email_triage_feedback
+					(id, email_id, event_type, previous_value, new_value,
+					 feature_schema_version, policy_version, model, created_at)
+				 VALUES (?1, ?2, 'manual_disposition', ?3, ?4, ?5, ?6, ?7, ?8)`,
+				crypto.randomUUID(),
+				id,
+				previousValue,
+				value,
+				latestAnalysis?.schema_version ?? null,
+				latestAnalysis?.policy_version ?? null,
+				latestAnalysis?.model ?? null,
+				new Date().toISOString(),
+			);
+		}
+
+		return { tag, provenance };
+	});
+}
