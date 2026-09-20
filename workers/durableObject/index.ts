@@ -12,6 +12,8 @@ import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
+import type { PersistedEmailTriageResult } from "../lib/email-triage";
+import { applyEmailTriageResult as persistEmailTriageResult } from "./triage";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -792,6 +794,10 @@ export class MailboxDO extends DurableObject<Env> {
 		});
 
 		return { tag, provenance };
+	}
+
+	async applyEmailTriageResult(id: string, result: PersistedEmailTriageResult) {
+		return persistEmailTriageResult(this.ctx.storage, id, result);
 	}
 
 	async markThreadRead(threadId: string, folderId?: string) {

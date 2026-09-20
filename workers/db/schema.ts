@@ -54,3 +54,15 @@ export const emailTags = sqliteTable("email_tags", {
 }, (table) => ({
 	pk: primaryKey({ columns: [table.email_id, table.tag] }),
 }));
+
+export const emailTriageAnalysis = sqliteTable("email_triage_analysis", {
+	email_id: text("email_id")
+		.primaryKey()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	schema_version: integer("schema_version").notNull(),
+	policy_version: integer("policy_version").notNull(),
+	model: text("model").notNull(),
+	features_json: text("features_json").notNull(),
+	predicted_disposition: text("predicted_disposition").notNull(),
+	analyzed_at: text("analyzed_at").notNull(),
+});

@@ -197,4 +197,24 @@ export const mailboxMigrations: Migration[] = [
 			WHERE folder_id = 'trash' AND trashed_at IS NULL;
 		`),
 	},
+	{
+		name: "12_add_email_triage_analysis",
+		sql: txn(`
+			CREATE TABLE email_triage_analysis (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				schema_version INTEGER NOT NULL,
+				policy_version INTEGER NOT NULL,
+				model TEXT NOT NULL,
+				features_json TEXT NOT NULL,
+				predicted_disposition TEXT NOT NULL CHECK (predicted_disposition IN (
+					'action-required', 'review', 'auto-file', 'hold'
+				)),
+				analyzed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			CREATE INDEX idx_email_triage_analysis_disposition
+				ON email_triage_analysis(predicted_disposition);
+		`),
+	},
 ];
