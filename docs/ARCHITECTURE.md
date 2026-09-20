@@ -44,7 +44,7 @@ Cloudflare Email Routing
              |
              +-------> MailboxDO
              +-------> R2 attachments
-             +-------> EmailAgent auto-summary trigger
+             +-------> EmailAgent auto-triage trigger
 
 Outbound UI/API
              |
@@ -206,13 +206,19 @@ unique and stores a constrained provenance value: `rule`, `agent`, or `manual`.
 The four `disposition:*` values are mutually exclusive and are replaced
 atomically when a new disposition is set.
 
+### `email_triage_analysis`
+
+Stores the latest validated Jev feature set, returned model version, policy and
+schema versions, predicted disposition, and analysis timestamp for each email.
+Rows are upserted during re-analysis and cascade when the email is deleted.
+
 ## Durable Object migrations
 
 Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, and the nullable Trash timestamp with existing Trash backfill.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, and structured inbound email triage analysis.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -257,7 +263,7 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to generate a summary.
+10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage.
 
 ### Recipient resolution and catch-all behavior
 
@@ -331,17 +337,19 @@ The agent has tools for operations including:
 - moving messages
 - discarding drafts
 
-The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. The separate inbound trigger only generates a summary and does not create drafts.
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat continues to use GLM-4.7-Flash. The separate inbound trigger only extracts triage metadata and does not create drafts or perform mailbox actions.
 
-### Auto-summary flow
+### Inbound triage flow
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent reads the relevant message/thread context and generates a concise summary in the agent chat history. The unattended path receives only read-only email/thread tools and does not create drafts or mutate mailbox state. Auto-summary failure is logged but does not roll back the already stored inbound message.
+The agent builds bounded plain-text current-email and recent-thread state, calls `typesafe/jev` through the existing Workers AI binding, validates the structured response, and stores it in `email_triage_analysis`. A deterministic policy then applies an `agent`-provenance `disposition:*` tag unless a manual disposition already exists. No folder move, draft, send, or delete occurs. Jev failure is logged and does not roll back the already stored inbound message.
 
 ### Prompt safety
 
-AI logic includes draft verification and prompt-injection-related helpers. AI output must still be considered untrusted and must not be used as an authentication, authorization, or deterministic routing signal.
+AI logic includes draft verification. Jev output remains untrusted metadata;
+it is not used as an authentication or authorization signal, and its
+deterministic disposition policy performs no destructive or external action.
 
 ## MCP
 

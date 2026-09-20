@@ -575,7 +575,7 @@ At minimum cover:
 - invalid/out-of-domain recipient
 - malformed message
 - attachment handling remains correct
-- auto-summary trigger targets the storage mailbox intentionally
+- auto-triage trigger targets the storage mailbox intentionally
 
 The focused routing tests run with the repository's `npm test` script. Also run:
 
@@ -664,47 +664,56 @@ The normal Email Agent tool set creates drafts but does not directly send email.
 
 This explicit operator-review boundary is desirable and should remain unless a separate, intentionally designed automation feature changes it.
 
-## Automatic incoming-email summaries
+## Jev-based incoming-email triage
 
 **Status:** Active
 
 ### Why
 
-New-mail automation should provide triage context without creating outbound
-content or changing mailbox state without operator intent.
+New-mail automation should produce stable, reviewable triage metadata instead
+of free-form summaries, while keeping all consequential mailbox and outbound
+actions under operator control.
 
 ### Behavior
 
-- A new inbound message triggers a summary in the storage mailbox's Agent chat history.
-- The unattended agent receives only `get_email` and `get_thread` read tools.
-- It does not create reply drafts, send mail, move messages, or delete messages.
-- Prompt-injection detection blocks the summary attempt while retaining the inbound message.
+- A new inbound message is evaluated with `typesafe/jev` through the existing Workers AI `AI` binding.
+- The bounded current-email and recent-thread state is validated into versioned structured features.
+- A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
+- Existing `provenance=manual` dispositions are preserved during re-analysis.
+- The unattended path does not create summaries in Agent chat history, drafts, sends, moves, archives, trashes, or deletes messages.
+- Jev failures retain the inbound email and leave disposition tags unchanged.
 
 ### Main affected areas
 
 - `workers/agent/index.ts`
-- `workers/lib/ai.ts`
+- `workers/lib/email-triage.ts`
+- `workers/db/schema.ts`
+- `workers/durableObject/migrations.ts`
+- `workers/durableObject/index.ts`
+- `workers/durableObject/triage.ts`
 
 ### Configuration involved
 
-None. The summary prompt is fixed and does not use the interactive mailbox
-system prompt, so mailbox-specific instructions cannot expand unattended
-capabilities.
+None. The existing Workers AI binding is used directly; no TypeSafe API key or
+SDK is required. Interactive EmailAgent chat continues to use its existing
+GLM-4.7-Flash path.
 
 ### Persistence / migration implications
 
-None. Summaries are stored in the existing Agent chat history; email and mailbox
-schemas are unchanged.
+Additive migration `12_add_email_triage_analysis` stores the validated feature
+JSON, Jev model version, schema/policy versions, predicted disposition, and
+analysis timestamp. Rows cascade when their email is deleted.
 
 ### Upstream synchronization risk
 
-Medium. Upstream changes to the inbound Agent trigger or agent tool construction
-may reintroduce automatic draft creation or broaden the unattended tool set.
+Medium. Upstream changes to the inbound Agent trigger, Workers AI model
+bindings, or MailboxDO schema may conflict with the local triage flow and its
+manual-disposition protection.
 
 ### Removal / replacement condition
 
-Remove this customization if upstream provides an equivalent operator-safe
-incoming-email summarization flow.
+Remove or shrink this customization if upstream provides equivalent structured
+inbound triage with versioned persistence and manual disposition protection.
 
 ## Unknown recipient without catch-all is rejected
 
