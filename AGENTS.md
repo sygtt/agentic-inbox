@@ -726,7 +726,9 @@ Closes #123
 
 `Fixes #123` or `Resolves #123` are also valid, but prefer `Closes` for consistency.
 
-GitHub will then close the linked issue automatically when the PR is merged into the repository's default/integration flow.
+Because this repository's default branch is `main` while normal implementation PRs target `develop`, GitHub's built-in closing-keyword behavior alone is not sufficient for the normal fork workflow. The repository therefore uses `.github/workflows/close-linked-issues-on-develop-merge.yml`. It runs on pushes to `develop`, resolves the merged PR associated with the pushed commit, interprets closing references in that PR body, and closes the referenced issues.
+
+If a PR targets the default branch directly, GitHub's normal closing-keyword behavior still applies.
 
 If a PR only partially implements an issue, do **not** use a closing keyword. Use a non-closing reference instead:
 
