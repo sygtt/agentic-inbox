@@ -708,6 +708,36 @@ docs: document local customization
 test: cover catch-all fallback
 ```
 
+## Issue and PR linkage
+
+Implementation issues should normally close automatically when their implementation PR is merged.
+
+When creating an implementation issue:
+
+1. include a `PR linkage` section stating that the implementation PR must use a GitHub closing keyword,
+2. after the issue number is known, use the concrete issue number in the example,
+3. keep roadmap, tracking, umbrella, and observation issues open unless the PR truly completes the entire tracking issue.
+
+When opening a PR that fully implements an issue, include a closing keyword in the PR body:
+
+```text
+Closes #123
+```
+
+`Fixes #123` or `Resolves #123` are also valid, but prefer `Closes` for consistency.
+
+GitHub will then close the linked issue automatically when the PR is merged into the repository's default/integration flow.
+
+If a PR only partially implements an issue, do **not** use a closing keyword. Use a non-closing reference instead:
+
+```text
+Refs #123
+```
+
+A PR may close multiple issues only when it fully satisfies each one. Put each closing reference explicitly in the PR body.
+
+Before merging an issue implementation PR, verify that the PR body contains the intended closing reference. Do not manually close the issue first unless there is a specific reason to bypass the normal PR-linked lifecycle.
+
 ---
 
 # 16. Upstream Synchronization
