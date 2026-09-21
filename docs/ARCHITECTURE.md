@@ -103,6 +103,7 @@ Do not assume mailbox isolation is an authorization boundary. Mailbox Durable Ob
 | `BUCKET` | R2 bucket used for mailbox settings and attachment blobs |
 | `AI` | Workers AI binding |
 | `EMAIL` | `send_email` binding used for outbound delivery |
+| `TYPESAFE_API_KEY` | Secret used only by direct TypeSafe Jev inbound triage |
 | `DOMAINS` | Comma-separated domains exposed to the application |
 | `EMAIL_ADDRESSES` | Optional allow-list restricting mailbox creation and inbound matching |
 | `POLICY_AUD` | Cloudflare Access audience secret |
@@ -352,7 +353,16 @@ The interactive agent policy is draft-oriented. The agent does not receive a dir
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent builds bounded plain-text current-email and recent-thread state, calls `typesafe/jev` through the existing Workers AI binding, validates the structured response, and stores it in `email_triage_analysis`. A deterministic policy then applies an `agent`-provenance `disposition:*` tag unless a manual disposition already exists. Manual disposition changes through the existing disposition API replace the tag and, when the value changes, append a feedback event in the same Durable Object transaction. No folder move, draft, send, or delete occurs. Jev failure is logged and does not roll back the already stored inbound message.
+The agent builds bounded plain-text current-email and recent-thread state, calls
+Jev through the provider boundary in `workers/lib/jev-provider.ts`, validates
+the structured response, and stores it in `email_triage_analysis`. The active
+provider calls TypeSafe's direct System One API with the `TYPESAFE_API_KEY`
+secret. A deterministic policy then applies an `agent`-provenance
+`disposition:*` tag unless a manual disposition already exists. Manual
+disposition changes through the existing disposition API replace the tag and,
+when the value changes, append a feedback event in the same Durable Object
+transaction. No folder move, draft, send, or delete occurs. Jev failure is
+logged and does not roll back the already stored inbound message.
 
 ### Prompt safety
 
