@@ -676,7 +676,9 @@ actions under operator control.
 
 ### Behavior
 
-- A new inbound message is evaluated with `typesafe/jev` through the existing Workers AI `AI` binding.
+- A new inbound message is evaluated through a small Jev provider boundary.
+- The active provider calls TypeSafe's direct System One API with the pinned `jev-1.13.0` model.
+- A future provider such as OpenRouter can replace that adapter without changing feature extraction, response validation, policy, or persistence.
 - The bounded current-email and recent-thread state is validated into versioned structured features.
 - A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
 - Existing `provenance=manual` dispositions are preserved during re-analysis.
@@ -687,6 +689,7 @@ actions under operator control.
 
 - `workers/agent/index.ts`
 - `workers/lib/email-triage.ts`
+- `workers/lib/jev-provider.ts`
 - `workers/db/schema.ts`
 - `workers/durableObject/migrations.ts`
 - `workers/durableObject/index.ts`
@@ -694,9 +697,10 @@ actions under operator control.
 
 ### Configuration involved
 
-None. The existing Workers AI binding is used directly; no TypeSafe API key or
-SDK is required. Interactive EmailAgent chat continues to use its existing
-GLM-4.7-Flash path.
+The direct provider requires a `TYPESAFE_API_KEY` Worker secret. The key is not
+stored in source control. No TypeSafe SDK is added; the adapter uses `fetch`
+against the documented System One endpoint. Interactive EmailAgent chat
+continues to use its existing GLM-4.7-Flash path through Workers AI.
 
 ### Persistence / migration implications
 
@@ -709,9 +713,10 @@ deleted.
 
 ### Upstream synchronization risk
 
-Medium. Upstream changes to the inbound Agent trigger, Workers AI model
-bindings, or MailboxDO schema may conflict with the local triage flow and its
-manual-disposition protection.
+Medium. Upstream changes to the inbound Agent trigger or MailboxDO schema may
+conflict with the local triage flow and its manual-disposition protection. The
+provider adapter is isolated from upstream code to keep future host changes
+small.
 
 ### Removal / replacement condition
 

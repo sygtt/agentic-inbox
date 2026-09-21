@@ -19,7 +19,7 @@ import {
 	TRIAGE_POLICY_VERSION,
 	TRIAGE_SCHEMA_VERSION,
 } from "../lib/email-triage";
-import type { TriageAI } from "../lib/email-triage";
+import { createTypeSafeJevProvider } from "../lib/jev-provider";
 import {
 	toolListEmails,
 	toolGetEmail,
@@ -356,7 +356,10 @@ export class EmailAgent extends AIChatAgent<any> {
 				getThreadEmails(threadId: string): Promise<EmailFull[]>;
 			}).getThreadEmails(emailData.threadId);
 			const state = buildInboundTriageState(email, threadEmails);
-			const triage = await analyzeInboundEmail(env.AI as unknown as TriageAI, state);
+			const triage = await analyzeInboundEmail(
+				createTypeSafeJevProvider({ apiKey: env.TYPESAFE_API_KEY }),
+				state,
+			);
 			const predictedDisposition = decideDisposition(triage.features);
 			const persisted = await stub.applyEmailTriageResult(emailData.emailId, {
 				...triage,

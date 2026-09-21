@@ -13,6 +13,11 @@ import {
 	parseJevResponse,
 	type TriageFeatures,
 } from "../workers/lib/email-triage.ts";
+import {
+	createTypeSafeJevProvider,
+	TYPESAFE_JEV_ENDPOINT,
+	TYPESAFE_JEV_MODEL,
+} from "../workers/lib/jev-provider.ts";
 
 function noul(value: number) {
 	return { type: "noul", noul: value };
@@ -57,11 +62,11 @@ test("parses Jev Choice, Noul, and Score answers and preserves model version", (
 	assert.equal(newer.model, "jev-next");
 });
 
-test("runs the existing AI binding with the fixed Jev model and questions", async () => {
-	let call: { model: string; input: any } | undefined;
+test("runs the configured Jev provider with the fixed questions", async () => {
+	let call: { state: unknown; questions: any } | undefined;
 	const result = await analyzeInboundEmail({
-		run: async (model, input) => {
-			call = { model, input };
+		evaluate: async (state, questions) => {
+			call = { state, questions };
 			return validResponse();
 		},
 	}, {
@@ -76,9 +81,46 @@ test("runs the existing AI binding with the fixed Jev model and questions", asyn
 		thread: { messageCount: 1, recentMessages: [] },
 	});
 
-	assert.equal(call?.model, "typesafe/jev");
-	assert.equal(call?.input.questions.category.type, "choice");
+	assert.equal(call?.questions.category.type, "choice");
 	assert.equal(result.features.category.choice, "transactional");
+});
+
+test("calls the direct TypeSafe System One API without exposing provider details to triage", async () => {
+	let request: { input: string | URL | Request; init?: RequestInit } | undefined;
+	const provider = createTypeSafeJevProvider({
+		apiKey: "test-key",
+		fetch: async (input, init) => {
+			request = { input, init };
+			return Response.json(validResponse());
+		},
+	});
+
+	const result = await provider.evaluate({ message: "hello" }, { urgent: { type: "noul" } });
+	assert.deepEqual(result, validResponse());
+	assert.equal(request?.input, TYPESAFE_JEV_ENDPOINT);
+	assert.equal(request?.init?.method, "POST");
+	assert.equal((request?.init?.headers as Record<string, string>).Authorization, "Bearer test-key");
+	assert.deepEqual(JSON.parse(String(request?.init?.body)), {
+		model: TYPESAFE_JEV_MODEL,
+		state: { message: "hello" },
+		questions: { urgent: { type: "noul" } },
+	});
+});
+
+test("fails safely when TypeSafe credentials are missing or the API rejects the request", async () => {
+	const missingKey = createTypeSafeJevProvider({
+		apiKey: undefined,
+		fetch: async () => {
+			throw new Error("fetch must not be called");
+		},
+	});
+	await assert.rejects(() => missingKey.evaluate({}, {}), /TYPESAFE_API_KEY/);
+
+	const rejected = createTypeSafeJevProvider({
+		apiKey: "test-key",
+		fetch: async () => new Response('{"error":"invalid key"}', { status: 401 }),
+	});
+	await assert.rejects(() => rejected.evaluate({}, {}), /TypeSafe Jev request failed \(401\)/);
 });
 
 test("rejects incomplete, wrong-type, NaN, and out-of-range Jev answers", () => {
