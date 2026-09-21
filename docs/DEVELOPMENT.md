@@ -255,7 +255,16 @@ focused tests or an explicitly authorized local integration invocation.
 
 ### Workers AI
 
-The email agent uses the Workers AI binding directly. No separate OpenAI/Anthropic-style API token is required by the current default architecture.
+Interactive EmailAgent chat uses the Workers AI binding. Inbound Jev triage is
+separate and calls the TypeSafe System One API directly. Local triage therefore
+requires `TYPESAFE_API_KEY` in `.dev.vars`; production must configure it as a
+Cloudflare Worker secret:
+
+```bash
+npx wrangler secret put TYPESAFE_API_KEY
+```
+
+Do not put the production key in `wrangler.jsonc` or commit it to the repository.
 
 Model availability and pricing can change independently of this repository. Do not change models casually as part of unrelated work.
 
