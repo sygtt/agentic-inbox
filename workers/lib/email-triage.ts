@@ -5,8 +5,8 @@
 import { z } from "zod";
 import { stripHtmlToText } from "./email-content.ts";
 import { DISPOSITION_VALUES } from "./email-tags.ts";
+import type { JevProvider } from "./jev-provider.ts";
 
-export const TRIAGE_MODEL = "typesafe/jev";
 export const TRIAGE_SCHEMA_VERSION = 1;
 export const TRIAGE_POLICY_VERSION = 1;
 export const MAX_CURRENT_BODY_CHARS = 12_000;
@@ -290,19 +290,12 @@ export function parseJevResponse(raw: unknown): InboundTriageResult {
 	return { model: response.data.model, features };
 }
 
-export interface TriageAI {
-	run(model: string, input: unknown): Promise<unknown>;
-}
-
 /** Run Jev with the fixed v1 questions and validate its result. */
 export async function analyzeInboundEmail(
-	ai: TriageAI,
+	provider: JevProvider,
 	state: InboundTriageState,
 ): Promise<InboundTriageResult> {
-	const response = await ai.run(TRIAGE_MODEL, {
-		state,
-		questions: TRIAGE_QUESTIONS,
-	});
+	const response = await provider.evaluate(state, TRIAGE_QUESTIONS);
 	return parseJevResponse(response);
 }
 
