@@ -114,7 +114,7 @@ test("captures manual corrections with triage provenance and remains atomic", ()
 		0,
 	);
 
-	assert.throws(() => setEmailDisposition(storage, "email-1", "hold", "invalid"));
+	assert.throws(() => setEmailDisposition(storage, "email-1", "review", "invalid"));
 	assert.equal(
 		database.prepare("SELECT tag FROM email_tags WHERE email_id = ? AND tag LIKE 'disposition:%'").get("email-1").tag,
 		"disposition:auto-file",
