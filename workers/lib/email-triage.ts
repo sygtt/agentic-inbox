@@ -8,7 +8,7 @@ import { DISPOSITION_VALUES } from "./email-tags.ts";
 import type { JevProvider } from "./jev-provider.ts";
 
 export const TRIAGE_SCHEMA_VERSION = 1;
-export const TRIAGE_POLICY_VERSION = 1;
+export const TRIAGE_POLICY_VERSION = 2;
 export const MAX_CURRENT_BODY_CHARS = 12_000;
 export const MAX_THREAD_MESSAGES = 8;
 export const MAX_THREAD_MESSAGE_CHARS = 500;
@@ -328,6 +328,6 @@ export function decideDisposition(features: TriageFeatures): TriageDisposition {
 		features.financialImpact < 0.3 &&
 		features.securityRelevance < 0.3 &&
 		features.urgency.score < 1;
-	if (clearlyLowSignal) return "hold";
+	if (clearlyLowSignal) return "auto-file";
 	return "review";
 }
