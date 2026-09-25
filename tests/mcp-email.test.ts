@@ -75,7 +75,7 @@ test("MCP disposition records agent provenance and rejects invalid values before
 	} as any;
 
 	const invalid = await setMcpEmailDisposition(env, "test@example.com", "email-1", "urgent");
-	assert.equal(invalid.error, "Invalid disposition. Expected one of: action-required, review, auto-file, hold");
+	assert.equal(invalid.error, "Invalid disposition. Expected one of: action-required, review, auto-file");
 	assert.deepEqual(calls, []);
 
 	const valid = await setMcpEmailDisposition(env, "test@example.com", "email-1", "review");
