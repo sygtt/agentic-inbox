@@ -237,4 +237,42 @@ export const mailboxMigrations: Migration[] = [
 				ON email_triage_feedback(email_id, created_at);
 		`),
 	},
+	{
+		name: "14_remove_hold_disposition",
+		sql: txn(`
+			UPDATE email_tags
+			SET tag = 'disposition:auto-file'
+			WHERE tag = 'disposition:hold';
+
+			CREATE TABLE email_triage_analysis_v2 (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				schema_version INTEGER NOT NULL,
+				policy_version INTEGER NOT NULL,
+				model TEXT NOT NULL,
+				features_json TEXT NOT NULL,
+				predicted_disposition TEXT NOT NULL CHECK (predicted_disposition IN (
+					'action-required', 'review', 'auto-file'
+				)),
+				analyzed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			INSERT INTO email_triage_analysis_v2
+				(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
+			SELECT
+				email_id,
+				schema_version,
+				CASE WHEN predicted_disposition = 'hold' THEN 2 ELSE policy_version END,
+				model,
+				features_json,
+				CASE WHEN predicted_disposition = 'hold' THEN 'auto-file' ELSE predicted_disposition END,
+				analyzed_at
+			FROM email_triage_analysis;
+
+			DROP TABLE email_triage_analysis;
+			ALTER TABLE email_triage_analysis_v2 RENAME TO email_triage_analysis;
+			CREATE INDEX idx_email_triage_analysis_disposition
+				ON email_triage_analysis(predicted_disposition);
+		`),
+	},
 ];
