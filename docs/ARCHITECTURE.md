@@ -141,7 +141,7 @@ Access and `requireMailbox` checks:
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
-to `action-required`, `review`, `auto-file`, and `hold`.
+to `action-required`, `review`, and `auto-file`.
 
 Routes scoped to `/api/v1/mailboxes/:mailboxId/*` use `requireMailbox` middleware to resolve and validate the mailbox before operating on its Durable Object.
 
@@ -386,7 +386,7 @@ rendering remain unchanged.
 MCP email list, search, single-email, and thread responses retain the existing
 `folder_id` as the current folder and add a `tags` array containing `{ tag,
 provenance }` objects. The `set_email_disposition` tool accepts only
-`action-required`, `review`, `auto-file`, or `hold`; it replaces the previous
+`action-required`, `review`, or `auto-file`; it replaces the previous
 disposition and records the new tag with `agent` provenance without taking any
 other action.
 
