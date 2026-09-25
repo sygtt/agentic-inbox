@@ -222,11 +222,13 @@ test("migrates persisted hold dispositions to auto-file", () => {
 	applyMigrations(sql, mailboxMigrations, storage);
 
 	const tag = database.prepare("SELECT tag, provenance FROM email_tags WHERE email_id = ?").get("email-hold") as any;
-	assert.deepEqual(tag, { tag: "disposition:auto-file", provenance: "manual" });
+	assert.equal(tag.tag, "disposition:auto-file");
+	assert.equal(tag.provenance, "manual");
 	const analysis = database.prepare(
 		"SELECT predicted_disposition, policy_version FROM email_triage_analysis WHERE email_id = ?",
 	).get("email-hold") as any;
-	assert.deepEqual(analysis, { predicted_disposition: "auto-file", policy_version: 2 });
+	assert.equal(analysis.predicted_disposition, "auto-file");
+	assert.equal(analysis.policy_version, 2);
 	assert.throws(() => database.prepare(
 		`INSERT INTO email_triage_analysis
 			(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
