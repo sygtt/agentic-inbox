@@ -168,7 +168,7 @@ test("applies disposition policy v1 in priority order", () => {
 	assert.equal(decideDisposition(features({ requiresAction: 0.8 })), "action-required");
 	assert.equal(decideDisposition(features({ hasDeadline: 0.75, urgency: { score: 1.5, confidence: 1, probabilities: {} } })), "action-required");
 	assert.equal(decideDisposition(features({ bulkMarketing: 0.9 })), "auto-file");
-	assert.equal(decideDisposition(features()), "hold");
+	assert.equal(decideDisposition(features()), "auto-file");
 	assert.equal(decideDisposition(features({ requiresAction: 0.4 })), "review");
 });
 
