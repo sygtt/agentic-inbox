@@ -9,7 +9,6 @@ export const DISPOSITION_VALUES = [
 	"action-required",
 	"review",
 	"auto-file",
-	"hold",
 ] as const;
 
 const TAG_PATTERN = /^[a-z][a-z0-9-]{0,31}:[a-z0-9][a-z0-9._-]{0,62}$/;
