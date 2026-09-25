@@ -18,6 +18,7 @@ test("validates namespaced tags and constrained provenance", () => {
 	assert.throws(() => TagSchema.parse("disposition:"));
 	assert.throws(() => TagProvenanceSchema.parse("automation"));
 	assert.throws(() => DispositionRequestSchema.parse({ value: "urgent", provenance: "manual" }));
+	assert.throws(() => DispositionRequestSchema.parse({ value: "hold", provenance: "manual" }));
 });
 
 test("adds the email-tags migration without changing earlier migrations", () => {
@@ -173,11 +174,18 @@ test("supports mailbox-scoped tag CRUD and disposition replacement", async () =>
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ value: "hold", provenance: "manual" }),
 	});
+	assert.equal(response.status, 400);
+
+	response = await request(`${base}/disposition`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ value: "auto-file", provenance: "manual" }),
+	});
 	assert.equal(response.status, 200);
 
 	response = await request(`${base}/tags`);
 	assert.deepEqual(await response.json(), [
-		{ tag: "disposition:hold", provenance: "manual" },
+		{ tag: "disposition:auto-file", provenance: "manual" },
 		{ tag: "service:example-job-board", provenance: "agent" },
 	]);
 

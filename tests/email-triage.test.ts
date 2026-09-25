@@ -168,8 +168,71 @@ test("applies disposition policy v1 in priority order", () => {
 	assert.equal(decideDisposition(features({ requiresAction: 0.8 })), "action-required");
 	assert.equal(decideDisposition(features({ hasDeadline: 0.75, urgency: { score: 1.5, confidence: 1, probabilities: {} } })), "action-required");
 	assert.equal(decideDisposition(features({ bulkMarketing: 0.9 })), "auto-file");
-	assert.equal(decideDisposition(features()), "hold");
+	assert.equal(decideDisposition(features()), "auto-file");
 	assert.equal(decideDisposition(features({ requiresAction: 0.4 })), "review");
+});
+
+test("migrates persisted hold dispositions to auto-file", () => {
+	const migrationIndex = mailboxMigrations.findIndex(({ name }) => name === "14_remove_hold_disposition");
+	assert.ok(migrationIndex >= 0);
+
+	const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as any;
+	const database = new DatabaseSync(":memory:");
+	database.exec("PRAGMA foreign_keys = ON");
+	const sql = {
+		exec(query: string, ...params: (string | number)[]) {
+			if (params.length > 0) {
+				const statement = database.prepare(query);
+				if (/^select/i.test(query.trim())) return statement.all(...params);
+				statement.run(...params);
+				return [];
+			}
+			if (/^select/i.test(query.trim())) return database.prepare(query).all();
+			database.exec(query);
+			return [];
+		},
+	};
+	const storage = {
+		transactionSync<T>(callback: () => T) {
+			database.exec("BEGIN");
+			try {
+				const result = callback();
+				database.exec("COMMIT");
+				return result;
+			} catch (error) {
+				database.exec("ROLLBACK");
+				throw error;
+			}
+		},
+	};
+
+	applyMigrations(sql, mailboxMigrations.slice(0, migrationIndex), storage);
+	database.prepare("INSERT INTO emails (id, folder_id, subject, body) VALUES (?, ?, ?, ?)").run(
+		"email-hold", "inbox", "Low signal", "FYI",
+	);
+	database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)").run(
+		"email-hold", "disposition:hold", "manual",
+	);
+	database.prepare(
+		`INSERT INTO email_triage_analysis
+			(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	).run("email-hold", 1, 1, "jev-test", "{}", "hold", "2026-09-21T00:00:00.000Z");
+
+	applyMigrations(sql, mailboxMigrations, storage);
+
+	const tag = database.prepare("SELECT tag, provenance FROM email_tags WHERE email_id = ?").get("email-hold") as any;
+	assert.deepEqual(tag, { tag: "disposition:auto-file", provenance: "manual" });
+	const analysis = database.prepare(
+		"SELECT predicted_disposition, policy_version FROM email_triage_analysis WHERE email_id = ?",
+	).get("email-hold") as any;
+	assert.deepEqual(analysis, { predicted_disposition: "auto-file", policy_version: 2 });
+	assert.throws(() => database.prepare(
+		`INSERT INTO email_triage_analysis
+			(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	).run("email-other", 1, 2, "jev-test", "{}", "hold", "2026-09-21T00:00:00.000Z"));
+	database.close();
 });
 
 test("builds bounded plain-text Jev state without attachment contents", () => {
