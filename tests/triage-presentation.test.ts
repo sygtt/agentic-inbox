@@ -4,6 +4,7 @@ import type { EmailTriageAnalysis } from "../app/types/index.ts";
 import {
 	formatAnalyzedAt,
 	getTriageErrorPresentation,
+	getThreadTriageErrorPresentation,
 	getTriageFeatureRows,
 } from "../app/lib/triage-presentation.ts";
 
@@ -15,6 +16,14 @@ test("provides an accessible, descriptive triage error badge only for the reserv
 	});
 	assert.equal(getTriageErrorPresentation([{ tag: "source:newsletter", provenance: "manual" }]), null);
 	assert.equal(getTriageErrorPresentation(undefined), null);
+});
+
+test("describes a list-level triage error as a thread aggregate", () => {
+	assert.deepEqual(getThreadTriageErrorPresentation(), {
+		label: "スレッド内に分類エラーあり",
+		description: "このスレッド内のいずれかのメールでJevによる自動分類に失敗しました",
+		accessibleName: "スレッド内に分類エラーあり。このスレッド内のいずれかのメールでJevによる自動分類に失敗しました",
+	});
 });
 
 test("exposes every triage feature in a compact presentation model", () => {

@@ -386,7 +386,10 @@ detail views recheck missing analysis and refresh tags every three seconds, for
 at most twenty query attempts total. Tag refresh continues after a failure
 marker appears; when a previously observed marker clears, the detail view
 reloads analysis once so a successful retry replaces any earlier result. Email
-lists refresh every thirty seconds.
+lists refresh every thirty seconds. Threaded folder lists expose a separate
+thread-level error state when any message in the conversation has
+`triage:error`; the representative email's `tags` remain limited to that
+message, while thread details continue to show tags per message.
 
 ### Prompt safety
 

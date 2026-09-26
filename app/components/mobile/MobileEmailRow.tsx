@@ -164,7 +164,7 @@ export default function MobileEmailRow({
 					<div className="mt-1 flex flex-wrap items-center gap-1.5">
 						{email.has_draft && <span className="rounded bg-kumo-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-warning">Draft</span>}
 						{email.needs_reply && <span className="rounded bg-kumo-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-brand">Needs reply</span>}
-						<TriageErrorBadge tags={email.tags} />
+						<TriageErrorBadge tags={email.tags} threadHasTriageError={email.thread_has_triage_error} />
 						{email.tags?.filter((tag: EmailTag) => !tag.tag.startsWith("disposition:") && tag.tag !== "triage:error").slice(0, 3).map((tag: EmailTag) => <span key={tag.tag} className="rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] text-kumo-subtle">{tag.tag}</span>)}
 						{code && (
 							<button

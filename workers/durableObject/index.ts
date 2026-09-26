@@ -19,6 +19,10 @@ import {
 	markEmailTriageFailed as persistEmailTriageFailure,
 	setEmailDisposition as persistEmailDisposition,
 } from "./triage";
+import {
+	THREAD_TRIAGE_ERROR_AGGREGATE_SQL,
+	THREAD_TRIAGE_ERROR_JOIN_SQL,
+} from "./thread-triage";
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -388,7 +392,7 @@ export class MailboxDO extends DurableObject<Env> {
 			),
 			all_emails_with_conversation AS (
 				SELECT
-					e.sender, e.read, e.folder_id, e.date,
+					e.id, e.sender, e.read, e.folder_id, e.date,
 					EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 					COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
 				FROM emails e
@@ -403,8 +407,10 @@ export class MailboxDO extends DurableObject<Env> {
 					SUM(CASE WHEN read = 1 THEN 1 ELSE 0 END) as thread_read_count,
 					GROUP_CONCAT(DISTINCT sender) as participants,
 					SUM(CASE WHEN folder_id = (SELECT id FROM folders WHERE name = 'draft' LIMIT 1) THEN 1 ELSE 0 END) as has_draft,
-					MAX(has_attachment) as has_attachment
+					MAX(has_attachment) as has_attachment,
+					${THREAD_TRIAGE_ERROR_AGGREGATE_SQL}
 				FROM all_emails_with_conversation
+				${THREAD_TRIAGE_ERROR_JOIN_SQL}
 				WHERE conversation_id IN (
 					SELECT DISTINCT conversation_id FROM all_emails_with_conversation
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
@@ -436,6 +442,7 @@ export class MailboxDO extends DurableObject<Env> {
 				lif.in_reply_to, lif.email_references,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
 				cs.has_attachment,
+				cs.has_triage_error as thread_has_triage_error,
 				CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
 					AND cs.thread_read_count > 0
@@ -466,6 +473,7 @@ export class MailboxDO extends DurableObject<Env> {
 			thread_unread_count: row.thread_unread_count || 0,
 			participants: row.participants || row.sender,
 			has_attachment: !!row.has_attachment,
+			thread_has_triage_error: !!row.thread_has_triage_error,
 			needs_reply: !!row.needs_reply,
 			has_draft: !!row.has_draft,
 		}));

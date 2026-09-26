@@ -49,6 +49,7 @@ export interface Email {
 	// Thread aggregate fields (only present in threaded list view)
 	thread_count?: number;
 	thread_unread_count?: number;
+	thread_has_triage_error?: boolean;
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;

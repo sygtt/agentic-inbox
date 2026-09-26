@@ -2,6 +2,8 @@ import type { EmailTag, EmailTriageAnalysis } from "~/types";
 
 export const TRIAGE_ERROR_LABEL = "分類エラー";
 export const TRIAGE_ERROR_DESCRIPTION = "Jevによる自動分類に失敗しました";
+export const THREAD_TRIAGE_ERROR_LABEL = "スレッド内に分類エラーあり";
+export const THREAD_TRIAGE_ERROR_DESCRIPTION = "このスレッド内のいずれかのメールでJevによる自動分類に失敗しました";
 
 export function getTriageErrorPresentation(
 	tags: readonly EmailTag[] | undefined,
@@ -11,6 +13,14 @@ export function getTriageErrorPresentation(
 		label: TRIAGE_ERROR_LABEL,
 		description: TRIAGE_ERROR_DESCRIPTION,
 		accessibleName: `${TRIAGE_ERROR_LABEL}。${TRIAGE_ERROR_DESCRIPTION}`,
+	};
+}
+
+export function getThreadTriageErrorPresentation() {
+	return {
+		label: THREAD_TRIAGE_ERROR_LABEL,
+		description: THREAD_TRIAGE_ERROR_DESCRIPTION,
+		accessibleName: `${THREAD_TRIAGE_ERROR_LABEL}。${THREAD_TRIAGE_ERROR_DESCRIPTION}`,
 	};
 }
 

@@ -1,14 +1,21 @@
 import type { EmailTag } from "~/types";
-import { getTriageErrorPresentation } from "~/lib/triage-presentation";
+import {
+	getThreadTriageErrorPresentation,
+	getTriageErrorPresentation,
+} from "~/lib/triage-presentation";
 
 export default function TriageErrorBadge({
 	tags,
+	threadHasTriageError = false,
 	className = "",
 }: {
 	tags: readonly EmailTag[] | undefined;
+	threadHasTriageError?: boolean;
 	className?: string;
 }) {
-	const presentation = getTriageErrorPresentation(tags);
+	const presentation = threadHasTriageError
+		? getThreadTriageErrorPresentation()
+		: getTriageErrorPresentation(tags);
 	if (!presentation) return null;
 
 	return (

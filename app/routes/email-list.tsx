@@ -503,7 +503,11 @@ export default function EmailListRoute() {
 													{formatListDate(email.date)}
 												</span>
 											</div>
-											<TriageErrorBadge tags={email.tags} className="mt-1" />
+							<TriageErrorBadge
+								tags={email.tags}
+								threadHasTriageError={email.thread_has_triage_error}
+								className="mt-1"
+							/>
 											<div className="truncate text-sm mt-0.5">
 												<span
 													className={hasUnread(email) ? "font-medium text-kumo-default" : "text-kumo-subtle"}
