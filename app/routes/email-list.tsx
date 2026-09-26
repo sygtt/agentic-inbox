@@ -17,8 +17,8 @@ import {
 	TrayIcon,
 } from "@phosphor-icons/react";
 import { useIsMutating, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router";
 import { Folders } from "shared/folders";
 import { formatListDate } from "shared/dates";
 import MailboxSplitView from "~/components/MailboxSplitView";
@@ -39,6 +39,7 @@ import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import { getMobileEmailNeighborIds } from "~/lib/mobile-email-navigation";
 
 const PAGE_SIZE = 25;
 
@@ -151,6 +152,8 @@ export default function EmailListRoute() {
 		mailboxId: string;
 		folder: string;
 	}>();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const urlSelectedEmailId = searchParams.get("email");
 	const {
 		selectedEmailId,
 		isComposing,
@@ -185,6 +188,26 @@ export default function EmailListRoute() {
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
 	const isSendingEmail = isDraftSending || isSendingMutation;
+	const setUrlSelectedEmailId = useCallback((emailId: string | null, replace: boolean) => {
+		setSearchParams((current) => {
+			const next = new URLSearchParams(current);
+			if (emailId) next.set("email", emailId);
+			else next.delete("email");
+			return next;
+		}, { replace });
+	}, [setSearchParams]);
+	const closeEmailPanel = useCallback(() => {
+		if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
+		closePanel();
+	}, [closePanel, searchParams, setUrlSelectedEmailId]);
+	const navigateMobileEmail = useCallback((emailId: string) => {
+		setUrlSelectedEmailId(emailId, true);
+		selectEmail(emailId);
+	}, [selectEmail, setUrlSelectedEmailId]);
+	const handleMobileArchiveSuccess = useCallback((nextEmailId: string | null) => {
+		if (nextEmailId) navigateMobileEmail(nextEmailId);
+		else closeEmailPanel();
+	}, [closeEmailPanel, navigateMobileEmail]);
 
 	const params = useMemo(
 		() => ({
@@ -224,19 +247,34 @@ export default function EmailListRoute() {
 	}, [folders, folder]);
 
 	const isPanelOpen = selectedEmailId !== null || isComposing;
+	const mobileEmailNeighbors = useMemo(
+		() => getMobileEmailNeighborIds(emails, selectedEmailId),
+		[emails, selectedEmailId],
+	);
+
+	useEffect(() => {
+		if (!isMobileViewport) return;
+		if (urlSelectedEmailId) {
+			if (selectedEmailId !== urlSelectedEmailId) selectEmail(urlSelectedEmailId);
+		} else if (selectedEmailId && !isComposing) {
+			selectEmail(null);
+		}
+	}, [isMobileViewport, isComposing, selectedEmailId, selectEmail, urlSelectedEmailId]);
 
 	// Track folder identity to detect folder changes vs page changes
 	const prevFolderRef = useRef<string | undefined>(undefined);
 
 	useEffect(() => {
-		const folderChanged = prevFolderRef.current !== `${mailboxId}/${folder}`;
-		prevFolderRef.current = `${mailboxId}/${folder}`;
+		const currentFolder = `${mailboxId}/${folder}`;
+		const isInitialFolder = prevFolderRef.current === undefined;
+		const folderChanged = prevFolderRef.current !== currentFolder;
+		prevFolderRef.current = currentFolder;
 
 		if (folderChanged) {
-			if (!isComposing) closePanel();
+			if (!isComposing && !(isInitialFolder && urlSelectedEmailId)) closeEmailPanel();
 			setPage(1);
 		}
-	}, [mailboxId, folder, isComposing, closePanel]);
+	}, [mailboxId, folder, isComposing, closeEmailPanel, urlSelectedEmailId]);
 
 	const toggleStar = (e: React.MouseEvent, email: Email) => {
 		e.preventDefault();
@@ -313,6 +351,8 @@ export default function EmailListRoute() {
 	};
 
 	const handleRowClick = (email: Email) => {
+		if (isMobileViewport) setUrlSelectedEmailId(email.id, false);
+		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
 		selectEmail(email.id);
 		if (mailboxId && hasUnread(email)) {
 			if ((email.thread_count ?? 1) > 1) {
@@ -364,6 +404,12 @@ export default function EmailListRoute() {
 		<MailboxSplitView
 			selectedEmailId={selectedEmailId}
 			isComposing={isComposing}
+			onCloseEmail={closeEmailPanel}
+			mobileEmailNavigation={{
+				...mobileEmailNeighbors,
+				onNavigate: navigateMobileEmail,
+				onArchiveSuccess: handleMobileArchiveSuccess,
+			}}
 		>
 			<>
 				<div className="flex h-full flex-col bg-kumo-recessed md:hidden">
