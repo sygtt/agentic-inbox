@@ -130,18 +130,21 @@ Major API areas include:
 - search
 - attachment download
 - email tag and disposition management
+- read-only triage analysis
 
 Email tag endpoints are mailbox-scoped and inherit the existing Cloudflare
 Access and `requireMailbox` checks:
 
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
+- `GET /api/v1/mailboxes/:mailboxId/emails/:id/triage`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
 - `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
-to `action-required`, `review`, and `auto-file`.
+to `action-required`, `review`, and `auto-file`. `triage:error` is reserved
+system state: the generic tag API and editor reject manual creation/removal.
 
 Routes scoped to `/api/v1/mailboxes/:mailboxId/*` use `requireMailbox` middleware to resolve and validate the mailbox before operating on its Durable Object.
 
@@ -205,7 +208,10 @@ Attachment bytes are stored separately in R2.
 Stores zero or more namespaced tags per email. Each `(email_id, tag)` pair is
 unique and stores a constrained provenance value: `rule`, `agent`, or `manual`.
 The four `disposition:*` values are mutually exclusive and are replaced
-atomically when a new disposition is set.
+atomically when a new disposition is set. `triage:error` records that the most
+recent automatic triage attempt failed and is always written with `agent`
+provenance. A successful validated analysis clears it in the same transaction
+that persists the new analysis and disposition state.
 
 ### `email_triage_analysis`
 
@@ -362,7 +368,18 @@ secret. A deterministic policy then applies an `agent`-provenance
 disposition changes through the existing disposition API replace the tag and,
 when the value changes, append a feedback event in the same Durable Object
 transaction. No folder move, draft, send, or delete occurs. Jev failure is
-logged and does not roll back the already stored inbound message.
+logged and does not roll back the already stored inbound message. For an
+existing email, a catchable failure also makes a best-effort, idempotent
+`triage:error` tag write. If marker persistence fails, that error is logged
+separately while the original triage failure remains the result. A later
+successful analysis removes the marker atomically with analysis persistence,
+including when a manual disposition remains authoritative.
+
+The mailbox-scoped triage read endpoint returns only the latest validated
+analysis and its timestamp. The email detail panel presents it in a collapsed
+section, and labels Jev's predicted disposition separately from the current
+disposition tag. Thread detail responses include each message's own tags so a
+failure badge remains attached to the message that owns `triage:error`.
 
 ### Prompt safety
 

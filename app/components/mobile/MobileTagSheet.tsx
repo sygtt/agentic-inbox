@@ -5,7 +5,13 @@
 import { Button, Input, Loader } from "@cloudflare/kumo";
 import { XIcon } from "@phosphor-icons/react";
 import { useState, type FormEvent } from "react";
-import { DISPOSITION_VALUES, TagSchema } from "../../../workers/lib/email-tags";
+import {
+	DISPOSITION_VALUES,
+	TRIAGE_ERROR_TAG,
+	isDispositionTag,
+	isSystemManagedTag,
+	TagSchema,
+} from "../../../workers/lib/email-tags";
 import {
 	useEmailTags,
 	useRemoveEmailTag,
@@ -13,16 +19,21 @@ import {
 	useUpsertEmailTag,
 } from "~/queries/email-tags";
 import MobileBottomSheet from "./MobileBottomSheet";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 
 export default function MobileTagSheet({
 	open,
 	mailboxId,
 	emailId,
+	emailSubject,
+	emailSender,
 	onClose,
 }: {
 	open: boolean;
 	mailboxId?: string;
 	emailId: string;
+	emailSubject?: string;
+	emailSender?: string;
 	onClose: () => void;
 }) {
 	const { data: tags = [], isLoading, isError } = useEmailTags(mailboxId, emailId, { enabled: open });
@@ -51,6 +62,10 @@ export default function MobileTagSheet({
 			setError("Use a lowercase namespace:value tag, for example project:inbox.");
 			return;
 		}
+		if (isSystemManagedTag(parsed.data)) {
+			setError(`${TRIAGE_ERROR_TAG} はシステム管理タグのため追加できません。`);
+			return;
+		}
 		if (await run(() => addTag.mutateAsync({ mailboxId: mailboxId!, emailId, tag: parsed.data }))) setNewTag("");
 	};
 
@@ -64,11 +79,12 @@ export default function MobileTagSheet({
 				<div className="space-y-5">
 					<div>
 						<div className="mb-2 text-xs font-semibold uppercase tracking-wide text-kumo-subtle">Current tags</div>
+						{(emailSubject || emailSender) && <p className="mb-2 break-words text-xs text-kumo-subtle">{emailSubject || "(no subject)"}{emailSender ? ` · ${emailSender}` : ""}</p>}
 						{tags.length === 0 ? <p className="text-sm text-kumo-subtle">No tags assigned.</p> : <div className="flex flex-wrap gap-2">
-							{tags.map((tag) => <span key={tag.tag} className="inline-flex items-center gap-1 rounded-full bg-kumo-fill px-2.5 py-1 text-xs text-kumo-default">
-								{tag.tag}
+							{tags.map((tag) => <span key={tag.tag} className="inline-flex flex-wrap items-center gap-1 rounded-full bg-kumo-fill px-2.5 py-1 text-xs text-kumo-default">
+								{tag.tag === TRIAGE_ERROR_TAG ? <><TriageErrorBadge tags={[tag]} /><span className="basis-full text-[10px] text-kumo-destructive">Jevによる自動分類に失敗しました</span></> : tag.tag}
 								<span className="text-[10px] text-kumo-subtle">({tag.provenance})</span>
-								{!tag.tag.startsWith("disposition:") && <button type="button" onClick={() => run(() => removeTag.mutateAsync({ mailboxId: mailboxId!, emailId, tag: tag.tag }))} className="rounded-full text-kumo-subtle hover:text-kumo-default" aria-label={`Remove ${tag.tag}`}><XIcon size={13} /></button>}
+								{!isDispositionTag(tag.tag) && !isSystemManagedTag(tag.tag) && <button type="button" onClick={() => run(() => removeTag.mutateAsync({ mailboxId: mailboxId!, emailId, tag: tag.tag }))} className="rounded-full text-kumo-subtle hover:text-kumo-default" aria-label={`Remove ${tag.tag}`}><XIcon size={13} /></button>}
 							</span>)}
 						</div>}
 					</div>

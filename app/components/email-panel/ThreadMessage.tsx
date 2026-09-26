@@ -14,6 +14,7 @@ import {
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
 import VerificationCodeAction from "~/components/VerificationCodeAction";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 import {
 	formatDetailDate,
 	formatShortDate,
@@ -31,6 +32,7 @@ interface ThreadMessageProps {
 	isSending?: boolean;
 	isDeleting?: boolean;
 	isExpanded: boolean;
+	showTriageErrorBadge?: boolean;
 	onToggleExpand: () => void;
 	onSendDraft?: () => void;
 	onEditDraft?: () => void;
@@ -64,6 +66,7 @@ export default function ThreadMessage({
 	isSending,
 	isDeleting,
 	isExpanded,
+	showTriageErrorBadge = true,
 	onToggleExpand,
 	onSendDraft,
 	onEditDraft,
@@ -89,6 +92,7 @@ export default function ThreadMessage({
 							<span className="text-sm font-medium text-kumo-default truncate">
 								{senderLabel}
 							</span>
+							{showTriageErrorBadge && <TriageErrorBadge tags={email.tags} />}
 							<span className="text-xs text-kumo-subtle shrink-0">
 								{formatDetailDate(email.date)}
 							</span>
@@ -123,6 +127,7 @@ export default function ThreadMessage({
 								<span className="text-sm font-medium text-kumo-default truncate">
 									{senderLabel}
 								</span>
+								{showTriageErrorBadge && <TriageErrorBadge tags={email.tags} />}
 								{isDraft && <Badge variant="outline">Draft</Badge>}
 							</div>
 							<div className="text-xs text-kumo-subtle">To: {email.recipient}</div>

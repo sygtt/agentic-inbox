@@ -21,6 +21,7 @@ import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
+import { registerEmailTriageRoutes } from "./lib/email-triage-api";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -273,6 +274,7 @@ app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/move", async (c: AppCon
 });
 
 registerEmailTagRoutes(app);
+registerEmailTriageRoutes(app);
 
 // -- Threads --------------------------------------------------------
 

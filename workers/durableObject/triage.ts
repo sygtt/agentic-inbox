@@ -2,12 +2,79 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { DISPOSITION_VALUES } from "../lib/email-tags.ts";
-import type { PersistedEmailTriageResult } from "../lib/email-triage.ts";
+import { DISPOSITION_VALUES, TRIAGE_ERROR_TAG } from "../lib/email-tags.ts";
+import {
+	TriageFeaturesSchema,
+	type PersistedEmailTriageResult,
+	type StoredEmailTriageAnalysis,
+} from "../lib/email-triage.ts";
 
 export interface TriageStorage {
 	sql: SqlStorage;
 	transactionSync<T>(closure: () => T): T;
+}
+
+export interface EmailTriageAnalysisLookup {
+	emailExists: boolean;
+	analysis: StoredEmailTriageAnalysis | null;
+}
+
+export function markEmailTriageFailed(storage: TriageStorage, id: string) {
+	return storage.transactionSync(() => {
+		const email = [
+			...storage.sql.exec("SELECT id FROM emails WHERE id = ?1", id),
+		] as { id: string }[];
+		if (email.length === 0) return null;
+
+		storage.sql.exec(
+			`INSERT INTO email_tags (email_id, tag, provenance)
+			 VALUES (?1, ?2, 'agent')
+			 ON CONFLICT(email_id, tag) DO UPDATE SET provenance = 'agent'`,
+			id,
+			TRIAGE_ERROR_TAG,
+		);
+		return { tag: TRIAGE_ERROR_TAG, provenance: "agent" as const };
+	});
+}
+
+export function getEmailTriageAnalysis(
+	storage: TriageStorage,
+	id: string,
+): EmailTriageAnalysisLookup {
+	const email = [
+		...storage.sql.exec("SELECT id FROM emails WHERE id = ?1", id),
+	] as { id: string }[];
+	if (email.length === 0) return { emailExists: false, analysis: null };
+
+	const rows = [
+		...storage.sql.exec(
+			`SELECT schema_version, policy_version, model, features_json,
+				predicted_disposition, analyzed_at
+			 FROM email_triage_analysis WHERE email_id = ?1`,
+			id,
+		),
+	] as {
+		schema_version: number;
+		policy_version: number;
+		model: string;
+		features_json: string;
+		predicted_disposition: string;
+		analyzed_at: string;
+	}[];
+	const row = rows[0];
+	if (!row) return { emailExists: true, analysis: null };
+
+	return {
+		emailExists: true,
+		analysis: {
+			schemaVersion: row.schema_version,
+			policyVersion: row.policy_version,
+			model: row.model,
+			features: TriageFeaturesSchema.parse(JSON.parse(row.features_json)),
+			predictedDisposition: row.predicted_disposition as PersistedEmailTriageResult["predictedDisposition"],
+			analyzedAt: row.analyzed_at,
+		},
+	};
 }
 
 export function applyEmailTriageResult(
@@ -48,6 +115,13 @@ export function applyEmailTriageResult(
 			featuresJson,
 			result.predictedDisposition,
 			analyzedAt,
+		);
+
+		// Recovery is part of the same transaction as the successful analysis.
+		storage.sql.exec(
+			"DELETE FROM email_tags WHERE email_id = ?1 AND tag = ?2",
+			id,
+			TRIAGE_ERROR_TAG,
 		);
 
 		const manualDisposition = [

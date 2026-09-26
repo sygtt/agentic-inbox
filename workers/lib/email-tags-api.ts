@@ -9,6 +9,7 @@ import {
 	TagAssignmentRequestSchema,
 	DispositionRequestSchema,
 	isDispositionTag,
+	isSystemManagedTag,
 } from "./email-tags.ts";
 
 type AppContext = Context<MailboxContext>;
@@ -33,6 +34,9 @@ export function registerEmailTagRoutes(app: Hono<MailboxContext>) {
 		if (isDispositionTag(parsed.data.tag)) {
 			return c.json({ error: "Use the disposition endpoint for disposition tags" }, 400);
 		}
+		if (isSystemManagedTag(parsed.data.tag)) {
+			return c.json({ error: "triage:error is system-managed and cannot be edited" }, 400);
+		}
 
 		const result = await c.var.mailboxStub.upsertEmailTag(
 			c.req.param("id")!,
@@ -45,6 +49,9 @@ export function registerEmailTagRoutes(app: Hono<MailboxContext>) {
 	app.delete("/api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag", async (c: AppContext) => {
 		const parsed = TagSchema.safeParse(c.req.param("tag"));
 		if (!parsed.success) return c.json({ error: "Invalid tag" }, 400);
+		if (isSystemManagedTag(parsed.data)) {
+			return c.json({ error: "triage:error is system-managed and cannot be edited" }, 400);
+		}
 
 		const result = await c.var.mailboxStub.removeEmailTag(c.req.param("id")!, parsed.data);
 		if (result === null) return c.json({ error: "Email not found" }, 404);

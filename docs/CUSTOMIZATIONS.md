@@ -682,18 +682,25 @@ actions under operator control.
 - The bounded current-email and recent-thread state is validated into versioned structured features.
 - A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
 - Existing `provenance=manual` dispositions are preserved during re-analysis.
+- A catchable failed attempt on an existing message sets one idempotent `triage:error` tag with `agent` provenance without changing its disposition or other tags. The next successful persisted analysis clears the marker in the same transaction, including when a manual disposition is preserved.
+- Generic tag APIs and the tag editor cannot create or remove `triage:error`; list and detail surfaces render it as an accessible `分類エラー` badge.
+- The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features.
 - The unattended path does not create summaries in Agent chat history, drafts, sends, moves, archives, trashes, or deletes messages.
 - Jev failures retain the inbound email and leave disposition tags unchanged.
 
 ### Main affected areas
 
 - `workers/agent/index.ts`
+- `workers/agent/triage-failure.ts`
 - `workers/lib/email-triage.ts`
+- `workers/lib/email-triage-api.ts`
 - `workers/lib/jev-provider.ts`
 - `workers/db/schema.ts`
 - `workers/durableObject/migrations.ts`
 - `workers/durableObject/index.ts`
 - `workers/durableObject/triage.ts`
+- `app/components/triage/`
+- `app/queries/email-triage.ts`
 
 ### Configuration involved
 
@@ -709,7 +716,8 @@ JSON, Jev model version, schema/policy versions, predicted disposition, and
 analysis timestamp. Migration `13_add_email_triage_feedback` stores append-only
 manual disposition corrections, including the previous/new values and the
 latest available triage versions. Both tables cascade when their email is
-deleted.
+deleted. The `triage:error` marker reuses `email_tags`, so it requires no
+additional migration.
 
 ### Upstream synchronization risk
 

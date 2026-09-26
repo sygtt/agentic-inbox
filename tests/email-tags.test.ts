@@ -9,6 +9,7 @@ import {
 	TagSchema,
 	TagProvenanceSchema,
 	DispositionRequestSchema,
+	TRIAGE_ERROR_TAG,
 } from "../workers/lib/email-tags.ts";
 
 test("validates namespaced tags and constrained provenance", () => {
@@ -136,6 +137,17 @@ test("supports mailbox-scoped tag CRUD and disposition replacement", async () =>
 	let response = await request(`${base}/tags`);
 	assert.equal(response.status, 200);
 	assert.deepEqual(await response.json(), []);
+
+	response = await request(`${base}/tags`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ tag: "TRIAGE:ERROR", provenance: "agent" }),
+	});
+	assert.equal(response.status, 400);
+	assert.match((await response.json()).error, /system-managed/i);
+	response = await request(`${base}/tags/${encodeURIComponent(TRIAGE_ERROR_TAG)}`, { method: "DELETE" });
+	assert.equal(response.status, 400);
+	assert.match((await response.json()).error, /system-managed/i);
 
 	response = await request(`${base}/tags`, {
 		method: "PUT",

@@ -38,6 +38,7 @@ import type { Email } from "~/types";
 import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 
 const PAGE_SIZE = 25;
 
@@ -502,6 +503,7 @@ export default function EmailListRoute() {
 													{formatListDate(email.date)}
 												</span>
 											</div>
+											<TriageErrorBadge tags={email.tags} className="mt-1" />
 											<div className="truncate text-sm mt-0.5">
 												<span
 													className={hasUnread(email) ? "font-medium text-kumo-default" : "text-kumo-subtle"}
@@ -585,7 +587,7 @@ export default function EmailListRoute() {
 					onOpenTags={() => { setTagsEmail(quickActionEmail); setQuickActionEmail(null); }}
 					onDelete={() => { if (quickActionEmail) void deleteById(quickActionEmail.id); setQuickActionEmail(null); }}
 				/>
-				{tagsEmail && <MobileTagSheet open mailboxId={mailboxId} emailId={tagsEmail.id} onClose={() => setTagsEmail(null)} />}
+				{tagsEmail && <MobileTagSheet open mailboxId={mailboxId} emailId={tagsEmail.id} emailSubject={tagsEmail.subject} emailSender={tagsEmail.sender} onClose={() => setTagsEmail(null)} />}
 			</>
 		</MailboxSplitView>
 	);

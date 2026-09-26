@@ -59,6 +59,15 @@ export interface EmailTag {
 	provenance: "manual" | "rule" | "agent" | string;
 }
 
+export interface EmailTriageAnalysis {
+	schemaVersion: number;
+	policyVersion: number;
+	model: string;
+	features: import("../../workers/lib/email-triage").TriageFeatures;
+	predictedDisposition: import("../../workers/lib/email-triage").TriageDisposition;
+	analyzedAt: string;
+}
+
 export interface Attachment {
 	id: string;
 	filename: string;

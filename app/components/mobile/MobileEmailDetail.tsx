@@ -21,6 +21,8 @@ import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import MobileQuickActions from "./MobileQuickActions";
 import MobileTagSheet from "./MobileTagSheet";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import TriageAnalysisDetails from "~/components/triage/TriageAnalysisDetails";
 
 export default function MobileEmailDetail({
 	email,
@@ -112,15 +114,19 @@ export default function MobileEmailDetail({
 				<div className="mt-3 flex flex-wrap items-center gap-1.5">
 					{email.needs_reply && <span className="rounded-full bg-kumo-brand/10 px-2 py-0.5 text-[11px] font-medium text-kumo-brand">Needs reply</span>}
 					{email.has_draft && <span className="rounded-full bg-kumo-warning/10 px-2 py-0.5 text-[11px] font-medium text-kumo-warning">Draft</span>}
-					{tags.slice(0, 4).map((tag) => <span key={tag.tag} className="rounded-full bg-kumo-fill px-2 py-0.5 text-[11px] text-kumo-subtle">{tag.tag}</span>)}
+					<TriageErrorBadge tags={tags} />
+					{tags.filter((tag) => tag.tag !== "triage:error").slice(0, 4).map((tag) => <span key={tag.tag} className="rounded-full bg-kumo-fill px-2 py-0.5 text-[11px] text-kumo-subtle">{tag.tag}</span>)}
 					<button type="button" onClick={() => setTagsOpen(true)} className="inline-flex items-center gap-1 rounded-full border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-tint"><TagIcon size={12} /> Edit tags</button>
 				</div>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+				<div className="px-4 pt-3">
+					<TriageAnalysisDetails mailboxId={mailboxId} emailId={email.id} />
+				</div>
 				{hasThread ? allMessages.map((message, index) => {
 					const isDraft = message.folder_id === Folders.DRAFT || (isDraftFolder && message.id === email.id);
-					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
+					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} showTriageErrorBadge={message.id !== email.id} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
 				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} />}
 			</div>
 
@@ -130,7 +136,7 @@ export default function MobileEmailDetail({
 			</div>
 
 			<MobileQuickActions open={isQuickActionsOpen} email={email} unread={allMessages.some((message) => !message.read)} isArchived={isArchived} isTrash={isTrash} threadActionsDisabled={threadActionsDisabled} onClose={() => setQuickActionsOpen(false)} onArchive={onArchive} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />
-			<MobileTagSheet open={isTagsOpen} mailboxId={mailboxId} emailId={email.id} onClose={() => setTagsOpen(false)} />
+			<MobileTagSheet open={isTagsOpen} mailboxId={mailboxId} emailId={email.id} emailSubject={email.subject} emailSender={email.sender} onClose={() => setTagsOpen(false)} />
 		</div>
 	);
 }

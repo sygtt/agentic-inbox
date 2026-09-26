@@ -15,6 +15,8 @@ import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from 
 import type { PersistedEmailTriageResult } from "../lib/email-triage";
 import {
 	applyEmailTriageResult as persistEmailTriageResult,
+	getEmailTriageAnalysis as readEmailTriageAnalysis,
+	markEmailTriageFailed as persistEmailTriageFailure,
 	setEmailDisposition as persistEmailDisposition,
 } from "./triage";
 
@@ -665,11 +667,14 @@ export class MailboxDO extends DurableObject<Env> {
 			attachmentsByEmail.set(att.email_id, list);
 		}
 
+		const tagsByEmail = await this.getEmailTagsForEmails(emailIds);
+
 		return emailRows.map((email) => ({
 			...email,
 			read: !!email.read,
 			starred: !!email.starred,
 			attachments: attachmentsByEmail.get(email.id) || [],
+			tags: tagsByEmail[email.id] || [],
 		}));
 	}
 
@@ -780,6 +785,14 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async applyEmailTriageResult(id: string, result: PersistedEmailTriageResult) {
 		return persistEmailTriageResult(this.ctx.storage, id, result);
+	}
+
+	async markEmailTriageFailed(id: string) {
+		return persistEmailTriageFailure(this.ctx.storage, id);
+	}
+
+	async getEmailTriageAnalysis(id: string) {
+		return readEmailTriageAnalysis(this.ctx.storage, id);
 	}
 
 	async markThreadRead(threadId: string, folderId?: string) {

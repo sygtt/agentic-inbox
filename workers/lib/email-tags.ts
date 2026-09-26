@@ -5,6 +5,7 @@
 import { z } from "zod";
 
 export const TAG_PROVENANCES = ["rule", "agent", "manual"] as const;
+export const TRIAGE_ERROR_TAG = "triage:error";
 export const DISPOSITION_VALUES = [
 	"action-required",
 	"review",
@@ -32,4 +33,8 @@ export const DispositionRequestSchema = z
 
 export function isDispositionTag(tag: string): boolean {
 	return tag.startsWith("disposition:");
+}
+
+export function isSystemManagedTag(tag: string): boolean {
+	return tag === TRIAGE_ERROR_TAG;
 }
