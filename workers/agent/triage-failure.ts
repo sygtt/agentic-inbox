@@ -33,3 +33,29 @@ export async function handleTriageFailure(
 	logError("Auto-triage failed:", error);
 	return { status: "triage_failed", error };
 }
+
+/** Persist a failure when the asynchronous agent invocation itself fails. */
+export async function handleTriageTriggerFailure(
+	trigger: () => Promise<Response>,
+	markEmailTriageFailed: () => Promise<unknown>,
+	logError: (...values: unknown[]) => void = console.error,
+): Promise<void> {
+	try {
+		const response = await trigger();
+		const status = response.status;
+		try {
+			await response.body?.cancel();
+		} catch {
+			// The marker decision depends on the HTTP status, not body cancellation.
+		}
+		if (!response.ok) {
+			await handleTriageFailure(
+				new Error(`Auto-triage trigger returned HTTP ${status}`),
+				markEmailTriageFailed,
+				logError,
+			);
+		}
+	} catch (error) {
+		await handleTriageFailure(error, markEmailTriageFailed, logError);
+	}
+}

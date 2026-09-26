@@ -683,8 +683,10 @@ actions under operator control.
 - A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
 - Existing `provenance=manual` dispositions are preserved during re-analysis.
 - A catchable failed attempt on an existing message sets one idempotent `triage:error` tag with `agent` provenance without changing its disposition or other tags. The next successful persisted analysis clears the marker in the same transaction, including when a manual disposition is preserved.
+- A rejected asynchronous EmailAgent invocation or non-2xx response is also marked by the inbound handler, covering failures before the agent triage handler can write the marker.
 - Generic tag APIs and the tag editor cannot create or remove `triage:error`; list and detail surfaces render it as an accessible `分類エラー` badge.
-- The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features.
+- The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features. While an analysis is absent, detail views recheck analysis and tags every three seconds for up to twenty query attempts total; email lists already refresh every thirty seconds.
+- If the current-disposition tag query fails, the detail panel reports that state and offers a retry instead of claiming there is no disposition.
 - The unattended path does not create summaries in Agent chat history, drafts, sends, moves, archives, trashes, or deletes messages.
 - Jev failures retain the inbound email and leave disposition tags unchanged.
 
@@ -692,6 +694,7 @@ actions under operator control.
 
 - `workers/agent/index.ts`
 - `workers/agent/triage-failure.ts`
+- `workers/index.ts`
 - `workers/lib/email-triage.ts`
 - `workers/lib/email-triage-api.ts`
 - `workers/lib/jev-provider.ts`
@@ -700,6 +703,8 @@ actions under operator control.
 - `workers/durableObject/index.ts`
 - `workers/durableObject/triage.ts`
 - `app/components/triage/`
+- `app/lib/triage-refresh.ts`
+- `app/queries/email-tags.ts`
 - `app/queries/email-triage.ts`
 
 ### Configuration involved

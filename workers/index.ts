@@ -6,6 +6,7 @@ import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
+import { handleTriageTriggerFailure } from "./agent/triage-failure";
 import { sendEmail } from "./email-sender";
 import { deleteAttachmentObjects, storeAttachments, type StoredAttachment } from "./lib/attachments";
 import {
@@ -453,11 +454,16 @@ async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionCo
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
-	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
-	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
-		method: "POST", headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
-	})).catch((e) => console.error("Auto-triage trigger failed:", (e as Error).message)));
+	ctx.waitUntil(handleTriageTriggerFailure(
+		() => {
+			const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
+			return agentStub.fetch(new Request("https://agents/onNewEmail", {
+				method: "POST", headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
+			}));
+		},
+		() => stub.markEmailTriageFailed(messageId),
+	));
 }
 
 export { app, receiveEmail };

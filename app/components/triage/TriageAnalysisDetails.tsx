@@ -12,7 +12,10 @@ export default function TriageAnalysisDetails({
 	emailId: string;
 }) {
 	const [open, setOpen] = useState(false);
-	const analysisQuery = useEmailTriageAnalysis(mailboxId, emailId, { enabled: open });
+	const analysisQuery = useEmailTriageAnalysis(mailboxId, emailId, {
+		enabled: open,
+		refreshWhilePending: open,
+	});
 	const tagsQuery = useEmailTags(mailboxId, emailId, { enabled: open });
 	const tags: EmailTag[] = tagsQuery.data ?? [];
 	const currentDisposition = tags.find(({ tag }) => tag.startsWith("disposition:"));
@@ -45,10 +48,23 @@ export default function TriageAnalysisDetails({
 								<dd className="break-words font-medium text-kumo-default">{analysisQuery.data.predictedDisposition}</dd>
 							</div>
 							<div>
-								<dt className="text-kumo-subtle">現在のタグ</dt>
+							<dt className="text-kumo-subtle">現在のタグ</dt>
 								<dd className="break-words font-medium text-kumo-default">
-									{tagsQuery.isPending ? "読み込み中…" : currentDisposition ? `${currentDisposition.tag} (${currentDisposition.provenance})` : "dispositionタグなし"}
+									{tagsQuery.isPending
+										? "読み込み中…"
+										: tagsQuery.isError
+											? <span role="alert" className="text-kumo-destructive">タグを読み込めませんでした</span>
+										: currentDisposition
+										? `${currentDisposition.tag} (${currentDisposition.provenance})`
+										: "dispositionタグなし"}
 								</dd>
+								{tagsQuery.isError && (
+									<dd>
+										<button type="button" className="text-kumo-destructive underline" disabled={tagsQuery.isFetching} onClick={() => void tagsQuery.refetch()}>
+											{tagsQuery.isFetching ? "タグを再読み込み中…" : "タグを再読み込み"}
+									</button>
+									</dd>
+								)}
 							</div>
 							<div>
 								<dt className="text-kumo-subtle">Model</dt>

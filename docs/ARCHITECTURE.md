@@ -279,7 +279,7 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage.
+10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage. A rejected invocation or non-2xx response also records `triage:error` from the inbound handler.
 
 ### Recipient resolution and catch-all behavior
 
@@ -373,13 +373,18 @@ existing email, a catchable failure also makes a best-effort, idempotent
 `triage:error` tag write. If marker persistence fails, that error is logged
 separately while the original triage failure remains the result. A later
 successful analysis removes the marker atomically with analysis persistence,
-including when a manual disposition remains authoritative.
+including when a manual disposition remains authoritative. The inbound
+handler also marks rejected EmailAgent fetches and non-2xx responses, covering
+failures before the agent's triage handler runs.
 
 The mailbox-scoped triage read endpoint returns only the latest validated
 analysis and its timestamp. The email detail panel presents it in a collapsed
 section, and labels Jev's predicted disposition separately from the current
 disposition tag. Thread detail responses include each message's own tags so a
-failure badge remains attached to the message that owns `triage:error`.
+failure badge remains attached to the message that owns `triage:error`. While
+triage has no persisted analysis yet, open detail views recheck analysis and
+tags every three seconds, for at most twenty query attempts total; email lists
+refresh every thirty seconds.
 
 ### Prompt safety
 

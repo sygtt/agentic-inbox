@@ -5,12 +5,13 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "~/services/api";
 import type { EmailTriageAnalysis } from "~/types";
+import { getBoundedTriageRefetchInterval } from "~/lib/triage-refresh";
 import { queryKeys } from "./keys";
 
 export function useEmailTriageAnalysis(
 	mailboxId: string | undefined,
 	emailId: string | undefined,
-	options?: { enabled?: boolean },
+	options?: { enabled?: boolean; refreshWhilePending?: boolean },
 ) {
 	return useQuery<EmailTriageAnalysis | null>({
 		queryKey: mailboxId && emailId
@@ -18,5 +19,10 @@ export function useEmailTriageAnalysis(
 			: ["email-triage", "_disabled"],
 		queryFn: ({ signal }) => api.getEmailTriageAnalysis(mailboxId!, emailId!, { signal }),
 		enabled: !!mailboxId && !!emailId && (options?.enabled ?? true),
+		refetchInterval: options?.refreshWhilePending
+			? (query) => query.state.data == null
+				? getBoundedTriageRefetchInterval(query)
+				: false
+			: false,
 	});
 }

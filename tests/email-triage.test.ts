@@ -8,7 +8,7 @@ import {
 	markEmailTriageFailed,
 	setEmailDisposition,
 } from "../workers/durableObject/triage.ts";
-import { handleTriageFailure } from "../workers/agent/triage-failure.ts";
+import { handleTriageFailure, handleTriageTriggerFailure } from "../workers/agent/triage-failure.ts";
 import { TRIAGE_ERROR_TAG } from "../workers/lib/email-tags.ts";
 import {
 	analyzeInboundEmail,
@@ -307,6 +307,37 @@ test("failure-marker persistence errors do not replace the original triage failu
 
 	const missing = await handleTriageFailure(new Error("race after deletion"), async () => null, () => {});
 	assert.deepEqual(missing, { status: "email_not_found" });
+});
+
+test("marks failures from the asynchronous agent invocation boundary", async () => {
+	const markerCalls: number[] = [];
+	const logs: unknown[][] = [];
+	const mark = async () => { markerCalls.push(1); return { tag: TRIAGE_ERROR_TAG }; };
+	const log = (...values: unknown[]) => logs.push(values);
+
+	await handleTriageTriggerFailure(
+		async () => new Response(null, { status: 503 }),
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(
+		async () => { throw new Error("agent dispatch rejected"); },
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(
+		async () => { throw new Error("agent stub construction failed"); },
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(async () => new Response(null, { status: 200 }), mark, log);
+
+	assert.equal(markerCalls.length, 3);
+	assert.deepEqual(logs.map((entry) => entry[1]), [
+		"Auto-triage trigger returned HTTP 503",
+		"agent dispatch rejected",
+		"agent stub construction failed",
+	]);
 });
 
 test("applies disposition policy v1 in priority order", () => {

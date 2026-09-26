@@ -21,7 +21,7 @@ export default function EmailPanelHeader({
 	mailboxId,
 	emailId,
 }: EmailPanelHeaderProps) {
-	const { data: tags = [] } = useEmailTags(mailboxId, emailId);
+	const { data: tags = [] } = useEmailTags(mailboxId, emailId, { refreshWhileTriagePending: true });
 
 	return (
 		<div className="px-4 py-3 border-b border-kumo-line shrink-0 md:px-6">

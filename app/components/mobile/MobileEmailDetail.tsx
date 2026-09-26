@@ -83,7 +83,10 @@ export default function MobileEmailDetail({
 		media.addEventListener("change", update);
 		return () => media.removeEventListener("change", update);
 	}, []);
-	const { data: tags = [] } = useEmailTags(mailboxId, email.id, { enabled: isMobileViewport });
+	const { data: tags = [] } = useEmailTags(mailboxId, email.id, {
+		enabled: isMobileViewport,
+		refreshWhileTriagePending: isMobileViewport,
+	});
 	const isArchived = folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE;
 	const isTrash = folder === Folders.TRASH || email.folder_id === Folders.TRASH;
 	const hasThread = allMessages.length > 1;
