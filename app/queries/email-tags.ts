@@ -17,8 +17,6 @@ export function useEmailTags(
 		enabled: !!mailboxId && !!emailId && (options?.enabled ?? true),
 		refetchInterval: options?.refreshWhileTriagePending
 			? (query) => {
-				if (query.state.status === "error") return false;
-				if (query.state.data?.some((tag) => tag.tag === "triage:error")) return false;
 				return getBoundedTriageRefetchInterval(query);
 			}
 			: false,

@@ -18,3 +18,11 @@ export function getBoundedTriageRefetchInterval(
 	}
 	return TRIAGE_REFRESH_INTERVAL_MS;
 }
+
+export function shouldRefreshAnalysisAfterTriageRecovery(
+	previouslyHadTriageError: boolean,
+	currentlyHasTriageError: boolean,
+	tagsQuerySucceeded: boolean,
+): boolean {
+	return previouslyHadTriageError && !currentlyHasTriageError && tagsQuerySucceeded;
+}

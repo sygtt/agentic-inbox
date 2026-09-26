@@ -381,10 +381,12 @@ The mailbox-scoped triage read endpoint returns only the latest validated
 analysis and its timestamp. The email detail panel presents it in a collapsed
 section, and labels Jev's predicted disposition separately from the current
 disposition tag. Thread detail responses include each message's own tags so a
-failure badge remains attached to the message that owns `triage:error`. While
-triage has no persisted analysis yet, open detail views recheck analysis and
-tags every three seconds, for at most twenty query attempts total; email lists
-refresh every thirty seconds.
+failure badge remains attached to the message that owns `triage:error`. Open
+detail views recheck missing analysis and refresh tags every three seconds, for
+at most twenty query attempts total. Tag refresh continues after a failure
+marker appears; when a previously observed marker clears, the detail view
+reloads analysis once so a successful retry replaces any earlier result. Email
+lists refresh every thirty seconds.
 
 ### Prompt safety
 

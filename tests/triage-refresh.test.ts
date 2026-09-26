@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	getBoundedTriageRefetchInterval,
+	shouldRefreshAnalysisAfterTriageRecovery,
 	TRIAGE_MAX_REFRESHES,
 	TRIAGE_REFRESH_INTERVAL_MS,
 } from "../app/lib/triage-refresh.ts";
@@ -21,4 +22,11 @@ test("triage refresh uses a short interval with a fixed attempt budget", () => {
 		false,
 	);
 	assert.equal(getBoundedTriageRefetchInterval(queryState("error")), false);
+});
+
+test("refreshes analysis after a previously observed triage failure clears", () => {
+	assert.equal(shouldRefreshAnalysisAfterTriageRecovery(false, false, true), false);
+	assert.equal(shouldRefreshAnalysisAfterTriageRecovery(true, true, true), false);
+	assert.equal(shouldRefreshAnalysisAfterTriageRecovery(true, false, false), false);
+	assert.equal(shouldRefreshAnalysisAfterTriageRecovery(true, false, true), true);
 });

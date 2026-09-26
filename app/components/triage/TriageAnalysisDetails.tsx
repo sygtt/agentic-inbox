@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EmailTag } from "~/types";
 import { useEmailTags } from "~/queries/email-tags";
 import { useEmailTriageAnalysis } from "~/queries/email-triage";
 import { formatAnalyzedAt, getTriageFeatureRows } from "~/lib/triage-presentation";
+import { shouldRefreshAnalysisAfterTriageRecovery } from "~/lib/triage-refresh";
 
 export default function TriageAnalysisDetails({
 	mailboxId,
@@ -16,9 +17,31 @@ export default function TriageAnalysisDetails({
 		enabled: open,
 		refreshWhilePending: open,
 	});
-	const tagsQuery = useEmailTags(mailboxId, emailId, { enabled: open });
+	const tagsQuery = useEmailTags(mailboxId, emailId, {
+		enabled: open,
+		refreshWhileTriagePending: open,
+	});
 	const tags: EmailTag[] = tagsQuery.data ?? [];
+	const hasTriageError = tags.some(({ tag }) => tag === "triage:error");
+	const previouslyHadTriageError = useRef(false);
 	const currentDisposition = tags.find(({ tag }) => tag.startsWith("disposition:"));
+
+	useEffect(() => {
+		if (hasTriageError) {
+			previouslyHadTriageError.current = true;
+			return;
+		}
+
+		if (!open) return;
+		if (shouldRefreshAnalysisAfterTriageRecovery(
+			previouslyHadTriageError.current,
+			hasTriageError,
+			tagsQuery.isSuccess,
+		)) {
+			previouslyHadTriageError.current = false;
+			void analysisQuery.refetch();
+		}
+	}, [analysisQuery.refetch, hasTriageError, open, tagsQuery.isSuccess]);
 
 	return (
 		<details
