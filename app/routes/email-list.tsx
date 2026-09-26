@@ -18,7 +18,7 @@ import {
 } from "@phosphor-icons/react";
 import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { Folders } from "shared/folders";
 import { formatListDate } from "shared/dates";
 import MailboxSplitView from "~/components/MailboxSplitView";
@@ -39,7 +39,11 @@ import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
-import { getMobileEmailNeighborIds } from "~/lib/mobile-email-navigation";
+import {
+	getMobileEmailNeighborIds,
+	isMobileEmailDetailHistoryEntry,
+	withMobileEmailDetailHistoryEntry,
+} from "~/lib/mobile-email-navigation";
 
 const PAGE_SIZE = 25;
 
@@ -152,6 +156,8 @@ export default function EmailListRoute() {
 		mailboxId: string;
 		folder: string;
 	}>();
+	const location = useLocation();
+	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const urlSelectedEmailId = searchParams.get("email");
 	const {
@@ -188,18 +194,26 @@ export default function EmailListRoute() {
 	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
 	const isSendingEmail = isDraftSending || isSendingMutation;
-	const setUrlSelectedEmailId = useCallback((emailId: string | null, replace: boolean) => {
+	const setUrlSelectedEmailId = useCallback((emailId: string | null, replace: boolean, markAsMobileDetail = false) => {
 		setSearchParams((current) => {
 			const next = new URLSearchParams(current);
 			if (emailId) next.set("email", emailId);
 			else next.delete("email");
 			return next;
-		}, { replace });
-	}, [setSearchParams]);
-	const closeEmailPanel = useCallback(() => {
-		if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
+		}, {
+			replace,
+			state: markAsMobileDetail
+				? withMobileEmailDetailHistoryEntry(location.state)
+				: location.state,
+		});
+	}, [location.state, setSearchParams]);
+	const closeEmailPanel = useCallback((returnThroughHistory = true) => {
+		if (searchParams.has("email")) {
+			if (returnThroughHistory && isMobileEmailDetailHistoryEntry(location.state)) navigate(-1);
+			else setUrlSelectedEmailId(null, true);
+		}
 		closePanel();
-	}, [closePanel, searchParams, setUrlSelectedEmailId]);
+	}, [closePanel, location.state, navigate, searchParams, setUrlSelectedEmailId]);
 	const navigateMobileEmail = useCallback((emailId: string) => {
 		setUrlSelectedEmailId(emailId, true);
 		selectEmail(emailId);
@@ -271,7 +285,7 @@ export default function EmailListRoute() {
 		prevFolderRef.current = currentFolder;
 
 		if (folderChanged) {
-			if (!isComposing && !(isInitialFolder && urlSelectedEmailId)) closeEmailPanel();
+			if (!isComposing && !(isInitialFolder && urlSelectedEmailId)) closeEmailPanel(false);
 			setPage(1);
 		}
 	}, [mailboxId, folder, isComposing, closeEmailPanel, urlSelectedEmailId]);
@@ -351,7 +365,7 @@ export default function EmailListRoute() {
 	};
 
 	const handleRowClick = (email: Email) => {
-		if (isMobileViewport) setUrlSelectedEmailId(email.id, false);
+		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
 		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
 		selectEmail(email.id);
 		if (mailboxId && hasUnread(email)) {
