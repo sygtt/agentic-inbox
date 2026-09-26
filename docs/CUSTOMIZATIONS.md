@@ -682,18 +682,33 @@ actions under operator control.
 - The bounded current-email and recent-thread state is validated into versioned structured features.
 - A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
 - Existing `provenance=manual` dispositions are preserved during re-analysis.
+- A catchable failed attempt on an existing message sets one idempotent failure record without changing its disposition or existing tags. Tag reads expose that system state as `triage:error` with `system` provenance. The next successful persisted analysis clears the record in the same transaction, including when a manual disposition is preserved.
+- A rejected asynchronous EmailAgent invocation or non-2xx response is also marked by the inbound handler, covering failures before the agent triage handler can write the marker.
+- Existing or newly assigned user tags named `triage:error` remain ordinary editable tags and are preserved by the failure-state migration. Only the synthetic tag with `system` provenance indicates an automatic triage failure. Threaded list rows show an accessible thread-level error when any conversation message has the failure record, while detail views retain each message's own tags and badge.
+- The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features. Open detail views and each displayed thread message refresh tags every three seconds for up to twenty query attempts total. Tag refresh continues after a failure marker appears; when a previously observed marker clears, the detail view reloads analysis once so a successful retry replaces any earlier result. Email lists already refresh every thirty seconds.
+- If the current-disposition tag query fails, the detail panel reports that state and offers a retry instead of claiming there is no disposition.
 - The unattended path does not create summaries in Agent chat history, drafts, sends, moves, archives, trashes, or deletes messages.
 - Jev failures retain the inbound email and leave disposition tags unchanged.
 
 ### Main affected areas
 
 - `workers/agent/index.ts`
+- `workers/agent/triage-failure.ts`
+- `workers/index.ts`
 - `workers/lib/email-triage.ts`
+- `workers/lib/email-triage-api.ts`
 - `workers/lib/jev-provider.ts`
 - `workers/db/schema.ts`
 - `workers/durableObject/migrations.ts`
 - `workers/durableObject/index.ts`
 - `workers/durableObject/triage.ts`
+- `workers/durableObject/thread-triage.ts`
+- `app/components/triage/`
+- `app/components/email-panel/ThreadMessage.tsx`
+- `app/components/mobile/MobileTagSheet.tsx`
+- `app/lib/triage-refresh.ts`
+- `app/queries/email-tags.ts`
+- `app/queries/email-triage.ts`
 
 ### Configuration involved
 
@@ -708,8 +723,10 @@ Additive migration `12_add_email_triage_analysis` stores the validated feature
 JSON, Jev model version, schema/policy versions, predicted disposition, and
 analysis timestamp. Migration `13_add_email_triage_feedback` stores append-only
 manual disposition corrections, including the previous/new values and the
-latest available triage versions. Both tables cascade when their email is
-deleted.
+latest available triage versions. Migration `15_add_email_triage_failures`
+creates separate failure state with an email foreign key; existing
+`triage:error` user tags and their provenance remain untouched. All triage rows
+cascade when their email is deleted.
 
 ### Upstream synchronization risk
 

@@ -9,6 +9,7 @@ import {
 	TagSchema,
 	TagProvenanceSchema,
 	DispositionRequestSchema,
+	TRIAGE_ERROR_TAG,
 } from "../workers/lib/email-tags.ts";
 
 test("validates namespaced tags and constrained provenance", () => {
@@ -86,6 +87,58 @@ test("adds the email-tags migration without changing earlier migrations", () => 
 	database.close();
 });
 
+test("adds separate triage failure storage while preserving existing triage:error tags", () => {
+	const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as any;
+	const database = new DatabaseSync(":memory:");
+	database.exec("PRAGMA foreign_keys = ON");
+	const sql = {
+		exec(query: string, ...params: (string | number)[]) {
+			if (params.length > 0) {
+				const statement = database.prepare(query);
+				if (/^select/i.test(query.trim())) return statement.all(...params);
+				statement.run(...params);
+				return [];
+			}
+			if (/^select/i.test(query.trim())) return database.prepare(query).all();
+			database.exec(query);
+			return [];
+		},
+	};
+	const storage = {
+		transactionSync<T>(callback: () => T) {
+			database.exec("BEGIN");
+			try {
+				const result = callback();
+				database.exec("COMMIT");
+				return result;
+			} catch (error) {
+				database.exec("ROLLBACK");
+				throw error;
+			}
+		},
+	};
+	const failureMigrationIndex = mailboxMigrations.findIndex(({ name }) => name === "15_add_email_triage_failures");
+	assert.notEqual(failureMigrationIndex, -1);
+	applyMigrations(sql, mailboxMigrations.slice(0, failureMigrationIndex), storage);
+	database.prepare("INSERT INTO emails (id, folder_id) VALUES (?, ?)").run("legacy-manual", "inbox");
+	database.prepare("INSERT INTO emails (id, folder_id) VALUES (?, ?)").run("legacy-rule", "inbox");
+	database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+		.run("legacy-manual", TRIAGE_ERROR_TAG, "manual");
+	database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+		.run("legacy-rule", TRIAGE_ERROR_TAG, "rule");
+
+	applyMigrations(sql, mailboxMigrations, storage);
+
+	assert.deepEqual(database.prepare(
+		"SELECT email_id, tag, provenance FROM email_tags ORDER BY email_id",
+	).all().map((row: { email_id: string; tag: string; provenance: string }) => ({ ...row })), [
+		{ email_id: "legacy-manual", tag: TRIAGE_ERROR_TAG, provenance: "manual" },
+		{ email_id: "legacy-rule", tag: TRIAGE_ERROR_TAG, provenance: "rule" },
+	]);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures").get().count, 0);
+	database.close();
+});
+
 function createApiTestContext() {
 	const tags = new Map<string, { tag: string; provenance: string }>();
 	const emailIds = new Set(["email-1"]);
@@ -136,6 +189,16 @@ test("supports mailbox-scoped tag CRUD and disposition replacement", async () =>
 	let response = await request(`${base}/tags`);
 	assert.equal(response.status, 200);
 	assert.deepEqual(await response.json(), []);
+
+	response = await request(`${base}/tags`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ tag: "TRIAGE:ERROR", provenance: "manual" }),
+	});
+	assert.equal(response.status, 200);
+	assert.deepEqual(await response.json(), { tag: TRIAGE_ERROR_TAG, provenance: "manual" });
+	response = await request(`${base}/tags/${encodeURIComponent(TRIAGE_ERROR_TAG)}`, { method: "DELETE" });
+	assert.equal(response.status, 204);
 
 	response = await request(`${base}/tags`, {
 		method: "PUT",

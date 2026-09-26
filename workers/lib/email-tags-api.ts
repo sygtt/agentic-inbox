@@ -33,7 +33,6 @@ export function registerEmailTagRoutes(app: Hono<MailboxContext>) {
 		if (isDispositionTag(parsed.data.tag)) {
 			return c.json({ error: "Use the disposition endpoint for disposition tags" }, 400);
 		}
-
 		const result = await c.var.mailboxStub.upsertEmailTag(
 			c.req.param("id")!,
 			parsed.data.tag,
@@ -45,7 +44,6 @@ export function registerEmailTagRoutes(app: Hono<MailboxContext>) {
 	app.delete("/api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag", async (c: AppContext) => {
 		const parsed = TagSchema.safeParse(c.req.param("tag"));
 		if (!parsed.success) return c.json({ error: "Invalid tag" }, 400);
-
 		const result = await c.var.mailboxStub.removeEmailTag(c.req.param("id")!, parsed.data);
 		if (result === null) return c.json({ error: "Email not found" }, 404);
 		return result ? c.body(null, 204) : c.json({ error: "Tag not found" }, 404);

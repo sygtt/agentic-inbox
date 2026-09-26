@@ -266,6 +266,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				subject={email.subject}
 				messageCount={allMessages.length}
 				showThreadCount={hasThread}
+				mailboxId={mailboxId}
+				emailId={email.id}
 			/>
 
 			<div className="flex-1 overflow-y-auto">
@@ -283,6 +285,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isSending={isDraft ? isSending : false}
 				isDeleting={isDeletionBlocked}
 								isExpanded={expandedMessages.has(msg.id)}
+								showTriageErrorBadge={msg.id !== email.id}
 								onToggleExpand={() => toggleExpand(msg.id)}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
 								onEditDraft={isDraft ? () => handleEditDraft(msg) : undefined}

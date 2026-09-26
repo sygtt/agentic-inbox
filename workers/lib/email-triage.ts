@@ -91,6 +91,10 @@ export interface PersistedEmailTriageResult extends InboundTriageResult {
 	predictedDisposition: TriageDisposition;
 }
 
+export interface StoredEmailTriageAnalysis extends PersistedEmailTriageResult {
+	analyzedAt: string;
+}
+
 const booleanCriteria = {
 	true: "The email clearly indicates this is true.",
 	false: "The email does not indicate this is true.",
@@ -236,6 +240,26 @@ const scoreAnswerSchema = z.object({
 	confidence: confidenceSchema,
 	probabilities: probabilitySchema,
 });
+export const TriageFeaturesSchema = z.object({
+	category: z.object({
+		choice: z.enum(TRIAGE_CATEGORIES),
+		confidence: confidenceSchema,
+		probabilities: probabilitySchema,
+	}),
+	requiresReply: confidenceSchema,
+	requiresAction: confidenceSchema,
+	hasDeadline: confidenceSchema,
+	financialImpact: confidenceSchema,
+	securityRelevance: confidenceSchema,
+	bulkMarketing: confidenceSchema,
+	directPersonal: confidenceSchema,
+	calendarCandidate: confidenceSchema,
+	urgency: z.object({
+		score: z.number().finite().min(0).max(3),
+		confidence: confidenceSchema,
+		probabilities: probabilitySchema,
+	}),
+}) satisfies z.ZodType<TriageFeatures>;
 const responseSchema = z.object({
 	model: z.string().min(1),
 	answers: z.record(z.unknown()),

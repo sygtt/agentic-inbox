@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "~/services/api";
+import { getBoundedTriageRefetchInterval } from "~/lib/triage-refresh";
 import type { EmailTag } from "~/types";
 import { queryKeys } from "./keys";
 
 export function useEmailTags(
 	mailboxId: string | undefined,
 	emailId: string | undefined,
-	options?: { enabled?: boolean },
+	options?: { enabled?: boolean; refreshWhileTriagePending?: boolean },
 ) {
 	return useQuery<EmailTag[]>({
 		queryKey: mailboxId && emailId
@@ -14,6 +15,11 @@ export function useEmailTags(
 			: ["email-tags", "_disabled"],
 		queryFn: () => api.getEmailTags(mailboxId!, emailId!),
 		enabled: !!mailboxId && !!emailId && (options?.enabled ?? true),
+		refetchInterval: options?.refreshWhileTriagePending
+			? (query) => {
+				return getBoundedTriageRefetchInterval(query);
+			}
+			: false,
 	});
 }
 

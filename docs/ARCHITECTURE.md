@@ -130,18 +130,23 @@ Major API areas include:
 - search
 - attachment download
 - email tag and disposition management
+- read-only triage analysis
 
 Email tag endpoints are mailbox-scoped and inherit the existing Cloudflare
 Access and `requireMailbox` checks:
 
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
+- `GET /api/v1/mailboxes/:mailboxId/emails/:id/triage`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
 - `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
-to `action-required`, `review`, and `auto-file`.
+to `action-required`, `review`, and `auto-file`. The name `triage:error`
+remains available as a normal user tag for compatibility. Automatic triage
+failure state is stored separately and returned as a synthetic tag with
+`system` provenance; generic tag updates do not affect that state.
 
 Routes scoped to `/api/v1/mailboxes/:mailboxId/*` use `requireMailbox` middleware to resolve and validate the mailbox before operating on its Durable Object.
 
@@ -202,10 +207,20 @@ Attachment bytes are stored separately in R2.
 
 ### `email_tags`
 
-Stores zero or more namespaced tags per email. Each `(email_id, tag)` pair is
-unique and stores a constrained provenance value: `rule`, `agent`, or `manual`.
-The four `disposition:*` values are mutually exclusive and are replaced
-atomically when a new disposition is set.
+Stores zero or more user and automation tags per email. Each `(email_id, tag)`
+pair is unique and stores a constrained provenance value: `rule`, `agent`, or
+`manual`. The three `disposition:*` values are mutually exclusive and are
+replaced atomically when a new disposition is set. Existing user tags named
+`triage:error` remain ordinary editable tags.
+
+### `email_triage_failures`
+
+Stores the most recent automatic triage failure timestamp for each email. A
+successful validated analysis clears the row in the same transaction that
+persists the new analysis and disposition state. The tag read APIs add a
+synthetic `{ tag: "triage:error", provenance: "system" }` entry while this row
+exists, keeping the system state distinct from any existing user tag with the
+same name. Rows cascade when the email is deleted.
 
 ### `email_triage_analysis`
 
@@ -228,7 +243,7 @@ Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
 
 The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
 
-Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, structured inbound email triage analysis, and append-only manual triage feedback.
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, structured inbound email triage analysis, append-only manual triage feedback, and a separate triage-failure table that preserves pre-existing tags.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
 
@@ -273,7 +288,7 @@ Current flow:
 7. Store attachment blobs in R2.
 8. Compute threading information.
 9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
-10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage.
+10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage. A rejected invocation or non-2xx response also records `triage:error` from the inbound handler.
 
 ### Recipient resolution and catch-all behavior
 
@@ -362,7 +377,31 @@ secret. A deterministic policy then applies an `agent`-provenance
 disposition changes through the existing disposition API replace the tag and,
 when the value changes, append a feedback event in the same Durable Object
 transaction. No folder move, draft, send, or delete occurs. Jev failure is
-logged and does not roll back the already stored inbound message.
+logged and does not roll back the already stored inbound message. For an
+existing email, a catchable failure also makes a best-effort, idempotent
+failure-state write. If marker persistence fails, that error is logged
+separately while the original triage failure remains the result. Tag reads
+expose the stored system state as `triage:error` with `system` provenance. A
+later successful analysis removes the marker atomically with analysis
+persistence, including when a manual disposition remains authoritative. The inbound
+handler also marks rejected EmailAgent fetches and non-2xx responses, covering
+failures before the agent's triage handler runs.
+
+The mailbox-scoped triage read endpoint returns only the latest validated
+analysis and its timestamp. The email detail panel presents it in a collapsed
+section, and labels Jev's predicted disposition separately from the current
+disposition tag. Thread detail responses include each message's own tags so a
+failure badge remains attached to the message that owns the system
+`triage:error` state. Each displayed thread message refreshes its tags every
+three seconds for at most twenty query attempts, so a sibling's pending triage
+result can appear without refetching the full thread. The selected email detail
+also rechecks missing analysis and refreshes tags. Tag refresh continues after
+a failure marker appears; when a previously observed marker clears, the detail
+view reloads analysis once so a successful retry replaces any earlier result.
+Email lists refresh every thirty seconds. Threaded folder lists expose a
+separate thread-level error state when any message in the conversation has a
+stored failure row; the representative email's `tags` remain limited to that
+message, while thread details continue to show tags per message.
 
 ### Prompt safety
 

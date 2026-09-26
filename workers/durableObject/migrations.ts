@@ -275,4 +275,14 @@ export const mailboxMigrations: Migration[] = [
 				ON email_triage_analysis(predicted_disposition);
 		`),
 	},
+	{
+		name: "15_add_email_triage_failures",
+		sql: txn(`
+			CREATE TABLE email_triage_failures (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				failed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+		`),
+	},
 ];

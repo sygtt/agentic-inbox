@@ -5,6 +5,7 @@
 import { z } from "zod";
 
 export const TAG_PROVENANCES = ["rule", "agent", "manual"] as const;
+export const TRIAGE_ERROR_TAG = "triage:error";
 export const DISPOSITION_VALUES = [
 	"action-required",
 	"review",

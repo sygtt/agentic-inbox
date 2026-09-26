@@ -19,6 +19,7 @@ import {
 	TRIAGE_POLICY_VERSION,
 	TRIAGE_SCHEMA_VERSION,
 } from "../lib/email-triage";
+import { handleTriageFailure } from "./triage-failure";
 import { createTypeSafeJevProvider } from "../lib/jev-provider";
 import {
 	toolListEmails,
@@ -348,10 +349,11 @@ export class EmailAgent extends AIChatAgent<any> {
 	}) {
 		const env = this.env as Env;
 		const stub = getMailboxStub(env, emailData.mailboxId);
-		const email = (await stub.getEmail(emailData.emailId)) as EmailFull | null;
-		if (!email) return { status: "email_not_found" };
 
 		try {
+			const email = (await stub.getEmail(emailData.emailId)) as EmailFull | null;
+			if (!email) return { status: "email_not_found" };
+
 			const threadEmails = await (stub as unknown as {
 				getThreadEmails(threadId: string): Promise<EmailFull[]>;
 			}).getThreadEmails(emailData.threadId);
@@ -375,8 +377,10 @@ export class EmailAgent extends AIChatAgent<any> {
 				dispositionApplied: persisted.dispositionApplied,
 			};
 		} catch (e) {
-			console.error("Auto-triage failed:", (e as Error).message);
-			return { status: "triage_failed", error: (e as Error).message };
+			return handleTriageFailure(
+				e,
+				() => stub.markEmailTriageFailed(emailData.emailId),
+			);
 		}
 	}
 }

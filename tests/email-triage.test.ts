@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { applyMigrations, mailboxMigrations } from "../workers/durableObject/migrations.ts";
-import { applyEmailTriageResult } from "../workers/durableObject/triage.ts";
+import {
+	applyEmailTriageResult,
+	getEmailTriageAnalysis,
+	markEmailTriageFailed,
+	setEmailDisposition,
+} from "../workers/durableObject/triage.ts";
+import { handleTriageFailure, handleTriageTriggerFailure } from "../workers/agent/triage-failure.ts";
+import { TRIAGE_ERROR_TAG } from "../workers/lib/email-tags.ts";
 import {
 	analyzeInboundEmail,
 	buildInboundTriageState,
@@ -21,6 +28,46 @@ import {
 
 function noul(value: number) {
 	return { type: "noul", noul: value };
+}
+
+function createDatabase() {
+	const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as any;
+	const database = new DatabaseSync(":memory:");
+	database.exec("PRAGMA foreign_keys = ON");
+	const sql = {
+		exec(query: string, ...params: (string | number)[]) {
+			if (params.length > 0) {
+				const statement = database.prepare(query);
+				if (/^select/i.test(query.trim())) return statement.all(...params);
+				statement.run(...params);
+				return [];
+			}
+			if (/^select/i.test(query.trim())) return database.prepare(query).all();
+			database.exec(query);
+			return [];
+		},
+	};
+	const storage = {
+		sql,
+		transactionSync<T>(callback: () => T) {
+			database.exec("BEGIN");
+			try {
+				const result = callback();
+				database.exec("COMMIT");
+				return result;
+			} catch (error) {
+				database.exec("ROLLBACK");
+				throw error;
+			}
+		},
+	};
+	applyMigrations(sql as unknown as SqlStorage, mailboxMigrations, storage as any);
+	return { database, storage: storage as any };
+}
+
+function insertEmail(database: any, id: string) {
+	database.prepare("INSERT INTO emails (id, folder_id, subject, body) VALUES (?, ?, ?, ?)")
+		.run(id, "inbox", "Subject", "Body");
 }
 
 function validResponse() {
@@ -160,6 +207,146 @@ function features(overrides: Partial<TriageFeatures> = {}): TriageFeatures {
 		...overrides,
 	};
 }
+
+test("marks failed triage idempotently without changing dispositions or unrelated tags", () => {
+	for (const provenance of ["agent", "manual"] as const) {
+		const { database, storage } = createDatabase();
+		const id = `email-${provenance}`;
+		insertEmail(database, id);
+		database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+			.run(id, "disposition:review", provenance);
+		database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+			.run(id, "source:newsletter", "manual");
+		database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+			.run(id, TRIAGE_ERROR_TAG, provenance === "manual" ? "manual" : "rule");
+
+		assert.deepEqual(markEmailTriageFailed(storage, id), { tag: TRIAGE_ERROR_TAG, provenance: "system" });
+		markEmailTriageFailed(storage, id);
+
+		const rows = database.prepare(
+			"SELECT tag, provenance FROM email_tags WHERE email_id = ? ORDER BY tag",
+		).all(id).map((row: { tag: string; provenance: string }) => ({ ...row }));
+		assert.deepEqual(rows, [
+			{ tag: "disposition:review", provenance },
+			{ tag: "source:newsletter", provenance: "manual" },
+			{ tag: TRIAGE_ERROR_TAG, provenance: provenance === "manual" ? "manual" : "rule" },
+		]);
+		assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+			.get(id).count, 1);
+		database.close();
+	}
+});
+
+test("successful triage clears triage:error and preserves a manual disposition", () => {
+	const { database, storage } = createDatabase();
+	insertEmail(database, "email-recovery");
+	setEmailDisposition(storage, "email-recovery", "action-required", "manual");
+	database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+		.run("email-recovery", TRIAGE_ERROR_TAG, "manual");
+	markEmailTriageFailed(storage, "email-recovery");
+
+	const result = applyEmailTriageResult(storage, "email-recovery", {
+		model: "jev-recovered",
+		features: features(),
+		schemaVersion: 1,
+		policyVersion: 2,
+		predictedDisposition: "auto-file",
+	});
+
+	assert.deepEqual(result, { dispositionApplied: false, manualDispositionPreserved: true });
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+		.get("email-recovery").count, 0);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_tags WHERE email_id = ? AND tag = ?")
+		.get("email-recovery", TRIAGE_ERROR_TAG).count, 1);
+	assert.equal(getEmailTriageAnalysis(storage, "email-recovery").analysis?.predictedDisposition, "auto-file");
+	assert.equal(database.prepare("SELECT tag FROM email_tags WHERE email_id = ? AND tag LIKE 'disposition:%'")
+		.get("email-recovery").tag, "disposition:action-required");
+	database.close();
+});
+
+test("failed successful-result transaction leaves triage:error in place", () => {
+	const { database, storage } = createDatabase();
+	insertEmail(database, "email-failed-transaction");
+	markEmailTriageFailed(storage, "email-failed-transaction");
+	const failingStorage = {
+		...storage,
+		sql: {
+			exec(query: string, ...params: (string | number)[]) {
+				if (query.includes("INSERT INTO email_triage_analysis")) throw new Error("analysis persistence failed");
+				return storage.sql.exec(query, ...params);
+			},
+		},
+	};
+
+	assert.throws(() => applyEmailTriageResult(failingStorage, "email-failed-transaction", {
+		model: "jev-test",
+		features: features(),
+		schemaVersion: 1,
+		policyVersion: 2,
+		predictedDisposition: "review",
+	}), /analysis persistence failed/);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+		.get("email-failed-transaction").count, 1);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_analysis WHERE email_id = ?")
+		.get("email-failed-transaction").count, 0);
+	database.close();
+});
+
+test("missing email creates no triage:error row", () => {
+	const { database, storage } = createDatabase();
+	assert.equal(markEmailTriageFailed(storage, "missing-email"), null);
+	assert.deepEqual(getEmailTriageAnalysis(storage, "missing-email"), { emailExists: false, analysis: null });
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures").get().count, 0);
+	database.close();
+});
+
+test("failure-marker persistence errors do not replace the original triage failure", async () => {
+	const logs: unknown[][] = [];
+	const result = await handleTriageFailure(
+		new Error("provider rate limit"),
+		async () => { throw new Error("database write failed"); },
+		(...values) => logs.push(values),
+	);
+	assert.deepEqual(result, { status: "triage_failed", error: "provider rate limit" });
+	assert.deepEqual(logs, [
+		["Auto-triage failure marker persistence failed:", "database write failed"],
+		["Auto-triage failed:", "provider rate limit"],
+	]);
+
+	const missing = await handleTriageFailure(new Error("race after deletion"), async () => null, () => {});
+	assert.deepEqual(missing, { status: "email_not_found" });
+});
+
+test("marks failures from the asynchronous agent invocation boundary", async () => {
+	const markerCalls: number[] = [];
+	const logs: unknown[][] = [];
+	const mark = async () => { markerCalls.push(1); return { tag: TRIAGE_ERROR_TAG }; };
+	const log = (...values: unknown[]) => logs.push(values);
+
+	await handleTriageTriggerFailure(
+		async () => new Response(null, { status: 503 }),
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(
+		async () => { throw new Error("agent dispatch rejected"); },
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(
+		async () => { throw new Error("agent stub construction failed"); },
+		mark,
+		log,
+	);
+	await handleTriageTriggerFailure(async () => new Response(null, { status: 200 }), mark, log);
+
+	assert.equal(markerCalls.length, 3);
+	assert.deepEqual(logs.map((entry) => entry[1]), [
+		"Auto-triage trigger returned HTTP 503",
+		"agent dispatch rejected",
+		"agent stub construction failed",
+	]);
+});
 
 test("applies disposition policy v1 in priority order", () => {
 	assert.equal(decideDisposition(features({ securityRelevance: 0.8 })), "action-required");

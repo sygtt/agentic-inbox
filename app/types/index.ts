@@ -49,6 +49,7 @@ export interface Email {
 	// Thread aggregate fields (only present in threaded list view)
 	thread_count?: number;
 	thread_unread_count?: number;
+	thread_has_triage_error?: boolean;
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;
@@ -56,7 +57,16 @@ export interface Email {
 
 export interface EmailTag {
 	tag: string;
-	provenance: "manual" | "rule" | "agent" | string;
+	provenance: "manual" | "rule" | "agent" | "system" | string;
+}
+
+export interface EmailTriageAnalysis {
+	schemaVersion: number;
+	policyVersion: number;
+	model: string;
+	features: import("../../workers/lib/email-triage").TriageFeatures;
+	predictedDisposition: import("../../workers/lib/email-triage").TriageDisposition;
+	analyzedAt: string;
 }
 
 export interface Attachment {

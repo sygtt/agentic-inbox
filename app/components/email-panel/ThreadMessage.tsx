@@ -14,6 +14,8 @@ import {
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
 import VerificationCodeAction from "~/components/VerificationCodeAction";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import { useEmailTags } from "~/queries/email-tags";
 import {
 	formatDetailDate,
 	formatShortDate,
@@ -31,6 +33,7 @@ interface ThreadMessageProps {
 	isSending?: boolean;
 	isDeleting?: boolean;
 	isExpanded: boolean;
+	showTriageErrorBadge?: boolean;
 	onToggleExpand: () => void;
 	onSendDraft?: () => void;
 	onEditDraft?: () => void;
@@ -64,6 +67,7 @@ export default function ThreadMessage({
 	isSending,
 	isDeleting,
 	isExpanded,
+	showTriageErrorBadge = true,
 	onToggleExpand,
 	onSendDraft,
 	onEditDraft,
@@ -71,6 +75,11 @@ export default function ThreadMessage({
 	onViewSource,
 	onPreviewImage,
 }: ThreadMessageProps) {
+	const { data: currentTags } = useEmailTags(mailboxId, email.id, {
+		enabled: !isDraft,
+		refreshWhileTriagePending: !isDraft,
+	});
+	const tags = currentTags ?? email.tags;
 	const isSelf = email.sender === mailboxEmail;
 	const containerClassName = `${!isLast ? "border-b border-kumo-line" : ""} ${isDraft ? "border-l-2 border-l-kumo-warning bg-kumo-warning/[0.02]" : ""}`;
 	const senderLabel = isDraft ? "Draft reply" : isSelf ? "You" : email.sender;
@@ -89,6 +98,7 @@ export default function ThreadMessage({
 							<span className="text-sm font-medium text-kumo-default truncate">
 								{senderLabel}
 							</span>
+							{showTriageErrorBadge && <TriageErrorBadge tags={tags} />}
 							<span className="text-xs text-kumo-subtle shrink-0">
 								{formatDetailDate(email.date)}
 							</span>
@@ -123,6 +133,7 @@ export default function ThreadMessage({
 								<span className="text-sm font-medium text-kumo-default truncate">
 									{senderLabel}
 								</span>
+								{showTriageErrorBadge && <TriageErrorBadge tags={tags} />}
 								{isDraft && <Badge variant="outline">Draft</Badge>}
 							</div>
 							<div className="text-xs text-kumo-subtle">To: {email.recipient}</div>

@@ -20,6 +20,10 @@ export const queryKeys = {
 		list: (mailboxId: string, emailId: string) =>
 			["email-tags", mailboxId, emailId] as const,
 	},
+	emailTriage: {
+		analysis: (mailboxId: string, emailId: string) =>
+			["email-triage", mailboxId, emailId] as const,
+	},
 	folders: {
 		list: (mailboxId: string) => ["folders", mailboxId] as const,
 	},
