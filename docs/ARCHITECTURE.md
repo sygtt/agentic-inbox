@@ -147,7 +147,9 @@ Object applies the filter before paginating and returns a matching total count;
 threaded rows match when a message in the current folder's conversation has
 that tag. The synthetic `triage:error` tag is matched against triage-failure
 records as well as stored user tags. Search accepts the same exact filter
-through the `tag:` operator.
+through the `tag:` operator. Available tag names refresh every thirty seconds
+with the email list and on manual refresh so synthetic triage-error options do
+not remain stale in a long-lived mailbox view.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited

@@ -320,6 +320,7 @@ export default function EmailListRoute() {
 	const handleRefresh = () => {
 		if (mailboxId) {
 			queryClient.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.folders.list(mailboxId),
 			});

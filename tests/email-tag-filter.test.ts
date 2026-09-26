@@ -27,6 +27,7 @@ test("exact tag filtering matches any provenance and keeps paged counts accurate
 	assert.equal(count.get("disposition:review").total, 2);
 	assert.deepEqual(page.all("project:lab", 10, 0).map((row: { id: string }) => row.id), ["email-1", "email-3"]);
 	assert.deepEqual(page.all("triage:error", 10, 0).map((row: { id: string }) => row.id), ["email-3"]);
+	assert.equal(count.get("triage:error").total, 1);
 	assert.ok(database.prepare(AVAILABLE_EMAIL_TAGS_SQL).all("triage:error").some((row: { tag: string }) => row.tag === "triage:error"));
 	database.prepare("DELETE FROM email_triage_failures").run();
 	assert.ok(!database.prepare(AVAILABLE_EMAIL_TAGS_SQL).all("triage:error").some((row: { tag: string }) => row.tag === "triage:error"));

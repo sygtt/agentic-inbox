@@ -53,6 +53,7 @@ without conflating tags with folders or adding rule evaluation to the mailbox.
 - The three `disposition:*` workflow values are mutually exclusive and replaced atomically.
 - Mailbox-scoped HTTP endpoints support reading, upserting, removing tags, and setting disposition.
 - Desktop and mobile email lists support exact tag filtering. The Durable Object applies it before pagination, and threaded rows match when a message in that folder's conversation has the selected tag.
+- Available tag names refresh every thirty seconds and during manual list refreshes so synthetic `triage:error` options track background triage changes.
 - Search supports `tag:namespace:value` and combines it with the other search operators.
 - MCP email reads expose `folder_id` and structured tag provenance, and the
   `set_email_disposition` tool records one of the three agent triage outcomes.

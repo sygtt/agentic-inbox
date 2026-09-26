@@ -11,6 +11,7 @@ export function useAvailableEmailTags(mailboxId: string | undefined) {
 			: ["email-tags", "_disabled_available"],
 		queryFn: () => api.listEmailTags(mailboxId!),
 		enabled: !!mailboxId,
+		refetchInterval: 30_000,
 	});
 }
 

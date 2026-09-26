@@ -278,11 +278,7 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 
 		if (tag) {
-			conditions.push(`EXISTS (
-				SELECT 1 FROM email_tags AS tag_filter
-				WHERE tag_filter.email_id = emails.id
-				AND tag_filter.tag = ?${params.length + 1}
-			)`);
+			conditions.push(emailTagExistsSql("emails.id", `?${params.length + 1}`));
 			params.push(tag);
 		}
 
