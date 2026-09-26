@@ -214,14 +214,6 @@ export default function EmailListRoute() {
 		}
 		closePanel();
 	}, [closePanel, location.state, navigate, searchParams, setUrlSelectedEmailId]);
-	const navigateMobileEmail = useCallback((emailId: string) => {
-		setUrlSelectedEmailId(emailId, true);
-		selectEmail(emailId);
-	}, [selectEmail, setUrlSelectedEmailId]);
-	const handleMobileArchiveSuccess = useCallback((nextEmailId: string | null) => {
-		if (nextEmailId) navigateMobileEmail(nextEmailId);
-		else closeEmailPanel();
-	}, [closeEmailPanel, navigateMobileEmail]);
 
 	const params = useMemo(
 		() => ({
@@ -364,10 +356,7 @@ export default function EmailListRoute() {
 		return !email.read;
 	};
 
-	const handleRowClick = (email: Email) => {
-		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
-		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
-		selectEmail(email.id);
+	const markEmailRead = (email: Email) => {
 		if (mailboxId && hasUnread(email)) {
 			if ((email.thread_count ?? 1) > 1) {
 				markThreadRead.mutate({
@@ -383,6 +372,25 @@ export default function EmailListRoute() {
 				});
 			}
 		}
+	};
+
+	const handleRowClick = (email: Email) => {
+		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
+		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
+		selectEmail(email.id);
+		markEmailRead(email);
+	};
+
+	const navigateMobileEmail = (emailId: string) => {
+		setUrlSelectedEmailId(emailId, true);
+		selectEmail(emailId);
+		const email = emails.find((item) => item.id === emailId);
+		if (email) markEmailRead(email);
+	};
+
+	const handleMobileArchiveSuccess = (nextEmailId: string | null) => {
+		if (nextEmailId) navigateMobileEmail(nextEmailId);
+		else closeEmailPanel();
 	};
 
 	const handleToggleRead = (email: Email) => {

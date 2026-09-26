@@ -137,7 +137,7 @@ export default function MobileEmailDetail({
 				</div>
 			</div>
 
-			<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+			<div key={email.id} className="min-h-0 flex-1 overflow-y-auto pb-20">
 				<div className="px-4 pt-3">
 					<TriageAnalysisDetails mailboxId={mailboxId} emailId={email.id} />
 				</div>
