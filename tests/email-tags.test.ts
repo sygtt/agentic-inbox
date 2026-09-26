@@ -143,6 +143,7 @@ function createApiTestContext() {
 	const tags = new Map<string, { tag: string; provenance: string }>();
 	const emailIds = new Set(["email-1"]);
 	const stub = {
+		getAllEmailTags: async () => [...new Set(tags.keys())].sort(),
 		getEmailTags: async (id: string) =>
 			emailIds.has(id)
 				? [...tags.values()].sort((a, b) => a.tag.localeCompare(b.tag))
@@ -187,6 +188,9 @@ test("supports mailbox-scoped tag CRUD and disposition replacement", async () =>
 	const base = "/api/v1/mailboxes/test@example.com/emails/email-1";
 
 	let response = await request(`${base}/tags`);
+	assert.equal(response.status, 200);
+	assert.deepEqual(await response.json(), []);
+	response = await request("/api/v1/mailboxes/test@example.com/tags");
 	assert.equal(response.status, 200);
 	assert.deepEqual(await response.json(), []);
 
@@ -251,6 +255,8 @@ test("supports mailbox-scoped tag CRUD and disposition replacement", async () =>
 		{ tag: "disposition:auto-file", provenance: "manual" },
 		{ tag: "service:example-job-board", provenance: "agent" },
 	]);
+	response = await request("/api/v1/mailboxes/test@example.com/tags");
+	assert.deepEqual(await response.json(), ["disposition:auto-file", "service:example-job-board"]);
 
 	response = await request(`${base}/tags/service:example-job-board`, { method: "DELETE" });
 	assert.equal(response.status, 204);

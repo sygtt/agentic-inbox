@@ -137,9 +137,17 @@ Access and `requireMailbox` checks:
 
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/triage`
+- `GET /api/v1/mailboxes/:mailboxId/tags` for distinct available tag names
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
 - `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
+
+Folder email-list requests accept an exact `tag` query parameter. The Durable
+Object applies the filter before paginating and returns a matching total count;
+threaded rows match when a message in the current folder's conversation has
+that tag. The synthetic `triage:error` tag is matched against triage-failure
+records as well as stored user tags. Search accepts the same exact filter
+through the `tag:` operator.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited

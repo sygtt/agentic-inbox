@@ -23,6 +23,7 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import { registerEmailTagRoutes } from "./lib/email-tags-api";
 import { registerEmailTriageRoutes } from "./lib/email-triage-api";
+import { TagSchema } from "./lib/email-tags";
 import {
 	MailboxRoutingError,
 	isMailboxCreationAllowed,
@@ -154,6 +155,10 @@ app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 
 app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const folder = c.req.query("folder");
+	const rawTag = c.req.query("tag");
+	const parsedTag = rawTag ? TagSchema.safeParse(rawTag) : undefined;
+	if (parsedTag && !parsedTag.success) return c.json({ error: "Invalid tag filter" }, 400);
+	const tag = parsedTag?.success ? parsedTag.data : undefined;
 	const thread_id = c.req.query("thread_id");
 	const threaded = boolQuery(c, "threaded");
 	const needs_reply = boolQuery(c, "needs_reply");
@@ -164,13 +169,13 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const stub = c.var.mailboxStub;
 
 	if (threaded && folder) {
-		const emails = await (stub as any).getThreadedEmails({ folder, page, limit, needs_reply });
-		const totalCount = await (stub as any).countThreadedEmails(folder, needs_reply);
+		const emails = await (stub as any).getThreadedEmails({ folder, tag, page, limit, needs_reply });
+		const totalCount = await (stub as any).countThreadedEmails(folder, needs_reply, tag);
 		return c.json({ emails, totalCount });
 	}
-	const emails = await stub.getEmails({ folder, thread_id, page, limit, sortColumn, sortDirection });
+	const emails = await stub.getEmails({ folder, tag, thread_id, page, limit, sortColumn, sortDirection });
 	if (folder) {
-		const totalCount = await stub.countEmails({ folder, thread_id });
+		const totalCount = await stub.countEmails({ folder, thread_id, tag });
 		return c.json({ emails, totalCount });
 	}
 	return c.json(emails);
@@ -320,8 +325,11 @@ app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => 
 // -- Search ---------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
+	const rawTag = c.req.query("tag");
+	const parsedTag = rawTag ? TagSchema.safeParse(rawTag) : undefined;
+	if (parsedTag && !parsedTag.success) return c.json({ error: "Invalid tag filter" }, 400);
 	const searchOpts: Record<string, unknown> = {
-		query: c.req.query("query") || "", folder: c.req.query("folder"), from: c.req.query("from"),
+		query: c.req.query("query") || "", folder: c.req.query("folder"), tag: parsedTag?.success ? parsedTag.data : undefined, from: c.req.query("from"),
 		to: c.req.query("to"), subject: c.req.query("subject"), date_start: c.req.query("date_start"),
 		date_end: c.req.query("date_end"), is_read: boolQuery(c, "is_read"),
 		is_starred: boolQuery(c, "is_starred"), has_attachment: boolQuery(c, "has_attachment"),

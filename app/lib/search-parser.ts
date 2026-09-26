@@ -10,6 +10,7 @@
  *   to:user@example.com      — filter by recipient
  *   subject:hello             — filter by subject
  *   in:inbox / in:sent        — filter by folder
+ *   tag:project:important      — filter by exact tag
  *   is:unread / is:read       — filter by read status
  *   is:starred                — filter by starred status
  *   has:attachment             — filter by attachment presence
@@ -26,6 +27,7 @@ export interface ParsedSearch {
 	to?: string;
 	subject?: string;
 	folder?: string;
+	tag?: string;
 	is_read?: boolean;
 	is_starred?: boolean;
 	has_attachment?: boolean;
@@ -35,7 +37,7 @@ export interface ParsedSearch {
 
 // Matches operator:value or operator:"quoted value"
 const OPERATOR_RE =
-	/\b(from|to|subject|in|is|has|before|after):(?:"([^"]*?)"|(\S+))/gi;
+	/\b(from|to|subject|in|tag|is|has|before|after):(?:"([^"]*?)"|(\S+))/gi;
 
 export function parseSearchQuery(input: string): ParsedSearch {
 	const result: ParsedSearch = { query: "" };
@@ -76,6 +78,9 @@ export function parseSearchQuery(input: string): ParsedSearch {
 				break;
 			case "in":
 				result.folder = value.toLowerCase();
+				break;
+			case "tag":
+				result.tag = value.toLowerCase();
 				break;
 			case "is":
 				switch (value.toLowerCase()) {

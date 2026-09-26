@@ -4,6 +4,16 @@ import { getBoundedTriageRefetchInterval } from "~/lib/triage-refresh";
 import type { EmailTag } from "~/types";
 import { queryKeys } from "./keys";
 
+export function useAvailableEmailTags(mailboxId: string | undefined) {
+	return useQuery<string[]>({
+		queryKey: mailboxId
+			? queryKeys.emailTags.available(mailboxId)
+			: ["email-tags", "_disabled_available"],
+		queryFn: () => api.listEmailTags(mailboxId!),
+		enabled: !!mailboxId,
+	});
+}
+
 export function useEmailTags(
 	mailboxId: string | undefined,
 	emailId: string | undefined,
@@ -30,6 +40,7 @@ export function useUpsertEmailTag() {
 			api.upsertEmailTag(mailboxId, emailId, tag),
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
+			qc.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
 			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},
@@ -43,6 +54,7 @@ export function useRemoveEmailTag() {
 			api.removeEmailTag(mailboxId, emailId, tag),
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
+			qc.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
 			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},
@@ -56,6 +68,7 @@ export function useSetEmailDisposition() {
 			api.setEmailDisposition(mailboxId, emailId, value),
 		onSuccess: (_data, { mailboxId, emailId }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.emailTags.list(mailboxId, emailId) });
+			qc.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			qc.invalidateQueries({ queryKey: ["emails", mailboxId] });
 			qc.invalidateQueries({ queryKey: ["search", mailboxId] });
 		},

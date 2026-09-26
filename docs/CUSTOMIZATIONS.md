@@ -50,10 +50,12 @@ without conflating tags with folders or adding rule evaluation to the mailbox.
 ### Behavior
 
 - Emails can have multiple namespaced tags with `rule`, `agent`, or `manual` provenance.
-- The four `disposition:*` workflow values are mutually exclusive and replaced atomically.
+- The three `disposition:*` workflow values are mutually exclusive and replaced atomically.
 - Mailbox-scoped HTTP endpoints support reading, upserting, removing tags, and setting disposition.
+- Desktop and mobile email lists support exact tag filtering. The Durable Object applies it before pagination, and threaded rows match when a message in that folder's conversation has the selected tag.
+- Search supports `tag:namespace:value` and combines it with the other search operators.
 - MCP email reads expose `folder_id` and structured tag provenance, and the
-  `set_email_disposition` tool records one of the four agent triage outcomes.
+  `set_email_disposition` tool records one of the three agent triage outcomes.
 - Tag input is constrained to lowercase `namespace:value` strings with conservative length limits.
 - Folder behavior, authentication, and email body storage remain unchanged.
 
@@ -62,6 +64,7 @@ without conflating tags with folders or adding rule evaluation to the mailbox.
 - `workers/db/schema.ts`
 - `workers/durableObject/migrations.ts`
 - `workers/durableObject/index.ts`
+- `workers/lib/email-tag-filter.ts`
 - `workers/index.ts`
 - `workers/lib/email-tags.ts`
 - `workers/lib/mcp-email.ts`

@@ -11,6 +11,7 @@ import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
+import { AVAILABLE_EMAIL_TAGS_SQL, emailTagExistsSql } from "../lib/email-tag-filter";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
 import type { PersistedEmailTriageResult } from "../lib/email-triage";
 import { TRIAGE_ERROR_TAG } from "../lib/email-tags";
@@ -78,6 +79,7 @@ const SORT_COLUMN_MAP = {
 interface SearchFilterOptions {
 	query: string;
 	folder?: string;
+	tag?: string;
 	from?: string;
 	to?: string;
 	subject?: string;
@@ -90,6 +92,7 @@ interface SearchFilterOptions {
 
 interface GetEmailsOptions {
 	folder?: string;
+	tag?: string;
 	thread_id?: string;
 	needs_reply?: boolean;
 	page?: number;
@@ -175,6 +178,7 @@ export class MailboxDO extends DurableObject<Env> {
 	async getEmails(options: GetEmailsOptions = {}) {
 		const {
 			folder,
+			tag,
 			thread_id,
 			page = 1,
 			limit: rawLimit = 25,
@@ -201,6 +205,19 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 		if (thread_id) {
 			conditions.push(eq(schema.emails.thread_id, thread_id));
+		}
+		if (tag) {
+			conditions.push(sql`(
+				EXISTS (
+					SELECT 1 FROM email_tags AS tag_filter
+					WHERE tag_filter.email_id = ${schema.emails.id}
+					AND tag_filter.tag = ${tag}
+				)
+				OR (
+					${tag} = ${TRIAGE_ERROR_TAG}
+					AND EXISTS (SELECT 1 FROM email_triage_failures WHERE email_id = ${schema.emails.id})
+				)
+			)`);
 		}
 
 		const orderCol = SORT_COLUMN_MAP[sortColumn];
@@ -243,8 +260,8 @@ export class MailboxDO extends DurableObject<Env> {
 	/**
 	 * Count total emails matching the given filters (for pagination).
 	 */
-	async countEmails(options: { folder?: string; thread_id?: string } = {}) {
-		const { folder, thread_id } = options;
+	async countEmails(options: { folder?: string; thread_id?: string; tag?: string } = {}) {
+		const { folder, thread_id, tag } = options;
 		const conditions: string[] = [];
 		const params: (string | number)[] = [];
 
@@ -258,6 +275,15 @@ export class MailboxDO extends DurableObject<Env> {
 		if (thread_id) {
 			conditions.push(`thread_id = ?${params.length + 1}`);
 			params.push(thread_id);
+		}
+
+		if (tag) {
+			conditions.push(`EXISTS (
+				SELECT 1 FROM email_tags AS tag_filter
+				WHERE tag_filter.email_id = emails.id
+				AND tag_filter.tag = ?${params.length + 1}
+			)`);
+			params.push(tag);
 		}
 
 		const where =
@@ -277,6 +303,7 @@ export class MailboxDO extends DurableObject<Env> {
 	async getThreadedEmails(options: GetEmailsOptions = {}) {
 		const {
 			folder,
+			tag,
 			needs_reply = false,
 			page = 1,
 			limit: rawLimit = 25,
@@ -309,6 +336,7 @@ export class MailboxDO extends DurableObject<Env> {
 					SELECT id, subject, sender, recipient, date, read, starred,
 						thread_id, folder_id, in_reply_to, email_references,
 						EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = emails.id) as has_attachment,
+						CASE WHEN ?4 IS NULL THEN 0 ELSE ${emailTagExistsSql("emails.id", "?4")} END as tag_match,
 						COALESCE(in_reply_to, id) as draft_group_key
 					FROM emails
 					WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
@@ -319,7 +347,8 @@ export class MailboxDO extends DurableObject<Env> {
 						COUNT(*) as thread_count,
 						SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as thread_unread_count,
 						GROUP_CONCAT(DISTINCT sender) as participants,
-						MAX(has_attachment) as has_attachment
+						MAX(has_attachment) as has_attachment,
+						MAX(tag_match) as has_tag
 					FROM folder_emails
 					GROUP BY draft_group_key
 				),
@@ -339,10 +368,10 @@ export class MailboxDO extends DurableObject<Env> {
 					ds.thread_count, ds.thread_unread_count, ds.participants, ds.has_attachment
 				FROM latest_per_group lp
 				JOIN draft_stats ds ON lp.draft_group_key = ds.draft_group_key
-				WHERE lp.rn = 1
+				WHERE lp.rn = 1 AND (?4 IS NULL OR ds.has_tag = 1)
 				ORDER BY lp.date DESC
 				LIMIT ?2 OFFSET ?3`,
-				folder, limit, offset
+				folder, limit, offset, tag ?? null
 			);
 
 			const rows = [...result];
@@ -390,6 +419,12 @@ export class MailboxDO extends DurableObject<Env> {
 						THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
 				FROM thread_to_conversation_candidates
 				GROUP BY raw_thread_id
+			),
+			matching_tag_conversations AS (
+				SELECT DISTINCT COALESCE(tc.conversation_id, fe.raw_thread_id) as conversation_id
+				FROM folder_emails fe
+				LEFT JOIN thread_to_conversation tc ON fe.raw_thread_id = tc.raw_thread_id
+				WHERE ?5 IS NOT NULL AND ${emailTagExistsSql("fe.id", "?5")}
 			),
 			all_emails_with_conversation AS (
 				SELECT
@@ -454,12 +489,15 @@ export class MailboxDO extends DurableObject<Env> {
 			LEFT JOIN latest_message_per_conversation lmc
 				ON lmc.conversation_id = lif.conversation_id AND lmc.rn = 1
 			WHERE lif.rn = 1
+				AND (?5 IS NULL OR lif.conversation_id IN (
+					SELECT conversation_id FROM matching_tag_conversations
+				))
 				AND (?4 = 0 OR (CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
 					AND cs.thread_read_count > 0 THEN 1 ELSE 0 END) = 1)
 			ORDER BY lif.date DESC
 			LIMIT ?2 OFFSET ?3`,
-			folder, limit, offset, needs_reply ? 1 : 0
+			folder, limit, offset, needs_reply ? 1 : 0, tag ?? null
 		);
 
 		const rows = [...result];
@@ -484,7 +522,7 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Count threaded conversations in a folder (for pagination).
 	 * Returns the number of conversation groups, not individual emails.
 	 */
-	async countThreadedEmails(folder: string, needs_reply = false) {
+	async countThreadedEmails(folder: string, needs_reply = false, tag?: string) {
 		const isDraftFolder = folder === Folders.DRAFT;
 		if (isDraftFolder && needs_reply) return 0;
 
@@ -493,8 +531,9 @@ export class MailboxDO extends DurableObject<Env> {
 				...this.ctx.storage.sql.exec(
 					`SELECT COUNT(DISTINCT COALESCE(in_reply_to, id)) as total
 					 FROM emails
-					 WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)`,
-					folder,
+					 WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)
+					 AND (?2 IS NULL OR ${emailTagExistsSql("emails.id", "?2")})`,
+					folder, tag ?? null,
 				),
 			][0] as { total: number } | undefined;
 			return row?.total ?? 0;
@@ -505,7 +544,7 @@ export class MailboxDO extends DurableObject<Env> {
 				...this.ctx.storage.sql.exec(
 					`WITH
 					folder_emails AS (
-						SELECT COALESCE(thread_id, id) as raw_thread_id, thread_id,
+						SELECT id, COALESCE(thread_id, id) as raw_thread_id, thread_id,
 						${NORMALIZED_SUBJECT_SQL} as normalized_subject,
 						${PARTICIPANT_KEY_SQL} as participant_key
 						FROM emails
@@ -525,9 +564,19 @@ export class MailboxDO extends DurableObject<Env> {
 								THEN raw_thread_id ELSE MIN(conversation_id) END as conversation_id
 						FROM thread_to_conversation_candidates
 						GROUP BY raw_thread_id
+					),
+					matching_tag_conversations AS (
+						SELECT DISTINCT COALESCE(tc.conversation_id, fe.raw_thread_id) as conversation_id
+						FROM folder_emails fe
+						LEFT JOIN thread_to_conversation tc ON fe.raw_thread_id = tc.raw_thread_id
+						WHERE ?2 IS NOT NULL AND ${emailTagExistsSql("fe.id", "?2")}
 					)
-					SELECT COUNT(DISTINCT conversation_id) as total FROM thread_to_conversation`,
-					folder,
+					SELECT COUNT(DISTINCT tc.conversation_id) as total
+					FROM thread_to_conversation tc
+					WHERE ?2 IS NULL OR tc.conversation_id IN (
+						SELECT conversation_id FROM matching_tag_conversations
+					)`,
+					folder, tag ?? null,
 				),
 			][0] as { total: number } | undefined;
 			return row?.total ?? 0;
@@ -560,6 +609,12 @@ export class MailboxDO extends DurableObject<Env> {
 					FROM thread_to_conversation_candidates
 					GROUP BY raw_thread_id
 				),
+				matching_tag_conversations AS (
+					SELECT DISTINCT COALESCE(tc.conversation_id, fe.raw_thread_id) as conversation_id
+					FROM folder_emails fe
+					LEFT JOIN thread_to_conversation tc ON fe.raw_thread_id = tc.raw_thread_id
+					WHERE ?2 IS NOT NULL AND ${emailTagExistsSql("fe.id", "?2")}
+				),
 				all_emails_with_conversation AS (
 					SELECT e.sender, e.read, e.folder_id, e.date,
 						COALESCE(tc.conversation_id, COALESCE(e.thread_id, e.id)) as conversation_id
@@ -587,8 +642,11 @@ export class MailboxDO extends DurableObject<Env> {
 					ON lmc.conversation_id = cs.conversation_id AND lmc.rn = 1
 				WHERE lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
-					AND cs.thread_read_count > 0`,
-				folder,
+					AND cs.thread_read_count > 0
+					AND (?2 IS NULL OR cs.conversation_id IN (
+						SELECT conversation_id FROM matching_tag_conversations
+					))`,
+				folder, tag ?? null,
 			),
 		][0] as { total: number } | undefined;
 		return row?.total ?? 0;
@@ -731,6 +789,16 @@ export class MailboxDO extends DurableObject<Env> {
 				TRIAGE_ERROR_TAG,
 			),
 		] as { tag: string; provenance: string }[];
+	}
+
+	async getAllEmailTags() {
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				AVAILABLE_EMAIL_TAGS_SQL,
+				TRIAGE_ERROR_TAG,
+			),
+		] as { tag: string }[];
+		return rows.map(({ tag }) => tag);
 	}
 
 	async getEmailTagsForEmails(ids: string[]) {
@@ -1099,7 +1167,7 @@ export class MailboxDO extends DurableObject<Env> {
 		options: SearchFilterOptions,
 		tableAlias = "",
 	): { conditions: string[]; params: (string | number)[] } {
-		const { query, folder, from, to, subject, date_start, date_end, is_read, is_starred, has_attachment } = options;
+		const { query, folder, tag, from, to, subject, date_start, date_end, is_read, is_starred, has_attachment } = options;
 		const prefix = tableAlias ? `${tableAlias}.` : "";
 		const conditions: string[] = [];
 		const params: (string | number)[] = [];
@@ -1121,6 +1189,10 @@ export class MailboxDO extends DurableObject<Env> {
 		if (folder) {
 			const p = addParam(folder);
 			conditions.push(`${prefix}folder_id = (SELECT id FROM folders WHERE name = ${p} OR id = ${p} LIMIT 1)`);
+		}
+		if (tag) {
+			const p = addParam(tag);
+			conditions.push(emailTagExistsSql(`${prefix}id`, p));
 		}
 		if (from) { const p = addParam(`%${from}%`); conditions.push(`${prefix}sender LIKE ${p}`); }
 		if (to) { const p = addParam(`%${to}%`); conditions.push(`(${prefix}recipient LIKE ${p} OR ${prefix}envelope_recipient LIKE ${p} OR ${prefix}cc LIKE ${p} OR ${prefix}bcc LIKE ${p})`); }
