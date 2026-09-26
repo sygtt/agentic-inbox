@@ -137,7 +137,7 @@ HTML and text-only content across list, agent, and reply paths.
 
 ### Why
 
-Issues #3 and #17 add a deliberately small mobile workflow for checking incoming mail,
+Issues #3, #17, and #44 add a deliberately small mobile workflow for checking incoming mail,
 copying verification codes, deleting messages from the list, and opening links
 without introducing a separate mobile client or new persistence.
 
@@ -152,6 +152,7 @@ without introducing a separate mobile client or new persistence.
 - At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar and split view at `md` and above.
 - Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
 - Mobile detail reuses the existing thread, body, attachment, reply, move, star, delete, and structured tag/disposition flows; it does not add mock summaries, Snoozed, Mute, or Pin state.
+- Opening a message records its ID in the URL so browser Back returns to the same loaded list and preserves its local filters and scroll position. Previous/next controls follow the loaded list order without adding history entries; a successful archive selects the next lower message when available, while a failed archive leaves the detail open.
 - Mobile folder management reads counts and custom folders from the existing folder API; non-empty custom folders cannot be deleted because folder deletion cascades to contained mail. Tag editing lazily reads the selected message's structured tags to avoid list-wide N+1 requests.
 
 ### Main affected areas

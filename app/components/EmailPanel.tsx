@@ -21,6 +21,13 @@ import { useUIStore } from "~/hooks/useUIStore";
 import MobileEmailDetail from "~/components/mobile/MobileEmailDetail";
 import type { Email, Folder, Mailbox } from "~/types";
 
+interface MobileEmailNavigation {
+	previousEmailId: string | null;
+	nextEmailId: string | null;
+	onNavigate: (emailId: string) => void;
+	onArchiveSuccess: (nextEmailId: string | null) => void;
+}
+
 function EmailPanelSkeleton() {
 	return (
 		<div className="animate-pulse p-5 space-y-4">
@@ -31,7 +38,15 @@ function EmailPanelSkeleton() {
 	);
 }
 
-export default function EmailPanel({ emailId }: { emailId: string }) {
+export default function EmailPanel({
+	emailId,
+	onClose,
+	mobileEmailNavigation,
+}: {
+	emailId: string;
+	onClose: () => void;
+	mobileEmailNavigation: MobileEmailNavigation;
+}) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
 	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
 	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id, folder || email?.folder_id) as {
@@ -54,7 +69,6 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		data?: Mailbox;
 	};
 	const {
-		closePanel,
 		startCompose,
 		isSendingEmail: isDraftSending,
 		setSendingEmail,
@@ -114,8 +128,8 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		}
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
 	};
-	const handleMove = async (folderId: string) => {
-		if (!mailboxId || threadActionsDisabled) return;
+	const handleMove = async (folderId: string, closeOnSuccess = true) => {
+		if (!mailboxId || threadActionsDisabled) return false;
 		try {
 			const sourceFolderId = folder || email.folder_id;
 			if (!isThreadError && !isDraftFolder && email.folder_id !== Folders.DRAFT && allMessages.length > 1 && sourceFolderId) {
@@ -123,12 +137,21 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 			} else {
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
 			}
-			closePanel();
+			if (closeOnSuccess) onClose();
+			return true;
 		} catch {
 			toastManager.add({ title: "Failed to move email", variant: "error" });
+			return false;
 		}
 	};
-	const handleArchive = () => handleMove(email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE);
+	const handleArchive = async () => {
+		const nextEmailId = mobileEmailNavigation.nextEmailId;
+		const moved = await handleMove(
+			email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE,
+			false,
+		);
+		if (moved) mobileEmailNavigation.onArchiveSuccess(nextEmailId);
+	};
 	const handleDelete = async () => {
 		if (!mailboxId || isDeletionBlocked) return;
 		const permanent = isDraftFolder || folder === Folders.TRASH || email.folder_id === Folders.TRASH;
@@ -143,7 +166,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
 				toastManager.add({ title: "Email moved to Trash" });
 			}
-			closePanel();
+			onClose();
 		} catch {
 			toastManager.add({ title: "Failed to delete email", variant: "error" });
 		}
@@ -161,7 +184,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		if (!window.confirm("Discard this draft?")) return;
 		deleteEmailMut.mutate({ mailboxId, id: target.id });
 		toastManager.add({ title: "Draft discarded" });
-		if (target.id === emailId) closePanel();
+		if (target.id === emailId) onClose();
 	};
 
 	const handleSendDraft = async (draftMsg?: Email) => {
@@ -190,7 +213,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 			if (originalEmail) await replyMut.mutateAsync({ mailboxId, emailId: originalEmail.id, email: emailData }); else await sendEmailMut.mutateAsync({ mailboxId, email: emailData });
 			await deleteEmailMut.mutateAsync({ mailboxId, id: target.id });
 			toastManager.add({ title: "Email sent!" });
-			if (isDraftFolder) closePanel();
+			if (isDraftFolder) onClose();
 		} catch (err) {
 			const message = (err instanceof Error ? err.message : null) || "Failed to send email.";
 			toastManager.add({ title: message, variant: "error" });
@@ -218,7 +241,10 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					threadActionsDisabled={threadActionsDisabled}
 					expandedMessages={expandedMessages}
 					onToggleExpand={toggleExpand}
-					onBack={closePanel}
+					onBack={onClose}
+					previousEmailId={mobileEmailNavigation.previousEmailId}
+					nextEmailId={mobileEmailNavigation.nextEmailId}
+					onNavigate={mobileEmailNavigation.onNavigate}
 					onArchive={handleArchive}
 					onMove={handleMove}
 					onToggleRead={handleToggleRead}
@@ -242,7 +268,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					threadActionsDisabled={threadActionsDisabled}
 					hasUnread={allMessages.some((message) => !message.read)}
 					moveToFolders={moveToFolders}
-					onBack={closePanel}
+					onBack={onClose}
 					onSendDraft={() => handleSendDraft()}
 					onEditDraft={() => handleEditDraft()}
 					onReply={() =>

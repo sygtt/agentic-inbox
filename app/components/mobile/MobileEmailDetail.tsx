@@ -6,7 +6,9 @@ import { Button } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
 	ArrowBendUpLeftIcon,
+	ArrowDownIcon,
 	ArrowLeftIcon,
+	ArrowUpIcon,
 	DotsThreeIcon,
 	PencilSimpleIcon,
 	StarIcon,
@@ -38,6 +40,9 @@ export default function MobileEmailDetail({
 	expandedMessages,
 	onToggleExpand,
 	onBack,
+	previousEmailId,
+	nextEmailId,
+	onNavigate,
 	onArchive,
 	onMove,
 	onToggleRead,
@@ -62,6 +67,9 @@ export default function MobileEmailDetail({
 	expandedMessages: Set<string>;
 	onToggleExpand: (id: string) => void;
 	onBack: () => void;
+	previousEmailId: string | null;
+	nextEmailId: string | null;
+	onNavigate: (emailId: string) => void;
 	onArchive: () => void;
 	onMove: (folderId: string) => void;
 	onToggleRead: () => void;
@@ -83,6 +91,10 @@ export default function MobileEmailDetail({
 		media.addEventListener("change", update);
 		return () => media.removeEventListener("change", update);
 	}, []);
+	useEffect(() => {
+		setQuickActionsOpen(false);
+		setTagsOpen(false);
+	}, [email.id]);
 	const { data: tags = [] } = useEmailTags(mailboxId, email.id, {
 		enabled: isMobileViewport,
 		refreshWhileTriagePending: isMobileViewport,
@@ -95,6 +107,8 @@ export default function MobileEmailDetail({
 		<div className="flex h-full flex-col bg-kumo-base">
 			<div className="flex shrink-0 items-center gap-1 border-b border-kumo-line px-3 py-2">
 				<Button variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={19} />} onClick={onBack} aria-label="Back to list" />
+				<Button variant="ghost" shape="square" size="sm" icon={<ArrowUpIcon size={18} />} onClick={() => previousEmailId && onNavigate(previousEmailId)} disabled={!previousEmailId} aria-label="Email above" />
+				<Button variant="ghost" shape="square" size="sm" icon={<ArrowDownIcon size={18} />} onClick={() => nextEmailId && onNavigate(nextEmailId)} disabled={!nextEmailId} aria-label="Email below" />
 				<div className="min-w-0 flex-1" />
 				<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={18} />} onClick={isTrash ? () => onMove(Folders.INBOX) : onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isTrash ? "Restore to Inbox" : isArchived ? "Move to inbox" : "Archive"} />
 				<Button variant="ghost" shape="square" size="sm" icon={<DotsThreeIcon size={21} />} onClick={() => setQuickActionsOpen(true)} aria-label="More actions" />
@@ -138,7 +152,7 @@ export default function MobileEmailDetail({
 				<Button variant="ghost" shape="square" icon={<StarIcon size={19} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-label={email.starred ? "Unstar" : "Star"} />
 			</div>
 
-			<MobileQuickActions open={isQuickActionsOpen} email={email} unread={allMessages.some((message) => !message.read)} isArchived={isArchived} isTrash={isTrash} threadActionsDisabled={threadActionsDisabled} onClose={() => setQuickActionsOpen(false)} onArchive={onArchive} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />
+			<MobileQuickActions open={isQuickActionsOpen} email={email} unread={allMessages.some((message) => !message.read)} isArchived={isArchived} isTrash={isTrash} threadActionsDisabled={threadActionsDisabled} onClose={() => setQuickActionsOpen(false)} onArchive={() => { setQuickActionsOpen(false); onArchive(); }} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />
 			<MobileTagSheet open={isTagsOpen} mailboxId={mailboxId} emailId={email.id} emailSubject={email.subject} emailSender={email.sender} onClose={() => setTagsOpen(false)} />
 		</div>
 	);

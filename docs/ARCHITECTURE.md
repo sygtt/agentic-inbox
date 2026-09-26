@@ -469,6 +469,11 @@ server-side `needs_reply` filter and thread-level read/move mutations. The
 mobile folders route uses the existing folder API; search remains server-side
 through `useSearchEmails`.
 
+Opening a message from a mobile folder list stores its ID in the `email` query
+parameter. Browser Back restores the same list state, while previous/next
+controls replace that parameter and follow the loaded list order. Archiving
+selects the next lower message from the pre-archive list when available.
+
 ## Important files by responsibility
 
 | Responsibility | Main files |
