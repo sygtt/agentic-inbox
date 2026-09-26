@@ -13,6 +13,7 @@ import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
 import type { PersistedEmailTriageResult } from "../lib/email-triage";
+import { TRIAGE_ERROR_TAG } from "../lib/email-tags";
 import {
 	applyEmailTriageResult as persistEmailTriageResult,
 	getEmailTriageAnalysis as readEmailTriageAnalysis,
@@ -719,15 +720,17 @@ export class MailboxDO extends DurableObject<Env> {
 			.get();
 		if (!email) return null;
 
-		return this.db
-			.select({
-				tag: schema.emailTags.tag,
-				provenance: schema.emailTags.provenance,
-			})
-			.from(schema.emailTags)
-			.where(eq(schema.emailTags.email_id, id))
-			.orderBy(asc(schema.emailTags.tag))
-			.all();
+		return [
+			...this.ctx.storage.sql.exec(
+				`SELECT tag, provenance FROM email_tags WHERE email_id = ?1
+				 UNION ALL
+				 SELECT ?2 AS tag, 'system' AS provenance
+				 FROM email_triage_failures WHERE email_id = ?1
+				 ORDER BY tag, provenance`,
+				id,
+				TRIAGE_ERROR_TAG,
+			),
+		] as { tag: string; provenance: string }[];
 	}
 
 	async getEmailTagsForEmails(ids: string[]) {
@@ -740,7 +743,11 @@ export class MailboxDO extends DurableObject<Env> {
 				`SELECT email_id, tag, provenance
 				 FROM email_tags
 				 WHERE email_id IN (${placeholders})
-				 ORDER BY email_id, tag`,
+				 UNION ALL
+				 SELECT email_id, '${TRIAGE_ERROR_TAG}' AS tag, 'system' AS provenance
+				 FROM email_triage_failures
+				 WHERE email_id IN (${placeholders})
+				 ORDER BY email_id, tag, provenance`,
 				...uniqueIds,
 			),
 		] as { email_id: string; tag: string; provenance: string }[];

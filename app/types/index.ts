@@ -57,7 +57,7 @@ export interface Email {
 
 export interface EmailTag {
 	tag: string;
-	provenance: "manual" | "rule" | "agent" | string;
+	provenance: "manual" | "rule" | "agent" | "system" | string;
 }
 
 export interface EmailTriageAnalysis {

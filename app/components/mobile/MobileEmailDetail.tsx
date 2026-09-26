@@ -118,7 +118,7 @@ export default function MobileEmailDetail({
 					{email.needs_reply && <span className="rounded-full bg-kumo-brand/10 px-2 py-0.5 text-[11px] font-medium text-kumo-brand">Needs reply</span>}
 					{email.has_draft && <span className="rounded-full bg-kumo-warning/10 px-2 py-0.5 text-[11px] font-medium text-kumo-warning">Draft</span>}
 					<TriageErrorBadge tags={tags} />
-					{tags.filter((tag) => tag.tag !== "triage:error").slice(0, 4).map((tag) => <span key={tag.tag} className="rounded-full bg-kumo-fill px-2 py-0.5 text-[11px] text-kumo-subtle">{tag.tag}</span>)}
+					{tags.filter((tag) => tag.provenance !== "system").slice(0, 4).map((tag) => <span key={`${tag.tag}:${tag.provenance}`} className="rounded-full bg-kumo-fill px-2 py-0.5 text-[11px] text-kumo-subtle">{tag.tag}</span>)}
 					<button type="button" onClick={() => setTagsOpen(true)} className="inline-flex items-center gap-1 rounded-full border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-tint"><TagIcon size={12} /> Edit tags</button>
 				</div>
 			</div>

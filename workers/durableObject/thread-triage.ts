@@ -1,9 +1,6 @@
-import { TRIAGE_ERROR_TAG } from "../lib/email-tags.ts";
-
 export const THREAD_TRIAGE_ERROR_JOIN_SQL = `
-	LEFT JOIN email_tags AS thread_triage_error
+	LEFT JOIN email_triage_failures AS thread_triage_error
 		ON thread_triage_error.email_id = all_emails_with_conversation.id
-		AND thread_triage_error.tag = '${TRIAGE_ERROR_TAG}'
 `;
 
 export const THREAD_TRIAGE_ERROR_AGGREGATE_SQL = `

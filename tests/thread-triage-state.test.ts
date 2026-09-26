@@ -17,13 +17,16 @@ test("aggregates a failed older email into its conversation row without changing
 		CREATE TABLE email_tags (
 			email_id TEXT NOT NULL,
 			tag TEXT NOT NULL,
+			provenance TEXT NOT NULL,
 			PRIMARY KEY (email_id, tag)
 		);
+		CREATE TABLE email_triage_failures (email_id TEXT PRIMARY KEY);
 		INSERT INTO all_emails_with_conversation VALUES
 			('older-failed', 'conversation-1'),
 			('newer-successful', 'conversation-1'),
 			('clean-email', 'conversation-2');
-		INSERT INTO email_tags VALUES ('older-failed', 'triage:error');
+		INSERT INTO email_triage_failures VALUES ('older-failed');
+		INSERT INTO email_tags VALUES ('clean-email', 'triage:error', 'manual');
 	`);
 
 	const rows = database.prepare(`
@@ -45,5 +48,9 @@ test("aggregates a failed older email into its conversation row without changing
 		"SELECT tag FROM email_tags WHERE email_id = ?",
 	).all("newer-successful");
 	assert.deepEqual(representativeTags, []);
+	const legacyUserTag = database.prepare(
+		"SELECT tag, provenance FROM email_tags WHERE email_id = ?",
+	).get("clean-email");
+	assert.deepEqual({ ...legacyUserTag }, { tag: "triage:error", provenance: "manual" });
 	database.close();
 });

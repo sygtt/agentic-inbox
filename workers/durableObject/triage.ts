@@ -27,13 +27,13 @@ export function markEmailTriageFailed(storage: TriageStorage, id: string) {
 		if (email.length === 0) return null;
 
 		storage.sql.exec(
-			`INSERT INTO email_tags (email_id, tag, provenance)
-			 VALUES (?1, ?2, 'agent')
-			 ON CONFLICT(email_id, tag) DO UPDATE SET provenance = 'agent'`,
+			`INSERT INTO email_triage_failures (email_id, failed_at)
+			 VALUES (?1, ?2)
+			 ON CONFLICT(email_id) DO UPDATE SET failed_at = excluded.failed_at`,
 			id,
-			TRIAGE_ERROR_TAG,
+			new Date().toISOString(),
 		);
-		return { tag: TRIAGE_ERROR_TAG, provenance: "agent" as const };
+		return { tag: TRIAGE_ERROR_TAG, provenance: "system" as const };
 	});
 }
 
@@ -119,9 +119,8 @@ export function applyEmailTriageResult(
 
 		// Recovery is part of the same transaction as the successful analysis.
 		storage.sql.exec(
-			"DELETE FROM email_tags WHERE email_id = ?1 AND tag = ?2",
+			"DELETE FROM email_triage_failures WHERE email_id = ?1",
 			id,
-			TRIAGE_ERROR_TAG,
 		);
 
 		const manualDisposition = [

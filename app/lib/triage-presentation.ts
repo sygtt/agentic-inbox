@@ -8,7 +8,7 @@ export const THREAD_TRIAGE_ERROR_DESCRIPTION = "このスレッド内のいず�
 export function getTriageErrorPresentation(
 	tags: readonly EmailTag[] | undefined,
 ) {
-	if (!tags?.some(({ tag }) => tag === "triage:error")) return null;
+	if (!tags?.some(({ tag, provenance }) => tag === "triage:error" && provenance === "system")) return null;
 	return {
 		label: TRIAGE_ERROR_LABEL,
 		description: TRIAGE_ERROR_DESCRIPTION,

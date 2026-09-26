@@ -22,7 +22,7 @@ export default function TriageAnalysisDetails({
 		refreshWhileTriagePending: open,
 	});
 	const tags: EmailTag[] = tagsQuery.data ?? [];
-	const hasTriageError = tags.some(({ tag }) => tag === "triage:error");
+	const hasTriageError = tags.some(({ tag, provenance }) => tag === "triage:error" && provenance === "system");
 	const previouslyHadTriageError = useRef(false);
 	const currentDisposition = tags.find(({ tag }) => tag.startsWith("disposition:"));
 

@@ -8,12 +8,13 @@ import {
 	getTriageFeatureRows,
 } from "../app/lib/triage-presentation.ts";
 
-test("provides an accessible, descriptive triage error badge only for the reserved tag", () => {
-	assert.deepEqual(getTriageErrorPresentation([{ tag: "triage:error", provenance: "agent" }]), {
+test("provides an accessible, descriptive triage error badge only for system triage state", () => {
+	assert.deepEqual(getTriageErrorPresentation([{ tag: "triage:error", provenance: "system" }]), {
 		label: "分類エラー",
 		description: "Jevによる自動分類に失敗しました",
 		accessibleName: "分類エラー。Jevによる自動分類に失敗しました",
 	});
+	assert.equal(getTriageErrorPresentation([{ tag: "triage:error", provenance: "manual" }]), null);
 	assert.equal(getTriageErrorPresentation([{ tag: "source:newsletter", provenance: "manual" }]), null);
 	assert.equal(getTriageErrorPresentation(undefined), null);
 });

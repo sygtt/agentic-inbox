@@ -34,7 +34,3 @@ export const DispositionRequestSchema = z
 export function isDispositionTag(tag: string): boolean {
 	return tag.startsWith("disposition:");
 }
-
-export function isSystemManagedTag(tag: string): boolean {
-	return tag === TRIAGE_ERROR_TAG;
-}

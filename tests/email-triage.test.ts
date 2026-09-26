@@ -217,8 +217,10 @@ test("marks failed triage idempotently without changing dispositions or unrelate
 			.run(id, "disposition:review", provenance);
 		database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
 			.run(id, "source:newsletter", "manual");
+		database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+			.run(id, TRIAGE_ERROR_TAG, provenance === "manual" ? "manual" : "rule");
 
-		assert.deepEqual(markEmailTriageFailed(storage, id), { tag: TRIAGE_ERROR_TAG, provenance: "agent" });
+		assert.deepEqual(markEmailTriageFailed(storage, id), { tag: TRIAGE_ERROR_TAG, provenance: "system" });
 		markEmailTriageFailed(storage, id);
 
 		const rows = database.prepare(
@@ -227,8 +229,10 @@ test("marks failed triage idempotently without changing dispositions or unrelate
 		assert.deepEqual(rows, [
 			{ tag: "disposition:review", provenance },
 			{ tag: "source:newsletter", provenance: "manual" },
-			{ tag: TRIAGE_ERROR_TAG, provenance: "agent" },
+			{ tag: TRIAGE_ERROR_TAG, provenance: provenance === "manual" ? "manual" : "rule" },
 		]);
+		assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+			.get(id).count, 1);
 		database.close();
 	}
 });
@@ -237,6 +241,8 @@ test("successful triage clears triage:error and preserves a manual disposition",
 	const { database, storage } = createDatabase();
 	insertEmail(database, "email-recovery");
 	setEmailDisposition(storage, "email-recovery", "action-required", "manual");
+	database.prepare("INSERT INTO email_tags (email_id, tag, provenance) VALUES (?, ?, ?)")
+		.run("email-recovery", TRIAGE_ERROR_TAG, "manual");
 	markEmailTriageFailed(storage, "email-recovery");
 
 	const result = applyEmailTriageResult(storage, "email-recovery", {
@@ -248,8 +254,10 @@ test("successful triage clears triage:error and preserves a manual disposition",
 	});
 
 	assert.deepEqual(result, { dispositionApplied: false, manualDispositionPreserved: true });
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+		.get("email-recovery").count, 0);
 	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_tags WHERE email_id = ? AND tag = ?")
-		.get("email-recovery", TRIAGE_ERROR_TAG).count, 0);
+		.get("email-recovery", TRIAGE_ERROR_TAG).count, 1);
 	assert.equal(getEmailTriageAnalysis(storage, "email-recovery").analysis?.predictedDisposition, "auto-file");
 	assert.equal(database.prepare("SELECT tag FROM email_tags WHERE email_id = ? AND tag LIKE 'disposition:%'")
 		.get("email-recovery").tag, "disposition:action-required");
@@ -277,8 +285,8 @@ test("failed successful-result transaction leaves triage:error in place", () => 
 		policyVersion: 2,
 		predictedDisposition: "review",
 	}), /analysis persistence failed/);
-	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_tags WHERE email_id = ? AND tag = ?")
-		.get("email-failed-transaction", TRIAGE_ERROR_TAG).count, 1);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures WHERE email_id = ?")
+		.get("email-failed-transaction").count, 1);
 	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_analysis WHERE email_id = ?")
 		.get("email-failed-transaction").count, 0);
 	database.close();
@@ -288,7 +296,7 @@ test("missing email creates no triage:error row", () => {
 	const { database, storage } = createDatabase();
 	assert.equal(markEmailTriageFailed(storage, "missing-email"), null);
 	assert.deepEqual(getEmailTriageAnalysis(storage, "missing-email"), { emailExists: false, analysis: null });
-	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_tags").get().count, 0);
+	assert.equal(database.prepare("SELECT COUNT(*) AS count FROM email_triage_failures").get().count, 0);
 	database.close();
 });
 
