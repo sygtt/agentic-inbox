@@ -135,6 +135,8 @@ const api = {
 		get<EmailTag[]>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`),
 	getEmailTriageAnalysis: (mailboxId: string, emailId: string, opts?: { signal?: AbortSignal }) =>
 		get<EmailTriageAnalysis | null>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/triage`, { signal: opts?.signal }),
+	listEmailTags: (mailboxId: string) =>
+		get<string[]>(`/api/v1/mailboxes/${mailboxId}/tags`),
 	upsertEmailTag: (mailboxId: string, emailId: string, tag: string, provenance: "manual" | "rule" | "agent" = "manual") =>
 		put<EmailTag>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`, { tag, provenance }),
 	removeEmailTag: (mailboxId: string, emailId: string, tag: string) =>

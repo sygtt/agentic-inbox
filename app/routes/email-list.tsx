@@ -39,6 +39,9 @@ import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import EmailTagFilter from "~/components/EmailTagFilter";
+import { useAvailableEmailTags } from "~/queries/email-tags";
+import { buildEmailListParams } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -146,6 +149,21 @@ function FolderEmptyState({
 	);
 }
 
+function TagFilterEmptyState({ tag, onClear }: { tag: string; onClear: () => void }) {
+	return (
+		<div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+			<div className="mb-4"><EnvelopeSimpleIcon size={42} weight="thin" className="text-kumo-subtle" /></div>
+			<h3 className="text-base font-semibold text-kumo-default">No matching emails</h3>
+			<p className="mt-1 max-w-xs break-all text-sm text-kumo-subtle">
+				No conversations in this folder have the <span className="font-medium text-kumo-default">{tag}</span> tag.
+			</p>
+			<button type="button" onClick={onClear} className="mt-4 text-sm font-medium text-kumo-brand underline underline-offset-2">
+				Clear tag filter
+			</button>
+		</div>
+	);
+}
+
 export default function EmailListRoute() {
 	const { mailboxId, folder } = useParams<{
 		mailboxId: string;
@@ -162,6 +180,7 @@ export default function EmailListRoute() {
 	} = useUIStore();
 	const [page, setPage] = useState(1);
 	const [mobileFilter, setMobileFilter] = useState<"all" | "needs">("all");
+	const [selectedTag, setSelectedTag] = useState<string>();
 	const [isMobileViewport, setIsMobileViewport] = useState(false);
 	const [quickActionEmail, setQuickActionEmail] = useState<Email | null>(null);
 	const [tagsEmail, setTagsEmail] = useState<Email | null>(null);
@@ -187,13 +206,14 @@ export default function EmailListRoute() {
 	const isSendingEmail = isDraftSending || isSendingMutation;
 
 	const params = useMemo(
-		() => ({
+		() => buildEmailListParams({
 			folder: folder || "",
-			page: String(page),
-			limit: String(PAGE_SIZE),
-			...(isMobileViewport && folder === Folders.INBOX && mobileFilter === "needs" ? { needs_reply: "true" } : {}),
+			page,
+			limit: PAGE_SIZE,
+			needsReply: isMobileViewport && folder === Folders.INBOX && mobileFilter === "needs",
+			tag: selectedTag,
 		}),
-		[folder, isMobileViewport, mobileFilter, page],
+		[folder, isMobileViewport, mobileFilter, page, selectedTag],
 	);
 
 	const {
@@ -216,6 +236,8 @@ export default function EmailListRoute() {
 	);
 
 	const { data: folders = [] } = useFolders(mailboxId);
+	const availableTagsQuery = useAvailableEmailTags(mailboxId);
+	const availableTags = availableTagsQuery.data ?? [];
 
 	const folderName = useMemo(() => {
 		const found = folders.find((f) => f.id === folder);
@@ -298,6 +320,7 @@ export default function EmailListRoute() {
 	const handleRefresh = () => {
 		if (mailboxId) {
 			queryClient.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.folders.list(mailboxId),
 			});
@@ -355,6 +378,11 @@ export default function EmailListRoute() {
 	const needsReplyCount = needsReplyData?.totalCount ?? 0;
 	const allFolderCount = allFolderData?.totalCount ?? totalCount;
 	const mobileEmails = emails;
+	const handleTagSelect = (tag?: string) => {
+		setSelectedTag(tag);
+		setPage(1);
+		closePanel();
+	};
 
 	useEffect(() => {
 		setPage(1);
@@ -380,19 +408,21 @@ export default function EmailListRoute() {
 						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 							<button type="button" onClick={() => setMobileFilter("all")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "all" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>All {allFolderCount}</button>
 							{needsReplyCount > 0 && <button type="button" onClick={() => setMobileFilter("needs")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "needs" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>Needs you {needsReplyCount}</button>}
+							<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
 						</div>
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
-						{isRefreshing && emails.length === 0 ? <EmailListSkeleton /> : isError ? <p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive">Could not load this folder.</p> : mobileEmails.length > 0 ? mobileEmails.map((email) => <MobileEmailRow key={email.id} email={email} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onArchive={() => handleArchive(email)} onToggleRead={() => handleToggleRead(email)} onToggleStar={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { starred: !email.starred } })} onLongPress={() => setQuickActionEmail(email)} />) : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />}
+						{isRefreshing && emails.length === 0 ? <EmailListSkeleton /> : isError ? <p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p> : mobileEmails.length > 0 ? mobileEmails.map((email) => <MobileEmailRow key={email.id} email={email} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onArchive={() => handleArchive(email)} onToggleRead={() => handleToggleRead(email)} onToggleStar={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { starred: !email.starred } })} onLongPress={() => setQuickActionEmail(email)} />) : selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />}
 					</div>
 					{totalCount > PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				{/* Folder header */}
-				<div className="flex items-center justify-between px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-					<h1 className="text-lg font-semibold text-kumo-default">
-						{folderName}
-					</h1>
+				<div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+					<div className="flex min-w-0 flex-wrap items-center gap-3">
+						<h1 className="text-lg font-semibold text-kumo-default">{folderName}</h1>
+						<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
+					</div>
 					<div className="flex items-center gap-1">
 						{totalCount > 0 && (
 							<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
@@ -424,9 +454,11 @@ export default function EmailListRoute() {
 
 				{/* Email rows */}
 				<div className="flex-1 overflow-y-auto">
-				{isRefreshing && emails.length === 0 ? (
-					<EmailListSkeleton />
-				) : emails.length > 0 ? (
+					{isRefreshing && emails.length === 0 ? (
+						<EmailListSkeleton />
+					) : isError ? (
+						<p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p>
+					) : emails.length > 0 ? (
 						<div>
 							{emails.map((email) => {
 								const isSelected = selectedEmailId === email.id;
@@ -559,10 +591,7 @@ export default function EmailListRoute() {
 							})}
 						</div>
 					) : (
-						<FolderEmptyState
-							folder={folder}
-							onCompose={() => startCompose()}
-						/>
+						selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />
 					)}
 				</div>
 

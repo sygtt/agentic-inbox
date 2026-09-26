@@ -16,7 +16,7 @@ import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 
 function highlightTerms(text: string, query: string): React.ReactNode {
 	if (!query || !text) return text;
-	const freeText = query.replace(/\b(?:from|to|subject|in|is|has|before|after):"[^"]*"/gi, "").replace(/\b(?:from|to|subject|in|is|has|before|after):\S+/gi, "").trim();
+	const freeText = query.replace(/\b(?:from|to|subject|in|tag|is|has|before|after):"[^"]*"/gi, "").replace(/\b(?:from|to|subject|in|tag|is|has|before|after):\S+/gi, "").trim();
 	if (!freeText) return text;
 	try {
 		const escaped = freeText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

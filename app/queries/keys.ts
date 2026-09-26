@@ -19,6 +19,7 @@ export const queryKeys = {
 	emailTags: {
 		list: (mailboxId: string, emailId: string) =>
 			["email-tags", mailboxId, emailId] as const,
+		available: (mailboxId: string) => ["email-tags", mailboxId, "available"] as const,
 	},
 	emailTriage: {
 		analysis: (mailboxId: string, emailId: string) =>
