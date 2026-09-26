@@ -477,7 +477,8 @@ sheets, and the narrow detail view while reusing the same TanStack Query and
 Zustand state as the desktop split view. Threaded list requests support the
 server-side `needs_reply` filter and thread-level read/move mutations. The
 mobile folders route uses the existing folder API; search remains server-side
-through `useSearchEmails`.
+through `useSearchEmails`. Mobile list and search rows show Japanese disposition
+labels and prioritize system triage errors, with a compact overflow count.
 
 ## Important files by responsibility
 
