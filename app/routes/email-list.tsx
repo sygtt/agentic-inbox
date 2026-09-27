@@ -40,6 +40,7 @@ import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 import {
+	getMobileEmailSelectionAction,
 	getMobileEmailNeighborIds,
 	isMobileEmailDetailHistoryEntry,
 	withMobileEmailDetailHistoryEntry,
@@ -257,15 +258,22 @@ export default function EmailListRoute() {
 		() => getMobileEmailNeighborIds(emails, selectedEmailId),
 		[emails, selectedEmailId],
 	);
+	const wasMobileViewportRef = useRef(false);
 
 	useEffect(() => {
-		if (!isMobileViewport) return;
-		if (urlSelectedEmailId) {
-			if (selectedEmailId !== urlSelectedEmailId) selectEmail(urlSelectedEmailId);
-		} else if (selectedEmailId && !isComposing) {
-			selectEmail(null);
-		}
-	}, [isMobileViewport, isComposing, selectedEmailId, selectEmail, urlSelectedEmailId]);
+		const action = getMobileEmailSelectionAction({
+			isMobileViewport,
+			wasMobileViewport: wasMobileViewportRef.current,
+			urlSelectedEmailId,
+			selectedEmailId,
+			isComposing,
+		});
+		wasMobileViewportRef.current = isMobileViewport;
+
+		if (action.type === "select-url-email") selectEmail(action.emailId);
+		else if (action.type === "write-selected-email-to-url") setUrlSelectedEmailId(action.emailId, true);
+		else if (action.type === "clear-selection") selectEmail(null);
+	}, [isMobileViewport, isComposing, selectedEmailId, selectEmail, setUrlSelectedEmailId, urlSelectedEmailId]);
 
 	// Track folder identity to detect folder changes vs page changes
 	const prevFolderRef = useRef<string | undefined>(undefined);

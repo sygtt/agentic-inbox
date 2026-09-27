@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	getMobileEmailNeighborIds,
+	getMobileEmailSelectionAction,
 	isMobileEmailDetailHistoryEntry,
 	withMobileEmailDetailHistoryEntry,
 } from "../app/lib/mobile-email-navigation.ts";
@@ -37,4 +38,21 @@ test("marks mobile detail history entries while preserving existing location sta
 	assert.equal(isMobileEmailDetailHistoryEntry(state), true);
 	assert.equal(isMobileEmailDetailHistoryEntry(null), false);
 	assert.equal(isMobileEmailDetailHistoryEntry({ agenticInboxMobileEmailDetailEntry: false }), false);
+});
+
+test("keeps a desktop selection when entering mobile and clears it after mobile Back", () => {
+	assert.deepEqual(getMobileEmailSelectionAction({
+		isMobileViewport: true,
+		wasMobileViewport: false,
+		urlSelectedEmailId: null,
+		selectedEmailId: "selected",
+		isComposing: false,
+	}), { type: "write-selected-email-to-url", emailId: "selected" });
+	assert.deepEqual(getMobileEmailSelectionAction({
+		isMobileViewport: true,
+		wasMobileViewport: true,
+		urlSelectedEmailId: null,
+		selectedEmailId: "selected",
+		isComposing: false,
+	}), { type: "clear-selection" });
 });

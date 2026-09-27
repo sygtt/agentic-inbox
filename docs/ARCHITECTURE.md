@@ -473,8 +473,10 @@ Opening a message from a mobile folder list stores its ID in the `email` query
 parameter. Browser Back restores the same list state, while previous/next
 controls replace that parameter and follow the loaded list order. Opening a
 message through those controls marks it read and resets detail scrolling to
-the top. Archiving selects the next lower message from the pre-archive list
-when available.
+the top. Entering the mobile layout preserves an existing desktop selection
+in the URL, and an unavailable URL-selected email shows a recoverable error
+state. Archiving selects the next lower message from the pre-archive list when
+available.
 
 ## Important files by responsibility
 

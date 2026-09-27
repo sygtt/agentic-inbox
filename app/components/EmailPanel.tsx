@@ -38,6 +38,18 @@ function EmailPanelSkeleton() {
 	);
 }
 
+function EmailPanelLoadError({ onClose }: { onClose: () => void }) {
+	return (
+		<div role="alert" className="flex h-full min-h-[240px] flex-col items-center justify-center p-6 text-center">
+			<h2 className="text-base font-semibold text-kumo-default">Could not load this email</h2>
+			<p className="mt-2 max-w-sm text-sm text-kumo-subtle">It may have been deleted or moved. Return to the list and choose another message.</p>
+			<button type="button" onClick={onClose} className="mt-4 text-sm font-medium text-kumo-brand underline underline-offset-2">
+				Back to list
+			</button>
+		</div>
+	);
+}
+
 export default function EmailPanel({
 	emailId,
 	onClose,
@@ -48,7 +60,7 @@ export default function EmailPanel({
 	mobileEmailNavigation: MobileEmailNavigation;
 }) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
-	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
+	const { data: email, isError: isEmailError } = useEmail(mailboxId, emailId) as { data?: Email; isError: boolean };
 	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id, folder || email?.folder_id) as {
 		data?: Email[];
 		isPending: boolean;
@@ -117,7 +129,10 @@ export default function EmailPanel({
 
 	const moveToFolders = useMemo(() => { const cur = folder || email?.folder_id; return folders.filter((f) => f.id !== cur); }, [folders, folder, email?.folder_id]);
 
-	if (!email) return <EmailPanelSkeleton />;
+	if (!email) {
+		if (isEmailError || !mailboxId) return <EmailPanelLoadError onClose={onClose} />;
+		return <EmailPanelSkeleton />;
+	}
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleToggleRead = () => {
