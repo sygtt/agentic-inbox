@@ -63,3 +63,13 @@ test("keeps a desktop selection when entering mobile and clears it after mobile 
 		isComposing: false,
 	}), { type: "clear-selection" });
 });
+
+test("preserves an active compose instead of applying a stale URL email selection", () => {
+	assert.deepEqual(getMobileEmailSelectionAction({
+		isMobileViewport: true,
+		wasMobileViewport: false,
+		urlSelectedEmailId: "previously-selected",
+		selectedEmailId: null,
+		isComposing: true,
+	}), { type: "none" });
+});

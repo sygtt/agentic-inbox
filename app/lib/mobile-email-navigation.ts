@@ -30,13 +30,13 @@ export function getMobileEmailSelectionAction({
 	selectedEmailId: string | null;
 	isComposing: boolean;
 }): MobileEmailSelectionAction {
-	if (!isMobileViewport) return { type: "none" };
+	if (!isMobileViewport || isComposing) return { type: "none" };
 	if (urlSelectedEmailId) {
 		return selectedEmailId === urlSelectedEmailId
 			? { type: "none" }
 			: { type: "select-url-email", emailId: urlSelectedEmailId };
 	}
-	if (!selectedEmailId || isComposing) return { type: "none" };
+	if (!selectedEmailId) return { type: "none" };
 	if (!wasMobileViewport) return { type: "write-selected-email-to-url", emailId: selectedEmailId };
 	return { type: "clear-selection" };
 }
