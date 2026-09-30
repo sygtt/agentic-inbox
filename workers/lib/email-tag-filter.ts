@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { TRIAGE_ERROR_TAG } from "./email-tags.ts";
 
 export const AVAILABLE_EMAIL_TAGS_SQL = `

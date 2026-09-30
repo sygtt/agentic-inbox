@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "~/services/api";
 import { getBoundedTriageRefetchInterval } from "~/lib/triage-refresh";

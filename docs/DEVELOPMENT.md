@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Development
 
 This document describes the recommended local development workflow for this fork of Cloudflare's `agentic-inbox`.
@@ -115,6 +117,15 @@ npm install
 
 The project uses `package-lock.json`. Avoid regenerating the lockfile unless dependencies actually change.
 
+## Line endings
+
+`.gitattributes` checks out text files with LF line endings so pinned license
+and provenance hashes remain stable when `core.autocrlf=true`. PNG, ICO, and
+PDF files are kept binary. Existing worktrees that already contain CRLF files
+should be replaced with a fresh clone or worktree after saving local changes;
+`git add --renormalize` only changes the index and does not convert the working
+tree files.
+
 ## Main npm commands
 
 Current scripts include:
@@ -126,6 +137,7 @@ npm run preview
 npm test
 npm run typecheck
 npm run cf-typegen
+npm run license:check
 npm run deploy
 ```
 
@@ -150,6 +162,15 @@ Builds first, then serves the built Vite application for preview.
 Runs Cloudflare type generation, React Router type generation, and TypeScript project checking.
 
 This is part of the minimum validation required by `AGENTS.md`.
+
+### `npm run license:check`
+
+Checks the root license, the provenance inventory, and required file notices
+without fetching upstream or installing a license scanner. Update the inventory
+when adding tracked files or changing their provenance; see `LICENSING.md` for
+the file classifications and notice conventions. The CI workflow runs this
+check and its regression tests. A passing check complements human provenance
+review and does not establish legal compliance.
 
 ### `npm run deploy`
 
@@ -444,6 +465,11 @@ Review the diff for:
 - unrelated formatting
 - accidental lockfile changes
 - generated files
+
+Also run `npm run license:check` before committing. Preserve upstream and
+third-party notices, mark modified upstream files, and record external source
+terms. Follow the licensing checklist in `AGENTS.md` and report unresolved
+provenance in the PR for human review before merge.
 
 ## Commit style
 

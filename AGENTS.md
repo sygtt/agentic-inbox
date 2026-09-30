@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # AGENTS.md
 
 ## Purpose
@@ -912,6 +914,72 @@ Avoid turning this fork into an unrelated general-purpose mail server.
 When a feature can reasonably live outside Agentic Inbox, consider whether an external integration is more maintainable than modifying core upstream behavior.
 
 The upstream Agentic Inbox architecture remains the foundation.
+
+---
+
+# 21. Licensing and AI-assisted provenance
+
+Read `docs/LICENSING.md` and the provenance inventory before changing licensing
+metadata or importing code or assets. The root `LICENSE` is the upstream Apache
+License 2.0 text; do not rewrite it. This fork is not an Apache Software
+Foundation project, so do not add ASF ownership or contributor boilerplate.
+
+## Mandatory rules
+
+1. Preserve all existing copyright, patent, trademark, license, SPDX, and
+   attribution notices. A copied header is not proof of authorship: report
+   questionable ownership rather than replacing it with a guessed owner.
+2. Determine the file's provenance before editing: unchanged upstream (A),
+   modified upstream (B), fork-created (C), identified third-party (D), generated
+   (E), or uncertain (F). Git history alone does not prove original authorship.
+3. Modified upstream files must retain their upstream notices and carry the
+   documented fork-change notice. Reclassify A to B when changing such a file.
+   Use the documented sidecar convention where the format cannot carry comments.
+4. New fork-authored files must follow the SPDX convention and be included in the
+   inventory. Do not add a Cloudflare or individual copyright claim without
+   evidence, and do not treat a new path as proof that its contents are original.
+5. Before copying or adapting code from a repository, package, blog, Stack
+   Overflow answer, or other external source, check its actual license and
+   applicable notices. Record its source URL, version/commit, terms, and scope.
+   Public availability is not permission to relicense code under Apache-2.0.
+6. Preserve third-party license headers and required attribution. Review root
+   `LICENSE` and `NOTICE` implications for imported material. Preserve any
+   applicable upstream `NOTICE` introduced by future synchronization.
+7. Do not insert fork headers into vendored or generated files. For generated
+   files, review the generator/template and record its provenance and exceptions.
+8. Report uncertain provenance as F, explain what evidence is missing, and leave
+   its licensing decision to a human reviewer. Do not resolve uncertainty by
+   adding an Apache header or an unsupported license declaration.
+9. Review the final diff for removed notices, inappropriate ownership claims,
+   unreviewed external material, and generated-file edits.
+10. Run `npm run license:check` and update the inventory when tracked paths or
+    provenance change. A passing check does not establish legal compliance.
+
+## AI-assisted development
+
+AI-generated code, text, and assets require human review before merging. The
+human reviewer remains responsible for reviewing provenance and licensing;
+another AI review is supplementary and does not replace that review.
+
+Do not knowingly introduce copied third-party material without the review above.
+Disclose any specific external implementation used in the PR and preserve its
+required attribution. Disclose the AI tool/model used in the PR and report any
+suspected reproduction of external material or uncertainty about tool output
+rights. Check the provider's applicable output terms before relying on them.
+
+`Generated-by` commit trailers are optional. Use one only when the tool/model is
+known and it accurately describes that commit. Do not fabricate provenance or
+use `Co-authored-by` to imply that a model is a human copyright holder.
+
+## Pre-commit and pre-PR checklist
+
+- [ ] Classify every added or changed file and update the provenance inventory.
+- [ ] Preserve upstream/third-party notices and mark modified upstream files.
+- [ ] Record external sources and terms; flag unresolved provenance explicitly.
+- [ ] Keep generated/vendor exceptions explicit and avoid guessed ownership.
+- [ ] Run `npm run license:check` and inspect the complete diff.
+- [ ] Disclose AI assistance and external implementation references in the PR;
+      identify outstanding human licensing review before merge.
 
 ---
 

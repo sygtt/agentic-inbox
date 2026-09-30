@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Customizations
 
 This document records intentional differences between this fork and upstream `cloudflare/agentic-inbox`.
