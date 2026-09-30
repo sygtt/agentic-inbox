@@ -25,6 +25,7 @@ interface MobileEmailNavigation {
 	previousEmailId: string | null;
 	nextEmailId: string | null;
 	onNavigate: (emailId: string) => void;
+	onUrlEmailLoaded: (email: Email) => void;
 	onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
 }
 
@@ -105,6 +106,17 @@ export default function EmailPanel({
 		if (!email) return [];
 		return [email, ...threadReplies].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 	}, [email, threadReplies]);
+	useEffect(() => {
+		if (!email || isThreadPending) return;
+		const emailWithThreadReadState = isThreadError
+			? email
+			: {
+				...email,
+				thread_count: allMessages.length,
+				thread_unread_count: allMessages.filter((message) => !message.read).length,
+			};
+		mobileEmailNavigation.onUrlEmailLoaded(emailWithThreadReadState);
+	}, [allMessages, email, isThreadError, isThreadPending, mobileEmailNavigation.onUrlEmailLoaded]);
 
 	// Reset expanded state only when the selected email changes, not on every refetch.
 	// Using allMessages as a dependency would reset user expand/collapse state on background refetches.

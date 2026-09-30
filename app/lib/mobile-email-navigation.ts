@@ -11,6 +11,28 @@ export function shouldAdvanceAfterMobileArchive(
 	return selectedEmailId === archivedEmailId;
 }
 
+export function shouldMarkUrlSelectedEmailRead({
+	isMobileViewport,
+	isComposing,
+	urlSelectedEmailId,
+	selectedEmailId,
+	emailId,
+	lastMarkedEmailId,
+}: {
+	isMobileViewport: boolean;
+	isComposing: boolean;
+	urlSelectedEmailId: string | null;
+	selectedEmailId: string | null;
+	emailId: string;
+	lastMarkedEmailId: string | null;
+}): boolean {
+	return isMobileViewport &&
+		!isComposing &&
+		urlSelectedEmailId === emailId &&
+		selectedEmailId === emailId &&
+		lastMarkedEmailId !== emailId;
+}
+
 export type MobileEmailSelectionAction =
 	| { type: "select-url-email"; emailId: string }
 	| { type: "write-selected-email-to-url"; emailId: string }

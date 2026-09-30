@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import ComposePanel from "~/components/ComposePanel";
 import EmailPanel from "~/components/EmailPanel";
 import { useUIStore } from "~/hooks/useUIStore";
+import type { Email } from "~/types";
 
 interface MailboxSplitViewProps {
 	selectedEmailId: string | null;
@@ -15,6 +16,7 @@ interface MailboxSplitViewProps {
 		previousEmailId: string | null;
 		nextEmailId: string | null;
 		onNavigate: (emailId: string) => void;
+		onUrlEmailLoaded: (email: Email) => void;
 		onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
 	};
 	children: ReactNode;
@@ -33,6 +35,7 @@ export default function MailboxSplitView({
 		previousEmailId: null,
 		nextEmailId: null,
 		onNavigate: () => {},
+		onUrlEmailLoaded: () => {},
 		onArchiveSuccess: () => closePanel(),
 	};
 	const isPanelOpen = selectedEmailId !== null || isComposing;

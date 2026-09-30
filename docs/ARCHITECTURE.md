@@ -484,7 +484,9 @@ Opening a message from a mobile folder list stores its ID in the `email` query
 parameter. Browser Back restores the same list state, while previous/next
 controls replace that parameter and follow the loaded list order. Opening a
 message through those controls marks it read and resets detail scrolling to
-the top. Entering the mobile layout preserves an existing desktop selection
+the top. Opening or refreshing a URL-selected unread message also marks it
+read after its email data loads, using the thread-aware read mutation. Entering
+the mobile layout preserves an existing desktop selection
 in the URL, and an unavailable URL-selected email shows a recoverable error
 state. While a compose is active, URL selection takes no action so viewport
 changes do not discard unsaved fields. Closing detail through filters, sending

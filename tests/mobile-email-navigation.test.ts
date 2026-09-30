@@ -6,6 +6,7 @@ import {
 	getMobileEmailSelectionAction,
 	isMobileEmailDetailHistoryEntry,
 	shouldAdvanceAfterMobileArchive,
+	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "../app/lib/mobile-email-navigation.ts";
 
@@ -37,6 +38,22 @@ test("only auto-advances after archive while the archived email remains selected
 	assert.equal(shouldAdvanceAfterMobileArchive("archived", "archived"), true);
 	assert.equal(shouldAdvanceAfterMobileArchive("another-email", "archived"), false);
 	assert.equal(shouldAdvanceAfterMobileArchive(null, "archived"), false);
+});
+
+test("allows URL-selected email read marking only for active mobile detail", () => {
+	const selection = {
+		isMobileViewport: true,
+		isComposing: false,
+		urlSelectedEmailId: "selected",
+		selectedEmailId: "selected",
+		emailId: "selected",
+		lastMarkedEmailId: null,
+	};
+	assert.equal(shouldMarkUrlSelectedEmailRead(selection), true);
+	assert.equal(shouldMarkUrlSelectedEmailRead({ ...selection, isComposing: true }), false);
+	assert.equal(shouldMarkUrlSelectedEmailRead({ ...selection, isMobileViewport: false }), false);
+	assert.equal(shouldMarkUrlSelectedEmailRead({ ...selection, selectedEmailId: null }), false);
+	assert.equal(shouldMarkUrlSelectedEmailRead({ ...selection, lastMarkedEmailId: "selected" }), false);
 });
 
 test("marks mobile detail history entries while preserving existing location state", () => {

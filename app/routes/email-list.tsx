@@ -44,6 +44,7 @@ import {
 	getMobileEmailSelectionAction,
 	getMobileEmailNeighborIds,
 	shouldAdvanceAfterMobileArchive,
+	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
 import EmailTagFilter from "~/components/EmailTagFilter";
@@ -285,6 +286,7 @@ export default function EmailListRoute() {
 		[emails, selectedEmailId],
 	);
 	const wasMobileViewportRef = useRef(false);
+	const readMarkedEmailIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		const action = getMobileEmailSelectionAction({
@@ -396,8 +398,11 @@ export default function EmailListRoute() {
 		return !email.read;
 	};
 
-	const markEmailRead = (email: Email) => {
-		if (mailboxId && hasUnread(email)) {
+	const markEmailRead = useCallback((email: Email) => {
+		const hasUnreadMessages = email.thread_unread_count !== undefined
+			? email.thread_unread_count > 0
+			: !email.read;
+		if (mailboxId && hasUnreadMessages) {
 			if ((email.thread_count ?? 1) > 1) {
 				markThreadRead.mutate({
 					mailboxId,
@@ -412,20 +417,50 @@ export default function EmailListRoute() {
 				});
 			}
 		}
-	};
+	}, [folder, mailboxId, markThreadRead, updateEmail]);
+
+	const markEmailReadOnce = useCallback((email: Email) => {
+		if (readMarkedEmailIdRef.current === email.id) return;
+		readMarkedEmailIdRef.current = email.id;
+		markEmailRead(email);
+	}, [markEmailRead]);
+
+	useEffect(() => {
+		if (selectedEmailId !== readMarkedEmailIdRef.current) {
+			readMarkedEmailIdRef.current = null;
+		}
+	}, [selectedEmailId]);
+
+	const handleUrlEmailLoaded = useCallback((email: Email) => {
+		if (!shouldMarkUrlSelectedEmailRead({
+			isMobileViewport,
+			isComposing,
+			urlSelectedEmailId,
+			selectedEmailId,
+			emailId: email.id,
+			lastMarkedEmailId: readMarkedEmailIdRef.current,
+		})) return;
+		markEmailReadOnce(email);
+	}, [isComposing, isMobileViewport, markEmailReadOnce, selectedEmailId, urlSelectedEmailId]);
+
+	useEffect(() => {
+		if (!urlSelectedEmailId) return;
+		const email = emails.find((item) => item.id === urlSelectedEmailId);
+		if (email) handleUrlEmailLoaded(email);
+	}, [emails, handleUrlEmailLoaded, urlSelectedEmailId]);
 
 	const handleRowClick = (email: Email) => {
 		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
 		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
 		selectEmail(email.id);
-		markEmailRead(email);
+		markEmailReadOnce(email);
 	};
 
 	const navigateMobileEmail = (emailId: string) => {
 		setUrlSelectedEmailId(emailId, true);
 		selectEmail(emailId);
 		const email = emails.find((item) => item.id === emailId);
-		if (email) markEmailRead(email);
+		if (email) markEmailReadOnce(email);
 	};
 
 	const handleMobileArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
@@ -476,6 +511,7 @@ export default function EmailListRoute() {
 			mobileEmailNavigation={{
 				...mobileEmailNeighbors,
 				onNavigate: navigateMobileEmail,
+				onUrlEmailLoaded: handleUrlEmailLoaded,
 				onArchiveSuccess: handleMobileArchiveSuccess,
 			}}
 		>
