@@ -13,7 +13,8 @@ import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import { AVAILABLE_EMAIL_TAGS_SQL, emailTagExistsSql } from "../lib/email-tag-filter";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
-import type { PersistedEmailTriageResult } from "../lib/email-triage";
+import { decideDisposition, TRIAGE_POLICY_VERSION, type TriagePolicy, type PersistedEmailTriageResult } from "../lib/email-triage";
+import { readTriagePolicy, updateTriagePolicy, compareTriageEmails, reapplyTriagePolicy } from "./triage-policy";
 import { TRIAGE_ERROR_TAG } from "../lib/email-tags";
 import {
 	applyEmailTriageResult as persistEmailTriageResult,
@@ -863,7 +864,30 @@ export class MailboxDO extends DurableObject<Env> {
 	}
 
 	async applyEmailTriageResult(id: string, result: PersistedEmailTriageResult) {
-		return persistEmailTriageResult(this.ctx.storage, id, result);
+		const config = readTriagePolicy(this.ctx.storage);
+		const predictedDisposition = decideDisposition(result.features, config.policy);
+		const persisted = persistEmailTriageResult(this.ctx.storage, id, {
+			...result,
+			predictedDisposition,
+			policyVersion: TRIAGE_POLICY_VERSION + config.revision,
+		});
+		return persisted ? { ...persisted, predictedDisposition } : null;
+	}
+
+	async getTriagePolicy() {
+		return readTriagePolicy(this.ctx.storage);
+	}
+
+	async updateTriagePolicy(policy: TriagePolicy, expectedRevision: number, reason: string) {
+		return updateTriagePolicy(this.ctx.storage, policy, expectedRevision, reason);
+	}
+
+	async compareTriageEmails(ids: string[], candidate?: TriagePolicy) {
+		return compareTriageEmails(this.ctx.storage, ids, candidate);
+	}
+
+	async reapplyTriagePolicy(ids: string[], expectedRevision: number) {
+		return reapplyTriagePolicy(this.ctx.storage, ids, expectedRevision);
 	}
 
 	async markEmailTriageFailed(id: string) {

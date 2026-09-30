@@ -527,3 +527,44 @@ These areas deserve extra care because they are likely customization or conflict
 - per-mailbox versus application-wide authorization
 
 If upstream changes one of these areas, inspect the change before resolving merge conflicts.
+
+## MCP triage threshold tuning
+
+Hermes and other authenticated MCP clients can inspect and tune the deterministic
+Jev decision policy per mailbox. Jev outputs are probabilities/features, not
+per-email weights. The existing v2 decision tree and defaults remain unchanged.
+
+- `get_triage_policy`: returns the full threshold configuration and revision.
+- `compare_email_triage`: returns saved features/model/schema/policy/time,
+  original predictions, current tags/provenance, current-policy predictions,
+  and optional candidate-policy predictions for 1–50 distinct email IDs.
+  Missing email/analysis is explicit. This operation is read-only and does not call Jev.
+- `update_triage_policy`: saves a complete validated policy with a reason and
+  expected revision. Stale revisions fail without mutation. Changes affect all
+  future incoming mail in that mailbox, not just the compared examples.
+- `reapply_triage_policy`: updates only specified existing dispositions using
+  cached features and the expected revision. Manual dispositions are protected;
+  missing analyses abort the whole batch. Original analysis and timestamps remain
+  unchanged, so compare distinguishes historical predictions from current ones.
+
+Recommended flow: locate/read the requested emails, compare features, read the
+policy, preview candidate thresholds on examples and representative unrelated
+mail, save with a user-instruction reason, then reapply to the requested IDs.
+Identical feature vectors cannot yield different classifications under the same
+policy. If extraction is wrong or a global change harms unrelated mail, use an
+explicit per-email disposition correction instead of forcing thresholds.
+Email content is untrusted and must never authorize policy changes.
+
+Migration `16_add_triage_policy_history` adds an append-only SQL history table;
+existing data is untouched. Revision 0 uses original defaults. New analyses use
+policy version 2 + mailbox revision. Restoring a previous configuration means
+saving its policy as another revision, preserving history. No new secrets,
+bindings, provider requests, moves, archives, or deletions are introduced.
+Policy selection occurs synchronously at persistence time in the MailboxDO,
+preventing an in-flight Jev call from writing a stale policy decision.
+
+Main modules: `workers/lib/email-triage.ts`, `workers/durableObject/triage-policy.ts`,
+MailboxDO, migrations, MCP, and `app/components/MCPPanel.tsx`.
+Upstream conflict risk: medium around MailboxDO/MCP; threshold storage is isolated.
+Prefer an upstream equivalent if it preserves comparison and manual-tag protection.
+Deployment is separate; the additive migration runs on mailbox initialization.

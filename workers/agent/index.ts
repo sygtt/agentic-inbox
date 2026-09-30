@@ -373,7 +373,7 @@ export class EmailAgent extends AIChatAgent<any> {
 			if (!persisted) return { status: "email_not_found" };
 			return {
 				status: "triaged",
-				predictedDisposition,
+				predictedDisposition: persisted.predictedDisposition,
 				dispositionApplied: persisted.dispositionApplied,
 			};
 		} catch (e) {
