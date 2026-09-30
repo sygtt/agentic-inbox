@@ -22,6 +22,10 @@ async function readJson(c: AppContext): Promise<unknown> {
 }
 
 export function registerEmailTagRoutes(app: Hono<MailboxContext>) {
+	app.get("/api/v1/mailboxes/:mailboxId/tags", async (c: AppContext) => {
+		return c.json(await c.var.mailboxStub.getAllEmailTags());
+	});
+
 	app.get("/api/v1/mailboxes/:mailboxId/emails/:id/tags", async (c: AppContext) => {
 		const tags = await c.var.mailboxStub.getEmailTags(c.req.param("id")!);
 		return tags === null ? c.json({ error: "Email not found" }, 404) : c.json(tags);

@@ -8,8 +8,9 @@ import { formatListDate } from "shared/dates";
 import { extractVerificationCode } from "~/lib/verification-code";
 import { clampMobileSwipe, getMobileSwipeAction } from "~/lib/mobile-gestures";
 import { getSnippetText } from "~/lib/utils";
-import type { Email, EmailTag } from "~/types";
+import type { Email } from "~/types";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import { getMobileEmailTagBadges } from "~/lib/mobile-email-tags";
 
 export default function MobileEmailRow({
 	email,
@@ -47,6 +48,7 @@ export default function MobileEmailRow({
 		.slice(0, 3)
 		.join(", ");
 	const snippet = getSnippetText(email.snippet, 120);
+	const tagBadges = getMobileEmailTagBadges(email.tags, email.thread_has_triage_error);
 
 	const clearLongPress = () => {
 		if (longPress.current !== undefined) window.clearTimeout(longPress.current);
@@ -164,8 +166,16 @@ export default function MobileEmailRow({
 					<div className="mt-1 flex flex-wrap items-center gap-1.5">
 						{email.has_draft && <span className="rounded bg-kumo-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-warning">Draft</span>}
 						{email.needs_reply && <span className="rounded bg-kumo-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-brand">Needs reply</span>}
-						<TriageErrorBadge tags={email.tags} threadHasTriageError={email.thread_has_triage_error} />
-						{email.tags?.filter((tag: EmailTag) => !tag.tag.startsWith("disposition:") && tag.provenance !== "system").slice(0, 3).map((tag: EmailTag) => <span key={`${tag.tag}:${tag.provenance}`} className="rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] text-kumo-subtle">{tag.tag}</span>)}
+						{tagBadges.map((badge, index) => {
+							if (badge.kind === "triage-error") {
+								return <TriageErrorBadge key="triage-error" tags={email.tags} threadHasTriageError={email.thread_has_triage_error} />;
+							}
+							if (badge.kind === "overflow") {
+								return <span key="tag-overflow" aria-label={`${badge.count} more tags`} title={`${badge.count} more tags`} className="rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] font-medium text-kumo-subtle">+{badge.count}</span>;
+							}
+							const disposition = badge.kind === "disposition";
+							return <span key={`${badge.tag}:${index}`} className={`rounded px-1.5 py-0.5 text-[10px] ${disposition ? "bg-kumo-brand/10 font-medium text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>{badge.label}</span>;
+						})}
 						{code && (
 							<button
 								type="button"

@@ -20,6 +20,7 @@ import {
 	TRIAGE_SCHEMA_VERSION,
 } from "../lib/email-triage";
 import { handleTriageFailure } from "./triage-failure";
+import { archiveAutoFiledEmail } from "./auto-archive";
 import { createTypeSafeJevProvider } from "../lib/jev-provider";
 import {
 	toolListEmails,
@@ -371,11 +372,13 @@ export class EmailAgent extends AIChatAgent<any> {
 			});
 
 			if (!persisted) return { status: "email_not_found" };
-			return {
+			const outcome = {
 				status: "triaged",
-				predictedDisposition,
+				predictedDisposition: persisted.predictedDisposition,
 				dispositionApplied: persisted.dispositionApplied,
 			};
+			await archiveAutoFiledEmail(stub, emailData.emailId, outcome);
+			return outcome;
 		} catch (e) {
 			return handleTriageFailure(
 				e,

@@ -35,6 +35,7 @@ export function useSearchEmails(
 			if (parsed.to) params.to = parsed.to;
 			if (parsed.subject) params.subject = parsed.subject;
 			if (parsed.folder) params.folder = parsed.folder;
+			if (parsed.tag) params.tag = parsed.tag;
 			if (parsed.date_start) params.date_start = parsed.date_start;
 			if (parsed.date_end) params.date_end = parsed.date_end;
 			if (parsed.is_read !== undefined)

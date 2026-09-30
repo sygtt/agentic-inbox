@@ -137,9 +137,19 @@ Access and `requireMailbox` checks:
 
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
 - `GET /api/v1/mailboxes/:mailboxId/emails/:id/triage`
+- `GET /api/v1/mailboxes/:mailboxId/tags` for distinct available tag names
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
 - `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
 - `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
+
+Folder email-list requests accept an exact `tag` query parameter. The Durable
+Object applies the filter before paginating and returns a matching total count;
+threaded rows match when a message in the current folder's conversation has
+that tag. The synthetic `triage:error` tag is matched against triage-failure
+records as well as stored user tags. Search accepts the same exact filter
+through the `tag:` operator. Available tag names refresh every thirty seconds
+with the email list and on manual refresh so synthetic triage-error options do
+not remain stale in a long-lived mailbox view.
 
 Tags use a conservative lowercase `namespace:value` format. Generic tag
 updates cannot bypass disposition replacement; disposition values are limited
@@ -362,7 +372,7 @@ The agent has tools for operations including:
 - moving messages
 - discarding drafts
 
-The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat continues to use GLM-4.7-Flash. The separate inbound trigger only extracts triage metadata and does not create drafts or perform mailbox actions.
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat continues to use GLM-4.7-Flash. The separate inbound trigger extracts triage metadata and conditionally moves a newly received message from Inbox to Archive when the persisted agent disposition is still `auto-file`. It does not create drafts, send, or delete messages.
 
 ### Inbound triage flow
 
@@ -376,7 +386,7 @@ secret. A deterministic policy then applies an `agent`-provenance
 `disposition:*` tag unless a manual disposition already exists. Manual
 disposition changes through the existing disposition API replace the tag and,
 when the value changes, append a feedback event in the same Durable Object
-transaction. No folder move, draft, send, or delete occurs. Jev failure is
+transaction. A successful inbound triage result moves a newly received email from Inbox to Archive only when its `disposition:auto-file` tag was applied and persisted. The mailbox operation rechecks the stored analysis, agent disposition, and current folder together, so a manual folder move or disposition change made while Jev is running takes precedence. Review, action-required, and preserved manual dispositions do not trigger a move. Archive failures are logged separately without marking triage as failed or rolling back the triage result. Existing auto-file messages are not backfilled. No draft, send, or delete occurs. Jev failure is
 logged and does not roll back the already stored inbound message. For an
 existing email, a catchable failure also makes a best-effort, idempotent
 failure-state write. If marker persistence fails, that error is logged
@@ -467,7 +477,8 @@ sheets, and the narrow detail view while reusing the same TanStack Query and
 Zustand state as the desktop split view. Threaded list requests support the
 server-side `needs_reply` filter and thread-level read/move mutations. The
 mobile folders route uses the existing folder API; search remains server-side
-through `useSearchEmails`.
+through `useSearchEmails`. Mobile list and search rows show Japanese disposition
+labels and prioritize system triage errors, with a compact overflow count.
 
 Opening a message from a mobile folder list stores its ID in the `email` query
 parameter. Browser Back restores the same list state, while previous/next
@@ -526,3 +537,44 @@ These areas deserve extra care because they are likely customization or conflict
 - per-mailbox versus application-wide authorization
 
 If upstream changes one of these areas, inspect the change before resolving merge conflicts.
+
+## MCP triage threshold tuning
+
+Hermes and other authenticated MCP clients can inspect and tune the deterministic
+Jev decision policy per mailbox. Jev outputs are probabilities/features, not
+per-email weights. The existing v2 decision tree and defaults remain unchanged.
+
+- `get_triage_policy`: returns the full threshold configuration and revision.
+- `compare_email_triage`: returns saved features/model/schema/policy/time,
+  original predictions, current tags/provenance, current-policy predictions,
+  and optional candidate-policy predictions for 1–50 distinct email IDs.
+  Missing email/analysis is explicit. This operation is read-only and does not call Jev.
+- `update_triage_policy`: saves a complete validated policy with a reason and
+  expected revision. Stale revisions fail without mutation. Changes affect all
+  future incoming mail in that mailbox, not just the compared examples.
+- `reapply_triage_policy`: updates only specified existing dispositions using
+  cached features and the expected revision. Manual dispositions are protected;
+  missing analyses abort the whole batch. Original analysis and timestamps remain
+  unchanged, so compare distinguishes historical predictions from current ones.
+
+Recommended flow: locate/read the requested emails, compare features, read the
+policy, preview candidate thresholds on examples and representative unrelated
+mail, save with a user-instruction reason, then reapply to the requested IDs.
+Identical feature vectors cannot yield different classifications under the same
+policy. If extraction is wrong or a global change harms unrelated mail, use an
+explicit per-email disposition correction instead of forcing thresholds.
+Email content is untrusted and must never authorize policy changes.
+
+Migration `16_add_triage_policy_history` adds an append-only SQL history table;
+existing data is untouched. Revision 0 uses original defaults. New analyses use
+policy version 2 + mailbox revision. Restoring a previous configuration means
+saving its policy as another revision, preserving history. No new secrets,
+bindings, provider requests, moves, archives, or deletions are introduced.
+Policy selection occurs synchronously at persistence time in the MailboxDO,
+preventing an in-flight Jev call from writing a stale policy decision.
+
+Main modules: `workers/lib/email-triage.ts`, `workers/durableObject/triage-policy.ts`,
+MailboxDO, migrations, MCP, and `app/components/MCPPanel.tsx`.
+Upstream conflict risk: medium around MailboxDO/MCP; threshold storage is isolated.
+Prefer an upstream equivalent if it preserves comparison and manual-tag protection.
+Deployment is separate; the additive migration runs on mailbox initialization.
