@@ -18,6 +18,7 @@ import { readTriagePolicy, updateTriagePolicy, compareTriageEmails, reapplyTriag
 import { TRIAGE_ERROR_TAG } from "../lib/email-tags";
 import {
 	applyEmailTriageResult as persistEmailTriageResult,
+	archivePersistedAutoFiledEmail as persistAutoArchiveEmail,
 	getEmailTriageAnalysis as readEmailTriageAnalysis,
 	markEmailTriageFailed as persistEmailTriageFailure,
 	setEmailDisposition as persistEmailDisposition,
@@ -872,6 +873,11 @@ export class MailboxDO extends DurableObject<Env> {
 			policyVersion: TRIAGE_POLICY_VERSION + config.revision,
 		});
 		return persisted ? { ...persisted, predictedDisposition } : null;
+	}
+
+	async archiveAutoFiledEmailIfInInbox(id: string) {
+		if (this.purgingTrashIds.has(id)) return "skipped" as const;
+		return persistAutoArchiveEmail(this.ctx.storage, id);
 	}
 
 	async getTriagePolicy() {
