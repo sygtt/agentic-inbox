@@ -44,6 +44,7 @@ import {
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
+	isEmailStillSelected,
 	isMobileEmailDetailHistoryEntry,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
@@ -361,10 +362,13 @@ export default function EmailListRoute() {
 					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
 					toastManager.add({ title: "Email moved to Trash" });
 				}
-				if (urlSelectedEmailId === emailId && selectedEmailId === emailId) {
+				if (!isEmailStillSelected(useUIStore.getState().selectedEmailId, emailId)) {
+					clearEmailSelection(emailId);
+					return;
+				}
+				if (urlSelectedEmailId === emailId) {
 					closeEmailPanel();
 				} else {
-					if (urlSelectedEmailId === emailId) setUrlSelectedEmailId(null, true);
 					clearEmailSelection(emailId);
 				}
 			} catch {
