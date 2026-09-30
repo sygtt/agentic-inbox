@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { DEFAULT_TRIAGE_POLICY, TriagePolicySchema, decideDisposition, type TriagePolicy } from "../lib/email-triage.ts";
 import { getEmailTriageAnalysis, type TriageStorage } from "./triage.ts";
 export function readTriagePolicy(storage: TriageStorage) {

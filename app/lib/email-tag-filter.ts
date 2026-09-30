@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export const DISPOSITION_FILTERS = [
 	{ tag: "disposition:action-required", label: "Action required" },
 	{ tag: "disposition:review", label: "Review" },

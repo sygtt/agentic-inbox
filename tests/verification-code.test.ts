@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { extractVerificationCode } from "../app/lib/verification-code.ts";

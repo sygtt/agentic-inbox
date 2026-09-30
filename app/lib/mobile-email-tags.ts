@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { EmailTag } from "~/types";
 
 const DISPOSITION_LABELS: Record<string, string> = {

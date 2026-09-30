@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "agentic-inbox",

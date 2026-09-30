@@ -20,6 +20,8 @@
 		"cf-typegen": "wrangler types",
 		"deploy": "npm run build && wrangler deploy",
 		"dev": "react-router dev",
+		"license:check": "node scripts/license-check.mjs",
+		"license:test": "node --experimental-strip-types tests/license-check.test.ts",
 		"preview": "npm run build && vite preview",
 		"test": "node --experimental-strip-types --test tests/*.test.ts",
 		"typecheck": "npm run cf-typegen && react-router typegen && tsc -b"

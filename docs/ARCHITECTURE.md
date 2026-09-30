@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Architecture
 
 This document describes the current architecture of this fork of Cloudflare's `agentic-inbox`.

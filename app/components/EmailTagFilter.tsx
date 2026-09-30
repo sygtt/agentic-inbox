@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { getEmailTagFilterOptions } from "~/lib/email-tag-filter";
 
 export default function EmailTagFilter({

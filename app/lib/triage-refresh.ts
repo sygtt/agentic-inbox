@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export const TRIAGE_REFRESH_INTERVAL_MS = 3_000;
 export const TRIAGE_MAX_REFRESHES = 20;
 

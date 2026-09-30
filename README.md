@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Modified in the sygtt/agentic-inbox fork; see Git history. -->
+
 <div align="center">
   <h1>Agentic Inbox</h1>
   <p><em>A self-hosted email client with an AI agent, running entirely on Cloudflare Workers</em></p>
@@ -97,3 +100,6 @@ Any user who passes the shared Cloudflare Access policy can access all mailboxes
 ## License
 
 Apache 2.0 -- see [LICENSE](LICENSE).
+
+See [licensing and provenance](docs/LICENSING.md) for fork-change notices,
+third-party exceptions, and the automated licensing check.

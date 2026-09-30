@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 const MAX_TRIAGE_ERROR_CHARS = 300;
 
 function boundedErrorMessage(error: unknown): string {

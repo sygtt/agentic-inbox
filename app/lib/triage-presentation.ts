@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { EmailTag, EmailTriageAnalysis } from "~/types";
 
 export const TRIAGE_ERROR_LABEL = "分類エラー";

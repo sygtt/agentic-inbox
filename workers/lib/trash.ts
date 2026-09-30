@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Folders } from "../../shared/folders.ts";
 
 export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
