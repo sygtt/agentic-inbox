@@ -8,6 +8,7 @@ import {
 	type PersistedEmailTriageResult,
 	type StoredEmailTriageAnalysis,
 } from "../lib/email-triage.ts";
+import { Folders } from "../../shared/folders.ts";
 
 export interface TriageStorage {
 	sql: SqlStorage;
@@ -154,6 +155,49 @@ export function applyEmailTriageResult(
 			dispositionApplied: true,
 			manualDispositionPreserved: false,
 		};
+	});
+}
+
+/**
+ * Move an auto-filed message to Archive only while its persisted agent
+ * disposition is still authoritative and the message remains in Inbox.
+ */
+export function archivePersistedAutoFiledEmail(storage: TriageStorage, id: string) {
+	return storage.transactionSync(() => {
+		const eligible = [
+			...storage.sql.exec(
+				`SELECT emails.id
+				 FROM emails
+				 INNER JOIN email_triage_analysis
+					ON email_triage_analysis.email_id = emails.id
+				 INNER JOIN email_tags
+					ON email_tags.email_id = emails.id
+				 WHERE emails.id = ?1
+				   AND emails.folder_id = ?2
+				   AND email_triage_analysis.predicted_disposition = ?3
+				   AND email_tags.tag = ?4
+				   AND email_tags.provenance = 'agent'
+				 LIMIT 1`,
+				id,
+				Folders.INBOX,
+				"auto-file",
+				"disposition:auto-file",
+			),
+		] as { id: string }[];
+		if (eligible.length === 0) return "skipped" as const;
+
+		const archiveFolder = [
+			...storage.sql.exec("SELECT id FROM folders WHERE id = ?1", Folders.ARCHIVE),
+		] as { id: string }[];
+		if (archiveFolder.length === 0) throw new Error("Archive folder not found");
+
+		storage.sql.exec(
+			"UPDATE emails SET folder_id = ?1, trashed_at = NULL WHERE id = ?2 AND folder_id = ?3",
+			archiveFolder[0].id,
+			id,
+			Folders.INBOX,
+		);
+		return "archived" as const;
 	});
 }
 
