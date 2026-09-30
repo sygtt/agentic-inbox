@@ -31,6 +31,21 @@ tracked path using the following classifications:
 | E | Generated or derived artifact; inspect its source rather than treating it as independent authorship. |
 | F | Provenance or applicable terms remain uncertain; human review is required. |
 
+For class D only, the CSV `evidence` cell must be a JSON object with four
+non-empty string fields: `source_url`, `version`, `terms`, and `scope`. The URL
+must be HTTP(S) with a hostname, and `version` must identify a pinned release
+or commit rather than a moving branch or placeholder. `terms` records the
+applicable reviewed license or terms; `scope` says which file or portion was
+copied or adapted. For example:
+
+```json
+{"source_url":"https://github.com/acme/library","version":"v1.2.3","terms":"MIT License (SPDX: MIT); upstream license reviewed.","scope":"Adapted parser logic in app/lib/parser.ts."}
+```
+
+This structured evidence is an audit prompt, not a legal guarantee. If any
+required detail is unresolved, classify the material as F until it is reviewed.
+Evidence cells for all other classes remain descriptive prose.
+
 The audit compared the complete tree at upstream `main`
 (`48039bb6785af34e592c2966f87cde2b255c4c80`) with the original import
 (`c3f1c90`) and reviewed fork Git history. Those source trees differ only in
@@ -113,10 +128,11 @@ run `npm run license:test` to exercise failure cases. When a file is added,
 record its class and evidence. For A/B paths, retain the pinned upstream hash
 and exact upstream header notice lines. Reclassify an edited A file as B and
 add the fork notice; do not update the baseline hash to hide the change. For
-C paths, record Git/source evidence and add SPDX. For D paths, record source
-and terms. For E/F paths, record the reviewed content hash and rationale, and
-keep them out of unverified Apache claims. The check uses only Node.js and
-Git, requires inventory coverage for every tracked path, checks required
+C paths, record Git/source evidence and add SPDX. For D paths, use the JSON
+evidence schema above and preserve third-party notices. For E/F paths, record
+the reviewed content hash and rationale, and keep them out of unverified Apache
+claims. The check uses only Node.js and Git, requires inventory coverage for
+every tracked path, checks required
 identifiers/notices and root license integrity, and validates explicit
 generated/uncertain exceptions. Its checks are guardrails, not a legal
 conclusion or a substitute for human review.

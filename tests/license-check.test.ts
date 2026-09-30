@@ -135,6 +135,27 @@ test("rejects a tracked file omitted from the provenance manifest", () => {
 	});
 });
 
+test("tracks Git-quoted filenames through the NUL-delimited inventory", () => {
+	withFixture((root) => {
+		const manifestPath = path.join(root, "docs/LICENSING-PROVENANCE.csv");
+		const originalManifest = readFileSync(manifestPath, "utf8");
+		const files = ["日本語.ts"];
+		if (process.platform !== "win32") {
+			files.push("tab\tname.ts", "line\nbreak.ts", 'double"quote.ts', "back\\slash.ts");
+		}
+		for (const file of files) {
+			writeFileSync(path.join(root, file), "// SPDX-License-Identifier: Apache-2.0\nexport {}\n");
+			addRecord(root, { path: file, cls: "C", evidence: "Fork-created filename fixture." });
+		}
+		execFileSync("git", ["add", "--", ...files], { cwd: root });
+		assert.deepEqual(checkRepository(root), []);
+
+		writeFileSync(manifestPath, originalManifest);
+		const errors = checkRepository(root);
+		assert.ok(errors.some((error) => error.includes("日本語.ts: add a provenance classification")));
+	});
+});
+
 test("rejects an unchanged upstream classification after file content changes", () => {
 	withFixture((root) => {
 		const manifestPath = path.join(root, "docs/LICENSING-PROVENANCE.csv");
@@ -189,12 +210,80 @@ test("rejects deletion of third-party notices recorded for class D", () => {
 		addRecord(root, {
 			path: "third-party-license.txt",
 			cls: "D",
-			evidence: "Third-party MIT license terms recorded with the source.",
+			evidence: JSON.stringify({
+				source_url: "https://github.com/acme/library",
+				version: "v1.2.3",
+				terms: "MIT License (SPDX: MIT); upstream license reviewed.",
+				scope: "Copied license text in third-party-license.txt.",
+			}),
 			preserved: JSON.stringify(["Copyright Example Project"]),
 		});
 		assert.deepEqual(checkRepository(root), []);
 		writeFileSync(path.join(root, "third-party-license.txt"), "MIT License\nPermission is hereby granted...\n");
 		assert.ok(checkRepository(root).some((error) => error.includes("third-party-license.txt: preserve existing notice")));
+	});
+});
+
+test("requires structured, pinned provenance evidence for class D", () => {
+	const valid = {
+		source_url: "https://github.com/acme/library",
+		version: "v1.2.3",
+		terms: "MIT License (SPDX: MIT); upstream license reviewed.",
+		scope: "Adapted parser logic in the application.",
+	};
+	const invalidEvidence = [
+		"Third-party MIT license terms recorded with the source.",
+		"license unknown",
+		"copyright review pending",
+		"{malformed json}",
+		"null",
+		"[]",
+		JSON.stringify({ ...valid, scope: undefined }),
+		JSON.stringify({ ...valid, terms: 42 }),
+		...(["source_url", "version", "terms", "scope"] as const).map((field) =>
+			JSON.stringify({ ...valid, [field]: "" }),
+		),
+		JSON.stringify({ ...valid, source_url: "file:///tmp/license" }),
+		JSON.stringify({ ...valid, source_url: "https://" }),
+		JSON.stringify({ ...valid, version: "main" }),
+		JSON.stringify({ ...valid, version: "HEAD" }),
+		JSON.stringify({ ...valid, version: "latest" }),
+		JSON.stringify({ ...valid, terms: "Review pending; MIT license." }),
+		JSON.stringify({ ...valid, terms: "License unknown." }),
+		JSON.stringify({ ...valid, terms: "unreviewed" }),
+		JSON.stringify({ ...valid, terms: "unknown." }),
+		JSON.stringify({ ...valid, terms: "Copyright review pending." }),
+		JSON.stringify({ ...valid, version: "pending" }),
+		JSON.stringify({ ...valid, scope: "TBD" }),
+		JSON.stringify({ ...valid, scope: "N/A" }),
+	];
+	for (const evidence of invalidEvidence) {
+		withFixture((root) => {
+			writeFileSync(path.join(root, "third-party-license.txt"), "MIT License\n");
+			addRecord(root, { path: "third-party-license.txt", cls: "D", evidence });
+			assert.ok(
+				checkRepository(root).some((error) => error.startsWith("third-party-license.txt: class D")),
+				`expected invalid class D evidence to be rejected: ${evidence}`,
+			);
+		});
+	}
+	withFixture((root) => {
+		writeFileSync(path.join(root, "third-party-license.txt"), "MIT License\n");
+		addRecord(root, { path: "third-party-license.txt", cls: "D", evidence: JSON.stringify(valid) });
+		assert.deepEqual(checkRepository(root), []);
+	});
+	withFixture((root) => {
+		writeFileSync(path.join(root, "third-party-license.txt"), "MIT License\n");
+		addRecord(root, {
+			path: "third-party-license.txt",
+			cls: "D",
+			evidence: JSON.stringify({
+				...valid,
+				source_url: "https://github.com/acme/todo",
+				scope: "Copied parser; excludes pending-work UI.",
+			}),
+		});
+		assert.deepEqual(checkRepository(root), []);
 	});
 });
 

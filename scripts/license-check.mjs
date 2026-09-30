@@ -76,17 +76,18 @@ function gitFiles(root) {
 	try {
 		output = execFileSync(
 			"git",
-			["ls-files", "--cached", "--others", "--exclude-standard"],
-			{ cwd: root, encoding: "utf8" },
+			["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+			{ cwd: root },
 		);
 	} catch (error) {
 		// Some restricted runners report EPERM after a successful spawned Git
 		// process. Accept its complete stdout only when Git exited with status 0.
-		if (error?.status === 0 && error.stdout) output = error.stdout.toString();
+		if (error?.status === 0 && error.stdout) output = Buffer.from(error.stdout);
 		else throw error;
 	}
 	return output
-		.split(/\r?\n/)
+		.toString("utf8")
+		.split("\0")
 		.filter(Boolean);
 }
 
@@ -111,6 +112,51 @@ function report(errors) {
 	return errors.length
 		? `License check failed:\n${errors.map((error) => `- ${error}`).join("\n")}`
 		: "License check passed.";
+}
+
+const THIRD_PARTY_EVIDENCE_FIELDS = ["source_url", "version", "terms", "scope"];
+const UNRESOLVED_VALUE = /^(?:unknown|pending(?: review)?|review pending|tbd|todo|n\/?a|not applicable|not reviewed|unreviewed|unverified|undetermined|review required|placeholder|unresolved|<[^>]+>)[.!?]?$/i;
+const UNRESOLVED_TERMS = /\b(?:license|terms|rights|provenance)\s+(?:are\s+)?(?:unknown|pending|unreviewed|unresolved)\b|\breview\s+(?:is\s+)?pending\b|\bnot reviewed\b/i;
+const UNPINNED_VERSION = /^(?:head|main|master|latest|current|tip|branch|unknown|pending|tbd|todo|n\/?a)$/i;
+
+function validateThirdPartyEvidence(file, evidence) {
+	let value;
+	try {
+		value = JSON.parse(evidence);
+	} catch {
+		return [`${file}: class D evidence must be a JSON object with source_url, version, terms, and scope strings`];
+	}
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return [`${file}: class D evidence must be a JSON object with source_url, version, terms, and scope strings`];
+	}
+	const errors = [];
+	for (const field of THIRD_PARTY_EVIDENCE_FIELDS) {
+		const fieldValue = value[field];
+		if (typeof fieldValue !== "string" || !fieldValue.trim()) {
+			errors.push(`${file}: class D evidence field '${field}' must be a non-empty string`);
+			continue;
+		}
+		if (field !== "source_url" && UNRESOLVED_VALUE.test(fieldValue.trim())) {
+			errors.push(`${file}: class D evidence field '${field}' contains an unresolved placeholder`);
+		}
+	}
+	if (typeof value.terms === "string" && UNRESOLVED_TERMS.test(value.terms)) {
+		errors.push(`${file}: class D evidence field 'terms' contains unresolved license or review status`);
+	}
+	if (typeof value.source_url === "string" && value.source_url.trim()) {
+		try {
+			const url = new URL(value.source_url);
+			if (!/^https?:$/.test(url.protocol) || !url.hostname) {
+				errors.push(`${file}: class D source_url must be an HTTP(S) URL with a hostname`);
+			}
+		} catch {
+			errors.push(`${file}: class D source_url must be an HTTP(S) URL with a hostname`);
+		}
+	}
+	if (typeof value.version === "string" && UNPINNED_VERSION.test(value.version.trim())) {
+		errors.push(`${file}: class D version must identify a pinned release or commit`);
+	}
+	return errors;
 }
 
 export function checkRepository(root) {
@@ -233,8 +279,8 @@ export function checkRepository(root) {
 				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${needsSidecar ? ` to ${sibling}` : ""}`);
 			}
 		}
-		if (cls === "D" && !/license|terms|copyright/i.test(record.evidence)) {
-			errors.push(`${file}: record the third-party license or terms in evidence`);
+		if (cls === "D") {
+			errors.push(...validateThirdPartyEvidence(file, record.evidence));
 		}
 		if (cls === "E" || cls === "F") {
 			if (!record.audited_sha256 || digest !== record.audited_sha256) {
