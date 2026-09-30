@@ -117,6 +117,15 @@ npm install
 
 The project uses `package-lock.json`. Avoid regenerating the lockfile unless dependencies actually change.
 
+## Line endings
+
+`.gitattributes` checks out text files with LF line endings so pinned license
+and provenance hashes remain stable when `core.autocrlf=true`. PNG, ICO, and
+PDF files are kept binary. Existing worktrees that already contain CRLF files
+should be replaced with a fresh clone or worktree after saving local changes;
+`git add --renormalize` only changes the index and does not convert the working
+tree files.
+
 ## Main npm commands
 
 Current scripts include:

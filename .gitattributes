@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+* text=auto eol=lf
+*.png -text
+*.ico -text
+*.pdf -text

@@ -39,7 +39,9 @@ uses actual upstream `main` SHA-256 values as its pinned baseline. The
 baseline is checked locally without fetching from the network. Git history
 establishes when files entered this fork, but does not alone establish who
 authored copied text, the terms of an external design asset, or the origin of
-a binary image.
+a binary image. `.gitattributes` enforces LF checkout for text so these exact
+source hashes remain stable with `core.autocrlf=true`; known binary assets keep
+their original bytes.
 
 The 25 files under `docs/references/magic-patterns-mobile-ui/` are retained as
 an owner-supplied Magic Patterns prototype, imported by commit `3835566` as a

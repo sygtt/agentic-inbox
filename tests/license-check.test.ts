@@ -41,12 +41,14 @@ function makeFixture(source = `// SPDX-License-Identifier: Apache-2.0\n// ${CHAN
 	mkdirSync(path.join(root, "docs"), { recursive: true });
 	writeFileSync(path.join(root, "LICENSE"), licenseBytes);
 	writeFileSync(path.join(root, "source.ts"), source);
+	writeFileSync(path.join(root, ".gitattributes"), readFileSync(path.join(repositoryRoot, ".gitattributes")));
 	writeFileSync(path.join(root, "package.json"), '{"license":"Apache-2.0"}\n');
 	writeFileSync(path.join(root, "package.json.license"), "SPDX-License-Identifier: Apache-2.0\nApplies to: package.json\n");
 	writeFileSync(path.join(root, "docs/LICENSING-PROVENANCE.csv.license"), "SPDX-License-Identifier: Apache-2.0\nApplies to: LICENSING-PROVENANCE.csv\n");
 	const columns = ["path", "class", "upstream_sha256", "audited_sha256", "evidence", "upstream_notices", "preserved_notices"];
 	const rows = [
 		["LICENSE", "A", UPSTREAM_LICENSE_SHA256, UPSTREAM_LICENSE_SHA256, "Audited upstream Apache license.", "[]", "[]"],
+		[".gitattributes", "C", "", "", "Fork-created LF checkout policy.", "[]", "[]"],
 		["package.json", "C", "", "", "Fork package metadata.", "[]", "[]"],
 		["package.json.license", "C", "", "", "Sidecar for JSON package metadata.", "[]", "[]"],
 		["docs/LICENSING-PROVENANCE.csv", "C", "", "", "Audit manifest fixture.", "[]", "[]"],
@@ -236,5 +238,59 @@ test("allows only the exact generated package-lock sidecar exception for class E
 		const errors = checkRepository(root);
 		assert.ok(errors.some((error) => error.includes("generated.bin: class E must not claim Apache-2.0")));
 		assert.ok(!errors.some((error) => error.includes("package-lock.json:")));
+	});
+});
+
+test("passes the full audit after autocrlf=true checkout without changing hashes or binary bytes", () => {
+	withFixture((root) => {
+		const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x00, 0xff]);
+		const unresolvedJson = Buffer.from('{"source":"unreviewed"}\n');
+		const lockfile = Buffer.from('{"lockfileVersion":3}\n');
+		writeFileSync(path.join(root, "small.png"), png);
+		writeFileSync(path.join(root, "small.png.license"), "SPDX-License-Identifier: Apache-2.0\nApplies to: small.png\n");
+		writeFileSync(path.join(root, "unresolved.json"), unresolvedJson);
+		writeFileSync(path.join(root, "package-lock.json"), lockfile);
+		writeFileSync(
+			path.join(root, "package-lock.json.license"),
+			[
+				"SPDX-License-Identifier: Apache-2.0",
+				CHANGE_NOTICE,
+				"Generated file; do not edit headers in package-lock.json.",
+				"Applies to: package-lock.json",
+				"",
+			].join("\n"),
+		);
+		addRecord(root, { path: "small.png", cls: "C", evidence: "Fixture binary image." });
+		addRecord(root, { path: "small.png.license", cls: "C", evidence: "Fixture image sidecar." });
+		addRecord(root, { path: "unresolved.json", cls: "F", evidence: "Unreviewed text asset with fixed audit hash.", audited: sha256(unresolvedJson) });
+		addRecord(root, { path: "package-lock.json", cls: "E", evidence: "Generated lockfile with approved metadata sidecar.", audited: sha256(lockfile) });
+		addRecord(root, { path: "package-lock.json.license", cls: "C", evidence: "Approved lockfile metadata sidecar." });
+		try {
+			execFileSync("git", ["config", "user.name", "License Test"], { cwd: root });
+			execFileSync("git", ["config", "user.email", "license-test@example.invalid"], { cwd: root });
+			execFileSync("git", ["add", "-A"], { cwd: root });
+			execFileSync("git", ["commit", "-m", "test fixture"], { cwd: root });
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException & { status?: number }).status !== 0) throw error;
+		}
+		const cloneParent = mkdtempSync(path.join(os.tmpdir(), "license-check-autocrlf-"));
+		const cloneRoot = path.join(cloneParent, "checkout");
+		try {
+			execFileSync("git", ["clone", "--config", "core.autocrlf=true", root, cloneRoot]);
+			const config = execFileSync("git", ["config", "--get", "core.autocrlf"], { cwd: cloneRoot, encoding: "utf8" });
+			assert.equal(config.trim(), "true");
+			for (const file of ["LICENSE", "package-lock.json", "package-lock.json.license", "unresolved.json"]) {
+				assert.equal(readFileSync(path.join(cloneRoot, file)).includes(0x0d), false, `${file} should be LF`);
+			}
+			assert.deepEqual(readFileSync(path.join(cloneRoot, "small.png")), png);
+			assert.deepEqual(checkRepository(cloneRoot), []);
+			writeFileSync(
+				path.join(cloneRoot, "package-lock.json.license"),
+				`${readFileSync(path.join(cloneRoot, "package-lock.json.license"), "utf8")}Unexpected sidecar text.\n`,
+			);
+			assert.ok(checkRepository(cloneRoot).some((error) => error.includes("package-lock.json: generated-file sidecar differs")));
+		} finally {
+			rmSync(cloneParent, { recursive: true, force: true });
+		}
 	});
 });
