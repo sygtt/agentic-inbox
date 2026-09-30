@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -6,8 +8,9 @@ import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
+import { handleTriageTriggerFailure } from "./agent/triage-failure";
 import { sendEmail } from "./email-sender";
-import { storeAttachments, type StoredAttachment } from "./lib/attachments";
+import { deleteAttachmentObjects, storeAttachments, type StoredAttachment } from "./lib/attachments";
 import {
 	validateSender,
 	SenderValidationError,
@@ -20,6 +23,15 @@ import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
+import { registerEmailTagRoutes } from "./lib/email-tags-api";
+import { registerEmailTriageRoutes } from "./lib/email-triage-api";
+import { TagSchema } from "./lib/email-tags";
+import {
+	MailboxRoutingError,
+	isMailboxCreationAllowed,
+	normalizeEmailAddress,
+	resolveMailboxRoute,
+} from "./lib/mailbox-routing";
 
 type AppContext = Context<MailboxContext>;
 
@@ -89,7 +101,8 @@ app.get("/api/v1/config", (c) => {
 	const domainsRaw = c.env.DOMAINS || "";
 	const domains = domainsRaw.split(",").map((d) => d.trim()).filter(Boolean);
 	const emailAddresses = c.env.EMAIL_ADDRESSES ?? [];
-	return c.json({ domains, emailAddresses });
+	const catchAllMailbox = c.env.CATCH_ALL_MAILBOX || null;
+	return c.json({ domains, emailAddresses, catchAllMailbox });
 });
 
 // -- Mailboxes ------------------------------------------------------
@@ -102,9 +115,9 @@ app.get("/api/v1/mailboxes", async (c) => {
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
 	const email = rawEmail.toLowerCase();
-	const allowedAddresses = (c.env.EMAIL_ADDRESSES ?? []) as string[];
-	if (allowedAddresses.length > 0 && !allowedAddresses.map((a) => a.toLowerCase()).includes(email)) {
-		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES" }, 403);
+	const configuredAddresses = (c.env.EMAIL_ADDRESSES ?? []) as unknown[];
+	if (!isMailboxCreationAllowed(email, configuredAddresses, c.env.CATCH_ALL_MAILBOX)) {
+		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES or CATCH_ALL_MAILBOX" }, 403);
 	}
 	const key = `mailboxes/${email}.json`;
 	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);
@@ -144,8 +157,13 @@ app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 
 app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const folder = c.req.query("folder");
+	const rawTag = c.req.query("tag");
+	const parsedTag = rawTag ? TagSchema.safeParse(rawTag) : undefined;
+	if (parsedTag && !parsedTag.success) return c.json({ error: "Invalid tag filter" }, 400);
+	const tag = parsedTag?.success ? parsedTag.data : undefined;
 	const thread_id = c.req.query("thread_id");
 	const threaded = boolQuery(c, "threaded");
+	const needs_reply = boolQuery(c, "needs_reply");
 	const page = intQuery(c, "page");
 	const limit = intQuery(c, "limit");
 	const sortColumn = c.req.query("sortColumn") as any;
@@ -153,13 +171,13 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const stub = c.var.mailboxStub;
 
 	if (threaded && folder) {
-		const emails = await (stub as any).getThreadedEmails({ folder, page, limit });
-		const totalCount = await (stub as any).countThreadedEmails(folder);
+		const emails = await (stub as any).getThreadedEmails({ folder, tag, page, limit, needs_reply });
+		const totalCount = await (stub as any).countThreadedEmails(folder, needs_reply, tag);
 		return c.json({ emails, totalCount });
 	}
-	const emails = await stub.getEmails({ folder, thread_id, page, limit, sortColumn, sortDirection });
+	const emails = await stub.getEmails({ folder, tag, thread_id, page, limit, sortColumn, sortDirection });
 	if (folder) {
-		const totalCount = await stub.countEmails({ folder, thread_id });
+		const totalCount = await stub.countEmails({ folder, thread_id, tag });
 		return c.json({ emails, totalCount });
 	}
 	return c.json(emails);
@@ -245,7 +263,8 @@ app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 	const id = c.req.param("id")!;
 	const attachments = await c.var.mailboxStub.deleteEmail(id);
 	if (attachments === null) return c.json({ error: "Not found" }, 404);
-	if (attachments.length > 0) await c.env.BUCKET.delete(attachments.map((att: any) => `attachments/${id}/${att.id}/${att.filename}`));
+	if (attachments === false) return c.json({ error: "Email must be in Trash before permanent deletion" }, 409);
+	await deleteAttachmentObjects(c.env.BUCKET, id, attachments);
 	return c.body(null, 204);
 });
 
@@ -255,14 +274,25 @@ app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) =
 	return success ? c.json({ status: "moved" }) : c.json({ error: "Folder not found" }, 400);
 });
 
+app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/move", async (c: AppContext) => {
+	const { folderId, sourceFolderId } = (await c.req.json()) as { folderId?: string; sourceFolderId?: string };
+	if (!folderId || !sourceFolderId) return c.json({ error: "Both source and destination folders are required" }, 400);
+	const success = await (c.var.mailboxStub as any).moveThread(c.req.param("threadId")!, folderId, sourceFolderId);
+	return success ? c.json({ status: "moved" }) : c.json({ error: "Thread or folder not found" }, 400);
+});
+
+registerEmailTagRoutes(app);
+registerEmailTriageRoutes(app);
+
 // -- Threads --------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/threads/:threadId", async (c: AppContext) => {
-	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!));
+	return c.json(await (c.var.mailboxStub as any).getThreadEmails(c.req.param("threadId")!, c.req.query("folder")));
 });
 
 app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/read", async (c: AppContext) => {
-	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!);
+	const body = await c.req.json().catch(() => ({})) as { folderId?: string };
+	await c.var.mailboxStub.markThreadRead(c.req.param("threadId")!, body.folderId);
 	return c.json({ status: "marked_read" });
 });
 
@@ -297,8 +327,11 @@ app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => 
 // -- Search ---------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
+	const rawTag = c.req.query("tag");
+	const parsedTag = rawTag ? TagSchema.safeParse(rawTag) : undefined;
+	if (parsedTag && !parsedTag.success) return c.json({ error: "Invalid tag filter" }, 400);
 	const searchOpts: Record<string, unknown> = {
-		query: c.req.query("query") || "", folder: c.req.query("folder"), from: c.req.query("from"),
+		query: c.req.query("query") || "", folder: c.req.query("folder"), tag: parsedTag?.success ? parsedTag.data : undefined, from: c.req.query("from"),
 		to: c.req.query("to"), subject: c.req.query("subject"), date_start: c.req.query("date_start"),
 		date_end: c.req.query("date_end"), is_read: boolQuery(c, "is_read"),
 		is_starred: boolQuery(c, "is_starred"), has_attachment: boolQuery(c, "has_attachment"),
@@ -345,26 +378,54 @@ async function streamToArrayBuffer(stream: ReadableStream, streamSize: number) {
 	return result;
 }
 
-async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env: Env, ctx: ExecutionContext) {
+export interface InboundEmailEvent {
+	readonly raw: ReadableStream<Uint8Array>;
+	readonly rawSize: number;
+	readonly to: string;
+}
+
+async function receiveEmail(event: InboundEmailEvent, env: Env, ctx: ExecutionContext) {
+	const configuredAddresses = (env.EMAIL_ADDRESSES ?? []) as unknown[];
+
+	// Resolve from the SMTP envelope recipient, not from visible To headers.
+	// The latter may be absent for Bcc deliveries or differ because of aliases
+	// and forwarding.
+	const candidateMailboxes = new Set<string>();
+	const envelopeRecipient = normalizeEmailAddress(event.to);
+	if (envelopeRecipient) candidateMailboxes.add(envelopeRecipient);
+	const catchAllMailbox = normalizeEmailAddress(env.CATCH_ALL_MAILBOX);
+	if (catchAllMailbox) candidateMailboxes.add(catchAllMailbox);
+
+	const knownMailboxes = new Set<string>();
+	for (const candidate of candidateMailboxes) {
+		if (await env.BUCKET.head(`mailboxes/${candidate}.json`)) {
+			knownMailboxes.add(candidate);
+		}
+	}
+
+	const route = resolveMailboxRoute({
+		envelopeRecipient: event.to,
+		configuredAddresses,
+		configuredDomains: (env.DOMAINS || "").split(","),
+		catchAllMailbox: env.CATCH_ALL_MAILBOX,
+		knownMailboxes,
+	});
+	if (route.kind === "reject") {
+		throw new MailboxRoutingError(route.reason);
+	}
+
 	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
 	const parsedEmail = await new PostalMime().parse(rawEmail);
-
-	if (!parsedEmail.to?.length || !parsedEmail.to[0].address) throw new Error("received email with empty to");
-
-	const allowedAddresses = ((env.EMAIL_ADDRESSES ?? []) as string[]).map((a) => a.toLowerCase());
-	const allRecipients = parsedEmail.to.map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
+	const allRecipients = (parsedEmail.to || []).map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
 	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 
-	let mailboxId: string | undefined;
-	if (allowedAddresses.length > 0) {
-		mailboxId = allRecipients.find((addr) => allowedAddresses.includes(addr));
-		if (!mailboxId) { console.log(`Ignoring email: no recipient matches EMAIL_ADDRESSES.`); return; }
-	} else { mailboxId = allRecipients[0]; }
-	if (!mailboxId) throw new Error("received email with no valid recipient address");
+	const mailboxId = route.storageMailbox;
+	if (route.kind === "catch-all") {
+		console.log(`Routing ${route.envelopeRecipient} to catch-all mailbox ${mailboxId}`);
+	}
 
 	const messageId = crypto.randomUUID();
-	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
 
@@ -395,6 +456,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 	await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
 		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
+		envelope_recipient: route.envelopeRecipient,
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
 		date: new Date().toISOString(), // uses receive time, not the email's Date header
 		body: parsedEmail.html || parsedEmail.text || "",
@@ -402,11 +464,16 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
-	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
-	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
-		method: "POST", headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
-	})).catch((e) => console.error("Auto-draft trigger failed:", (e as Error).message)));
+	ctx.waitUntil(handleTriageTriggerFailure(
+		() => {
+			const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
+			return agentStub.fetch(new Request("https://agents/onNewEmail", {
+				method: "POST", headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
+			}));
+		},
+		() => stub.markEmailTriageFailed(messageId),
+	));
 }
 
 export { app, receiveEmail };

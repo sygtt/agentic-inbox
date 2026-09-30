@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -18,8 +20,11 @@ interface UIState {
 	// Side panel state
 	selectedEmailId: string | null;
 	isComposing: boolean;
+	isSendingEmail: boolean;
 	_previousEmailId: string | null;
 	selectEmail: (id: string | null) => void;
+	setSendingEmail: (pending: boolean) => void;
+	clearEmailSelection: (id: string) => void;
 	startCompose: (options?: ComposeOptions) => void;
 	closePanel: () => void;
 	closeCompose: () => void;
@@ -46,6 +51,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
 	selectedEmailId: null,
 	isComposing: false,
+	isSendingEmail: false,
 	_previousEmailId: null,
 	composeOptions: { mode: "new", originalEmail: null },
 	isComposeModalOpen: false,
@@ -53,6 +59,23 @@ export const useUIStore = create<UIState>((set, get) => ({
 	isAgentPanelOpen: true,
 
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
+	setSendingEmail: (pending) => set({ isSendingEmail: pending }),
+	clearEmailSelection: (id) =>
+		set((state) => {
+			const composeDependsOnEmail =
+				state.composeOptions.originalEmail?.id === id ||
+				state.composeOptions.draftEmail?.id === id;
+			return {
+				selectedEmailId: state.selectedEmailId === id ? null : state.selectedEmailId,
+				_previousEmailId: state._previousEmailId === id ? null : state._previousEmailId,
+				...(composeDependsOnEmail
+					? {
+							isComposing: false,
+							composeOptions: { mode: "new" as const, originalEmail: null },
+						}
+					: {}),
+			};
+		}),
 
 	startCompose: (options) =>
 		set((state) => {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -13,6 +15,9 @@ import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
+import { stripHtmlToText } from "./email-content";
+
+export { createEmailSnippet, stripHtmlToText } from "./email-content";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -37,8 +42,14 @@ export function getMailboxStub(
 export async function listMailboxes(
 	bucket: R2Bucket,
 ): Promise<{ id: string; email: string }[]> {
-	const list = await bucket.list({ prefix: "mailboxes/" });
-	return list.objects.map((obj) => {
+	const objects: R2Object[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await bucket.list({ prefix: "mailboxes/", ...(cursor ? { cursor } : {}) });
+		objects.push(...page.objects);
+		cursor = page.truncated ? page.cursor : undefined;
+	} while (cursor);
+	return objects.map((obj) => {
 		const id = obj.key.replace("mailboxes/", "").replace(".json", "");
 		return { id, email: id };
 	});
@@ -172,21 +183,6 @@ export function textToHtml(text: string): string {
 	if (!text) return "";
 	const escaped = escapeHtml(text).replace(/\n/g, "<br>");
 	return `<div style="white-space:pre-wrap">${escaped}</div>`;
-}
-
-/**
- * Strip HTML tags and normalize whitespace to produce plain text.
- * Removes <style> and <script> blocks first to avoid injecting their
- * content into the output.
- */
-export function stripHtmlToText(html: string): string {
-	if (!html) return "";
-	return html
-		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-		.replace(/<[^>]+>/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
 }
 
 /**

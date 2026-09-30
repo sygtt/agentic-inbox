@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -30,6 +32,7 @@ export interface Email {
 	subject: string;
 	sender: string;
 	recipient: string;
+	envelope_recipient?: string | null;
 	cc?: string;
 	bcc?: string;
 	date: string;
@@ -40,14 +43,32 @@ export interface Email {
 	email_references?: string | null;
 	message_id?: string | null;
 	raw_headers?: string | null;
+	trashed_at?: string | null;
 	attachments?: Attachment[];
+	has_attachment?: boolean;
+	tags?: EmailTag[];
 	snippet?: string | null;
 	// Thread aggregate fields (only present in threaded list view)
 	thread_count?: number;
 	thread_unread_count?: number;
+	thread_has_triage_error?: boolean;
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;
+}
+
+export interface EmailTag {
+	tag: string;
+	provenance: "manual" | "rule" | "agent" | "system" | string;
+}
+
+export interface EmailTriageAnalysis {
+	schemaVersion: number;
+	policyVersion: number;
+	model: string;
+	features: import("../../workers/lib/email-triage").TriageFeatures;
+	predictedDisposition: import("../../workers/lib/email-triage").TriageDisposition;
+	analyzedAt: string;
 }
 
 export interface Attachment {

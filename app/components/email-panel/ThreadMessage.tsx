@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -13,6 +15,9 @@ import {
 } from "@phosphor-icons/react";
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
+import VerificationCodeAction from "~/components/VerificationCodeAction";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import { useEmailTags } from "~/queries/email-tags";
 import {
 	formatDetailDate,
 	formatShortDate,
@@ -28,7 +33,9 @@ interface ThreadMessageProps {
 	isLast: boolean;
 	isDraft?: boolean;
 	isSending?: boolean;
+	isDeleting?: boolean;
 	isExpanded: boolean;
+	showTriageErrorBadge?: boolean;
 	onToggleExpand: () => void;
 	onSendDraft?: () => void;
 	onEditDraft?: () => void;
@@ -60,7 +67,9 @@ export default function ThreadMessage({
 	isLast,
 	isDraft,
 	isSending,
+	isDeleting,
 	isExpanded,
+	showTriageErrorBadge = true,
 	onToggleExpand,
 	onSendDraft,
 	onEditDraft,
@@ -68,6 +77,11 @@ export default function ThreadMessage({
 	onViewSource,
 	onPreviewImage,
 }: ThreadMessageProps) {
+	const { data: currentTags } = useEmailTags(mailboxId, email.id, {
+		enabled: !isDraft,
+		refreshWhileTriagePending: !isDraft,
+	});
+	const tags = currentTags ?? email.tags;
 	const isSelf = email.sender === mailboxEmail;
 	const containerClassName = `${!isLast ? "border-b border-kumo-line" : ""} ${isDraft ? "border-l-2 border-l-kumo-warning bg-kumo-warning/[0.02]" : ""}`;
 	const senderLabel = isDraft ? "Draft reply" : isSelf ? "You" : email.sender;
@@ -86,6 +100,7 @@ export default function ThreadMessage({
 							<span className="text-sm font-medium text-kumo-default truncate">
 								{senderLabel}
 							</span>
+							{showTriageErrorBadge && <TriageErrorBadge tags={tags} />}
 							<span className="text-xs text-kumo-subtle shrink-0">
 								{formatDetailDate(email.date)}
 							</span>
@@ -120,9 +135,13 @@ export default function ThreadMessage({
 								<span className="text-sm font-medium text-kumo-default truncate">
 									{senderLabel}
 								</span>
+								{showTriageErrorBadge && <TriageErrorBadge tags={tags} />}
 								{isDraft && <Badge variant="outline">Draft</Badge>}
 							</div>
 							<div className="text-xs text-kumo-subtle">To: {email.recipient}</div>
+							{email.envelope_recipient && email.envelope_recipient !== email.recipient && (
+								<div className="text-xs text-kumo-subtle">Delivered to: {email.envelope_recipient}</div>
+							)}
 						</div>
 					</div>
 					<div className="flex items-center gap-1 shrink-0">
@@ -157,6 +176,11 @@ export default function ThreadMessage({
 				</div>
 
 				<div className="md:ml-[42px]">
+					<VerificationCodeAction
+						messageId={email.id}
+						subject={email.subject}
+						body={email.body}
+					/>
 					<EmailIframe
 						body={rewriteInlineImages(
 							email.body || "",
@@ -177,7 +201,7 @@ export default function ThreadMessage({
 								icon={<PaperPlaneTiltIcon size={14} />}
 								onClick={onSendDraft}
 								loading={isSending}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								{isSending ? "Sending..." : "Send"}
 							</Button>
@@ -188,7 +212,7 @@ export default function ThreadMessage({
 								size="sm"
 								icon={<PencilSimpleIcon size={14} />}
 								onClick={onEditDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								Edit
 							</Button>
@@ -199,7 +223,7 @@ export default function ThreadMessage({
 								size="sm"
 								icon={<TrashIcon size={14} />}
 								onClick={onDeleteDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 							>
 								Discard
 							</Button>

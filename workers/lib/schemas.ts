@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -19,6 +21,7 @@ export interface EmailMetadata {
 	subject: string;
 	sender: string;
 	recipient: string;
+	envelope_recipient?: string | null;
 	cc?: string | null;
 	bcc?: string | null;
 	date: string;
@@ -28,6 +31,7 @@ export interface EmailMetadata {
 	email_references?: string | null;
 	thread_id?: string | null;
 	folder_id?: string | null;
+	trashed_at?: string | null;
 	snippet?: string | null;
 }
 

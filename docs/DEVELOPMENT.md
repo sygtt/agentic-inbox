@@ -1,0 +1,560 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Development
+
+This document describes the recommended local development workflow for this fork of Cloudflare's `agentic-inbox`.
+
+It complements `AGENTS.md`. The rules in `AGENTS.md` take priority when there is any conflict.
+
+## Branch model
+
+`main` is the canonical branch for this fork. Feature and maintenance work
+starts from `main` and returns through a pull request targeting `main`. Do not
+push feature work directly to `main`.
+
+```text
+                  upstream/main
+                       |
+             inspected sync PR
+                       v
+origin/main <--- feature/fix/docs branches
+```
+
+The repository's GitHub default branch is already `main`; the code and commit
+history move to the main-first model only when the owner merges the migration
+PR. Until that PR is merged, continue following the current branch workflow.
+See [the migration runbook](MAIN-FIRST-MIGRATION.md) for the transition and
+verification steps.
+
+For documentation-only work, use a `docs/*` branch.
+
+## Git remotes
+
+A typical local setup is:
+
+```bash
+git remote -v
+```
+
+with:
+
+```text
+origin    <your fork>
+upstream  https://github.com/cloudflare/agentic-inbox.git
+```
+
+If `upstream` is missing:
+
+```bash
+git remote add upstream https://github.com/cloudflare/agentic-inbox.git
+```
+
+Do not rewrite upstream history.
+
+## Synchronizing upstream changes
+
+Keep the `upstream` remote as a read-only source for reviewing Cloudflare
+changes. Do not fast-forward or reset this fork's `main` to `upstream/main`.
+Bring selected upstream changes in through a focused sync branch and pull
+request:
+
+```bash
+git fetch upstream
+git fetch origin --prune
+git log --oneline --left-right origin/main...upstream/main
+git diff --stat origin/main...upstream/main
+git switch main
+git pull --ff-only origin main
+git switch -c sync/upstream-YYYY-MM
+```
+
+Inspect the upstream commits and affected files, read relevant customization
+notes, and decide which changes are appropriate for this fork. Integrate only
+after that review, then push the sync branch and open a PR targeting `main`.
+Resolve conflicts with an understanding of both versions; never blindly merge
+all upstream changes. Do not rewrite upstream history or force-push shared
+branches. Before resolving a conflict involving known local behavior, read
+`docs/CUSTOMIZATIONS.md`.
+
+## Creating a work branch
+
+Start from an up-to-date `main`:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c feat/example-feature
+```
+
+Use the prefix appropriate to the work:
+
+```text
+feat/
+fix/
+refactor/
+docs/
+chore/
+```
+
+Keep one branch focused on one logical change. Open its PR against `main`.
+
+## Prerequisites
+
+The repository is a Node/npm project using Vite, React Router, Wrangler, and the Cloudflare Vite plugin.
+
+Install:
+
+- Git
+- Node.js
+- npm
+
+The repository currently does not declare an `engines` field that pins an exact Node.js version. Prefer a maintained Node.js version compatible with the current dependency set and Cloudflare tooling rather than silently changing runtime versions as part of unrelated work.
+
+## Install dependencies
+
+```bash
+npm install
+```
+
+The project uses `package-lock.json`. Avoid regenerating the lockfile unless dependencies actually change.
+
+## Line endings
+
+`.gitattributes` checks out text files with LF line endings so pinned license
+and provenance hashes remain stable when `core.autocrlf=true`. PNG, ICO, and
+PDF files are kept binary. Existing worktrees that already contain CRLF files
+should be replaced with a fresh clone or worktree after saving local changes;
+`git add --renormalize` only changes the index and does not convert the working
+tree files.
+
+## Main npm commands
+
+Current scripts include:
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm test
+npm run typecheck
+npm run cf-typegen
+npm run license:check
+npm run deploy
+```
+
+### `npm run dev`
+
+Starts the React Router development server through Vite with the Cloudflare Vite plugin.
+
+The plugin is configured in `vite.config.ts` with a Cloudflare SSR environment, so Worker bindings and server-side code can run in the Cloudflare-compatible development environment.
+
+Local development disables remote bindings and persists local Durable Object/R2-compatible state under `.wrangler/state`. It does not require `wrangler login`. The local `EMAIL` binding is not a real production delivery path; use focused tests or an explicitly authorized integration test for sending and Email Routing.
+
+### `npm run build`
+
+Builds the React Router application.
+
+### `npm run preview`
+
+Builds first, then serves the built Vite application for preview.
+
+### `npm run typecheck`
+
+Runs Cloudflare type generation, React Router type generation, and TypeScript project checking.
+
+This is part of the minimum validation required by `AGENTS.md`.
+
+### `npm run license:check`
+
+Checks the root license, the provenance inventory, and required file notices
+without fetching upstream or installing a license scanner. Update the inventory
+when adding tracked files or changing their provenance; see `LICENSING.md` for
+the file classifications and notice conventions. The CI workflow runs this
+check and its regression tests. A passing check complements human provenance
+review and does not establish legal compliance.
+
+### `npm run deploy`
+
+Builds and deploys with Wrangler.
+
+**Do not run this as part of normal implementation or verification unless production deployment was explicitly requested.**
+
+## Local environment variables
+
+The repository contains `.dev.vars.example` with placeholders for Cloudflare Access values:
+
+```text
+POLICY_AUD=your-access-policy-audience-tag
+TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+```
+
+If a local task needs the file, copy it rather than editing the example with real credentials:
+
+```bash
+cp .dev.vars.example .dev.vars
+```
+
+Do not commit `.dev.vars`.
+
+### Cloudflare Access in local development
+
+`workers/app.ts` intentionally skips Access JWT validation when `import.meta.env.DEV` is true.
+
+Therefore local UI/API development normally does not require working production Access credentials.
+
+Do not weaken the production Access middleware to make local development easier.
+
+## Wrangler configuration
+
+`wrangler.jsonc` is the central Cloudflare binding configuration.
+
+It defines:
+
+- Worker entrypoint
+- Durable Object bindings
+- Durable Object class migrations
+- R2 binding
+- Workers AI binding
+- `send_email` binding
+- application variables
+
+Before changing it, determine whether the requested setting is:
+
+1. reusable application configuration, or
+2. deployment-specific/private configuration.
+
+Prefer keeping production-specific values out of committed reusable logic.
+
+### Existing deployment-specific divergence
+
+This fork currently contains a deployment-specific `DOMAINS` value in `wrangler.jsonc` instead of the generic upstream example value.
+
+Treat this as existing configuration debt, not as a pattern to follow for new personal values.
+
+Future configuration work should prefer a maintainable way to keep public source generic while supplying production values through the deployment environment where practical.
+
+Do not change that behavior incidentally while working on unrelated features.
+
+## Cloudflare resources used by development
+
+The application is built around several bindings:
+
+```text
+MAILBOX      -> MailboxDO
+EMAIL_AGENT  -> EmailAgent
+EMAIL_MCP    -> EmailMCP
+BUCKET       -> R2
+AI           -> Workers AI
+EMAIL        -> send_email
+```
+
+When debugging a feature, first identify which binding participates in the failing path.
+
+### Durable Objects
+
+`MailboxDO` uses SQLite-backed Durable Object storage.
+
+Do not assume a local fresh database accurately represents production upgrade behavior. Any schema change must also be reasoned about as a migration from an existing deployment.
+
+### R2
+
+R2 stores:
+
+- mailbox settings/registry objects
+- attachment bytes
+
+Changes to R2 key layout should be treated as persistence migrations even if no SQL schema changes.
+
+### Trash retention and scheduled cleanup
+
+Normal email deletion moves the message to the `Trash` folder. The message and
+its attachment objects remain available for 30 days; permanent deletion is
+explicitly available from Trash (and for discarded drafts). The daily Cron
+Trigger in `wrangler.jsonc` invokes the Worker scheduled handler, which lists
+registered mailboxes from R2 and purges expired Trash rows and their attachment
+objects. `npm run dev` does not automatically invoke scheduled events; use
+focused tests or an explicitly authorized local integration invocation.
+
+### Workers AI
+
+Interactive EmailAgent chat uses the Workers AI binding. Inbound Jev triage is
+separate and calls the TypeSafe System One API directly. Local triage therefore
+requires `TYPESAFE_API_KEY` in `.dev.vars`; production must configure it as a
+Cloudflare Worker secret:
+
+```bash
+npx wrangler secret put TYPESAFE_API_KEY
+```
+
+Do not put the production key in `wrangler.jsonc` or commit it to the repository.
+
+Model availability and pricing can change independently of this repository. Do not change models casually as part of unrelated work.
+
+### Email sending
+
+The application uses a `send_email` binding named `EMAIL`.
+
+The API currently records the Sent copy before deferred delivery completes, so a local or UI success state is not proof of final remote delivery.
+
+When debugging send behavior, inspect Worker logs as well as the recipient mailbox.
+
+## Local testing strategy
+
+The repository uses Node's built-in test runner for deterministic routing tests:
+
+```bash
+npm test
+```
+
+The test script uses Node's built-in TypeScript stripping support and does not add a test framework dependency.
+
+For every change, at minimum run:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+Then add focused verification appropriate to the changed subsystem.
+
+## UI changes
+
+For frontend work:
+
+1. run `npm run dev`,
+2. exercise the relevant route manually,
+3. check loading state,
+4. check normal state,
+5. check empty state,
+6. check error behavior,
+7. check browser console/network errors.
+
+Avoid changing backend behavior merely to make a UI mock easier.
+
+## API changes
+
+For API work:
+
+- inspect the request schema and middleware,
+- verify successful requests,
+- verify malformed requests,
+- verify missing mailbox behavior,
+- verify status codes,
+- verify that persisted state matches the response.
+
+Remember that mailbox-scoped routes use mailbox resolution middleware.
+
+## Email routing changes
+
+Inbound email routing is production-sensitive.
+
+The current implementation does not provide a dedicated repository-level integration harness that fully reproduces Cloudflare Email Routing delivery.
+
+For routing changes:
+
+1. isolate routing/resolution logic into testable deterministic functions where practical,
+2. test known mailbox behavior,
+3. test unknown recipient behavior,
+4. test Bcc/alias/envelope-recipient cases relevant to the change,
+5. test malformed input,
+6. test failure behavior,
+7. only perform a live Email Routing test when explicitly authorized.
+
+Do not use real personal message contents as committed fixtures.
+
+Use synthetic examples such as:
+
+```text
+sender@example.net
+alias@example.com
+all@example.com
+```
+
+## Catch-all development notes
+
+The planned catch-all feature is especially sensitive to the distinction between:
+
+- SMTP envelope recipient, and
+- visible `To` / `Cc` headers.
+
+Before implementing catch-all routing, re-read the inbound flow in `docs/ARCHITECTURE.md` and the requirement in `docs/CUSTOMIZATIONS.md`.
+
+The desired design should preserve the original envelope recipient even if the storage mailbox is different.
+
+Do not simply replace `recipient` metadata with the catch-all mailbox address.
+
+## Database/migration development
+
+Before changing `workers/db/schema.ts`:
+
+1. inspect `workers/durableObject/migrations.ts`,
+2. decide whether a new migration is required,
+3. preserve old data,
+4. prefer additive changes,
+5. test the migration path conceptually and, where possible, against an existing local database state.
+
+Updating only the Drizzle schema is not sufficient for an already deployed Durable Object.
+
+## AI-agent development
+
+The agent implementation lives primarily in `workers/agent/index.ts` and tool helpers under `workers/lib/`.
+
+When changing AI behavior:
+
+- keep deterministic security/routing logic outside the model,
+- preserve the explicit draft-before-send boundary,
+- inspect the full tool set,
+- define fallback behavior,
+- consider prompt injection and untrusted email content,
+- avoid sending unnecessary message contents to additional providers.
+
+If changing the model, system prompt, or tool capabilities, document the behavioral reason in `docs/CUSTOMIZATIONS.md` when it is fork-specific.
+
+## Debugging order
+
+For a confusing bug, trace the system in this order instead of editing randomly:
+
+```text
+request/email event
+        |
+        v
+workers/app.ts
+        |
+        +--> authentication / route selection
+        |
+        v
+workers/index.ts or agent/MCP handler
+        |
+        v
+MailboxDO / EmailAgent / R2 / Email Service
+        |
+        v
+frontend query/state/rendering
+```
+
+Ask:
+
+1. Did the request/event reach the Worker?
+2. Did authentication pass?
+3. Which route/handler received it?
+4. Which mailbox ID was resolved?
+5. Was R2 state present?
+6. Was the expected Durable Object addressed?
+7. Was data actually persisted?
+8. Did an asynchronous `waitUntil()` task fail after the response?
+9. Is the frontend rendering stale cached data?
+
+This usually narrows failures faster than speculative edits.
+
+## Validation before commit
+
+At minimum:
+
+```bash
+npm run typecheck
+npm run build
+git status
+git diff
+```
+
+Review the diff for:
+
+- secrets
+- personal identifiers
+- real email contents
+- production domains or infrastructure values introduced unnecessarily
+- unrelated formatting
+- accidental lockfile changes
+- generated files
+
+Also run `npm run license:check` before committing. Preserve upstream and
+third-party notices, mark modified upstream files, and record external source
+terms. Follow the licensing checklist in `AGENTS.md` and report unresolved
+provenance in the PR for human review before merge.
+
+## Commit style
+
+Keep commits small and descriptive.
+
+Examples:
+
+```text
+feat: add catch-all mailbox resolution
+fix: preserve envelope recipient metadata
+docs: document inbound email architecture
+test: cover unknown recipient fallback
+```
+
+Do not mix broad refactoring with a behavior change unless the refactor is strictly necessary.
+
+## Pull requests
+
+Target normal fork development PRs at `main`.
+
+A useful PR description should state:
+
+- problem
+- behavior before
+- behavior after
+- important design decisions
+- files/areas changed
+- migration/configuration impact
+- validation performed
+- upstream conflict risk
+
+Do not deploy merely because a PR was merged.
+
+### Issue linkage and automatic closure
+
+For a PR that fully implements a GitHub issue, include an explicit closing reference in the PR body:
+
+```text
+Closes #123
+```
+
+Because implementation PRs target the default branch `main`, use GitHub's
+built-in closing keywords in the PR body. GitHub closes the issue when the PR
+merges. No custom workflow is needed for issue closure.
+
+When creating implementation issues, include this requirement in the issue body so AI coding agents preserve the lifecycle without needing an extra reminder.
+
+Use a non-closing reference such as `Refs #123` when the PR is partial. Roadmap, tracking, umbrella, and observation issues should not be closed by a child implementation PR unless that PR genuinely completes the entire tracking issue.
+
+Before merging, verify that the PR description contains the intended closing
+keyword and issue number.
+
+## Production deployment checklist
+
+Only use this section when deployment was explicitly requested.
+
+Before deploying:
+
+1. confirm the intended branch/commit,
+2. run `npm run typecheck`,
+3. run `npm run build`,
+4. inspect `git diff` / working tree,
+5. review schema and Durable Object migrations,
+6. review `wrangler.jsonc` and bindings,
+7. confirm required Worker secrets exist,
+8. confirm Cloudflare Access still protects the Worker,
+9. confirm Email Routing targets the intended Worker,
+10. confirm any send-email plan/binding assumptions,
+11. deploy,
+12. check Worker logs,
+13. perform a controlled smoke test.
+
+Production deployment is a separate operation from code completion.
+
+## Keeping these docs useful
+
+Update this file when any of the following changes:
+
+- npm commands
+- required local tooling
+- environment setup
+- Cloudflare development setup
+- testing strategy
+- branch workflow
+- deployment procedure
+
+Do not let this document become a historical log. Historical rationale for fork-specific features belongs in `docs/CUSTOMIZATIONS.md`.

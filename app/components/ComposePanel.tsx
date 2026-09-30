@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -8,7 +10,7 @@ import { useParams } from "react-router";
 import { useComposeForm } from "~/hooks/useComposeForm";
 import RichTextEditor from "./RichTextEditor";
 
-export default function ComposePanel() {
+export default function ComposePanel({ onSendSuccess }: { onSendSuccess?: () => void } = {}) {
 	const { mailboxId, folder } = useParams<{
 		mailboxId: string;
 		folder: string;
@@ -30,6 +32,7 @@ export default function ComposePanel() {
 		error,
 		isSavingDraft,
 		isSending,
+		isDeleting,
 		formTitle,
 		handleSaveDraft,
 		handleSend,
@@ -50,14 +53,14 @@ export default function ComposePanel() {
 						size="sm"
 						icon={<XIcon size={18} />}
 						onClick={closeCompose}
-						disabled={isSending}
+						disabled={isSending || isDeleting}
 						aria-label="Close compose"
 					/>
 				</div>
 			</div>
 
 			<form
-				onSubmit={(e) => handleSend(e, closePanel)}
+				onSubmit={(e) => handleSend(e, onSendSuccess ?? closePanel)}
 				className="flex flex-col flex-1 min-h-0 overflow-y-auto"
 			>
 				<div className="p-4 md:p-6 space-y-4">
@@ -75,6 +78,7 @@ export default function ComposePanel() {
 									size="sm"
 									value={to}
 									onChange={(e) => setTo(e.target.value)}
+									disabled={isDeleting}
 									required
 								/>
 								{!showCcBcc && (
@@ -82,6 +86,7 @@ export default function ComposePanel() {
 										type="button"
 										onClick={() => setShowCcBcc(true)}
 										className="shrink-0 text-xs text-kumo-link hover:text-kumo-link-hover font-medium"
+										disabled={isDeleting}
 									>
 										CC / BCC
 									</button>
@@ -100,6 +105,7 @@ export default function ComposePanel() {
 										size="sm"
 										value={cc}
 										onChange={(e) => setCc(e.target.value)}
+										disabled={isDeleting}
 										placeholder="Separate multiple addresses with commas"
 									/>
 								</div>
@@ -117,6 +123,7 @@ export default function ComposePanel() {
 										size="sm"
 										value={bcc}
 										onChange={(e) => setBcc(e.target.value)}
+										disabled={isDeleting}
 										placeholder="Separate multiple addresses with commas"
 									/>
 								</div>
@@ -134,6 +141,7 @@ export default function ComposePanel() {
 									size="sm"
 									value={subject}
 									onChange={(e) => setSubject(e.target.value)}
+									disabled={isDeleting}
 									required
 								/>
 							</div>
@@ -144,6 +152,7 @@ export default function ComposePanel() {
 						<RichTextEditor
 							value={body}
 							onChange={setBody}
+							readOnly={isDeleting}
 						/>
 					</div>
 				</div>
@@ -151,7 +160,7 @@ export default function ComposePanel() {
 				{/* Footer actions */}
 				<div className="mt-auto px-4 py-3 border-t border-kumo-line bg-kumo-fill/30 shrink-0 md:px-6">
 					<div className="flex items-center justify-between">
-						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending}>
+						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending || isDeleting}>
 							Discard
 						</Button>
 						<div className="flex items-center gap-2">
@@ -160,7 +169,7 @@ export default function ComposePanel() {
 								variant="secondary"
 								size="sm"
 								loading={isSavingDraft}
-								disabled={isSending}
+								disabled={isSending || isDeleting}
 								icon={<FloppyDiskIcon size={14} />}
 								onClick={handleSaveDraft}
 							>
@@ -171,7 +180,7 @@ export default function ComposePanel() {
 								variant="primary"
 								size="sm"
 								loading={isSending}
-								disabled={isSavingDraft || isSending}
+								disabled={isSavingDraft || isSending || isDeleting}
 								icon={<PaperPlaneTiltIcon size={14} />}
 							>
 								{isSending ? "Sending..." : "Send"}

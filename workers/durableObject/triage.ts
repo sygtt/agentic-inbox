@@ -1,0 +1,277 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Cloudflare, Inc.
+// Licensed under the Apache 2.0 license found in the LICENSE file or at:
+//     https://opensource.org/licenses/Apache-2.0
+
+import { DISPOSITION_VALUES, TRIAGE_ERROR_TAG } from "../lib/email-tags.ts";
+import {
+	TriageFeaturesSchema,
+	type PersistedEmailTriageResult,
+	type StoredEmailTriageAnalysis,
+} from "../lib/email-triage.ts";
+import { Folders } from "../../shared/folders.ts";
+
+export interface TriageStorage {
+	sql: SqlStorage;
+	transactionSync<T>(closure: () => T): T;
+}
+
+export interface EmailTriageAnalysisLookup {
+	emailExists: boolean;
+	analysis: StoredEmailTriageAnalysis | null;
+}
+
+export function markEmailTriageFailed(storage: TriageStorage, id: string) {
+	return storage.transactionSync(() => {
+		const email = [
+			...storage.sql.exec("SELECT id FROM emails WHERE id = ?1", id),
+		] as { id: string }[];
+		if (email.length === 0) return null;
+
+		storage.sql.exec(
+			`INSERT INTO email_triage_failures (email_id, failed_at)
+			 VALUES (?1, ?2)
+			 ON CONFLICT(email_id) DO UPDATE SET failed_at = excluded.failed_at`,
+			id,
+			new Date().toISOString(),
+		);
+		return { tag: TRIAGE_ERROR_TAG, provenance: "system" as const };
+	});
+}
+
+export function getEmailTriageAnalysis(
+	storage: TriageStorage,
+	id: string,
+): EmailTriageAnalysisLookup {
+	const email = [
+		...storage.sql.exec("SELECT id FROM emails WHERE id = ?1", id),
+	] as { id: string }[];
+	if (email.length === 0) return { emailExists: false, analysis: null };
+
+	const rows = [
+		...storage.sql.exec(
+			`SELECT schema_version, policy_version, model, features_json,
+				predicted_disposition, analyzed_at
+			 FROM email_triage_analysis WHERE email_id = ?1`,
+			id,
+		),
+	] as {
+		schema_version: number;
+		policy_version: number;
+		model: string;
+		features_json: string;
+		predicted_disposition: string;
+		analyzed_at: string;
+	}[];
+	const row = rows[0];
+	if (!row) return { emailExists: true, analysis: null };
+
+	return {
+		emailExists: true,
+		analysis: {
+			schemaVersion: row.schema_version,
+			policyVersion: row.policy_version,
+			model: row.model,
+			features: TriageFeaturesSchema.parse(JSON.parse(row.features_json)),
+			predictedDisposition: row.predicted_disposition as PersistedEmailTriageResult["predictedDisposition"],
+			analyzedAt: row.analyzed_at,
+		},
+	};
+}
+
+export function applyEmailTriageResult(
+	storage: TriageStorage,
+	id: string,
+	result: PersistedEmailTriageResult,
+) {
+	if (!DISPOSITION_VALUES.includes(result.predictedDisposition)) {
+		throw new Error(`Invalid triage disposition: ${result.predictedDisposition}`);
+	}
+	const featuresJson = JSON.stringify(result.features);
+	const analyzedAt = new Date().toISOString();
+
+	return storage.transactionSync(() => {
+		const email = [
+			...storage.sql.exec(
+				"SELECT id FROM emails WHERE id = ?1",
+				id,
+			),
+		] as { id: string }[];
+		if (email.length === 0) return null;
+
+		storage.sql.exec(
+			`INSERT INTO email_triage_analysis
+				(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
+			 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+			 ON CONFLICT(email_id) DO UPDATE SET
+				schema_version = excluded.schema_version,
+				policy_version = excluded.policy_version,
+				model = excluded.model,
+				features_json = excluded.features_json,
+				predicted_disposition = excluded.predicted_disposition,
+				analyzed_at = excluded.analyzed_at`,
+			id,
+			result.schemaVersion,
+			result.policyVersion,
+			result.model,
+			featuresJson,
+			result.predictedDisposition,
+			analyzedAt,
+		);
+
+		// Recovery is part of the same transaction as the successful analysis.
+		storage.sql.exec(
+			"DELETE FROM email_triage_failures WHERE email_id = ?1",
+			id,
+		);
+
+		const manualDisposition = [
+			...storage.sql.exec(
+				`SELECT tag FROM email_tags
+				 WHERE email_id = ?1
+				   AND tag LIKE 'disposition:%'
+				   AND provenance = 'manual'
+				 LIMIT 1`,
+				id,
+			),
+		];
+		if (manualDisposition.length > 0) {
+			return {
+				dispositionApplied: false,
+				manualDispositionPreserved: true,
+			};
+		}
+
+		const tag = `disposition:${result.predictedDisposition}`;
+		storage.sql.exec(
+			`DELETE FROM email_tags WHERE email_id = ?1 AND tag LIKE 'disposition:%'`,
+			id,
+		);
+		storage.sql.exec(
+			`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, 'agent')`,
+			id,
+			tag,
+		);
+		return {
+			dispositionApplied: true,
+			manualDispositionPreserved: false,
+		};
+	});
+}
+
+/**
+ * Move an auto-filed message to Archive only while its persisted agent
+ * disposition is still authoritative and the message remains in Inbox.
+ */
+export function archivePersistedAutoFiledEmail(storage: TriageStorage, id: string) {
+	return storage.transactionSync(() => {
+		const eligible = [
+			...storage.sql.exec(
+				`SELECT emails.id
+				 FROM emails
+				 INNER JOIN email_triage_analysis
+					ON email_triage_analysis.email_id = emails.id
+				 INNER JOIN email_tags
+					ON email_tags.email_id = emails.id
+				 WHERE emails.id = ?1
+				   AND emails.folder_id = ?2
+				   AND email_triage_analysis.predicted_disposition = ?3
+				   AND email_tags.tag = ?4
+				   AND email_tags.provenance = 'agent'
+				 LIMIT 1`,
+				id,
+				Folders.INBOX,
+				"auto-file",
+				"disposition:auto-file",
+			),
+		] as { id: string }[];
+		if (eligible.length === 0) return "skipped" as const;
+
+		const archiveFolder = [
+			...storage.sql.exec("SELECT id FROM folders WHERE id = ?1", Folders.ARCHIVE),
+		] as { id: string }[];
+		if (archiveFolder.length === 0) throw new Error("Archive folder not found");
+
+		storage.sql.exec(
+			"UPDATE emails SET folder_id = ?1, trashed_at = NULL WHERE id = ?2 AND folder_id = ?3",
+			archiveFolder[0].id,
+			id,
+			Folders.INBOX,
+		);
+		return "archived" as const;
+	});
+}
+
+export function setEmailDisposition(
+	storage: TriageStorage,
+	id: string,
+	value: string,
+	provenance: string,
+) {
+	return storage.transactionSync(() => {
+		const email = [
+			...storage.sql.exec(
+				"SELECT id FROM emails WHERE id = ?1",
+				id,
+			),
+		] as { id: string }[];
+		if (email.length === 0) return null;
+
+		const currentDisposition = [
+			...storage.sql.exec(
+				`SELECT tag FROM email_tags
+				 WHERE email_id = ?1
+				   AND tag LIKE 'disposition:%'
+				 LIMIT 1`,
+				id,
+			),
+		] as { tag: string }[];
+		const previousValue = currentDisposition[0]?.tag.startsWith("disposition:")
+			? currentDisposition[0].tag.slice("disposition:".length)
+			: null;
+		const analysis = [
+			...storage.sql.exec(
+				`SELECT schema_version, policy_version, model
+				 FROM email_triage_analysis
+				 WHERE email_id = ?1`,
+				id,
+			),
+		] as {
+			schema_version: number | null;
+			policy_version: number | null;
+			model: string | null;
+		}[];
+
+		const tag = `disposition:${value}`;
+		storage.sql.exec(
+			`DELETE FROM email_tags WHERE email_id = ?1 AND tag LIKE 'disposition:%'`,
+			id,
+		);
+		storage.sql.exec(
+			`INSERT INTO email_tags (email_id, tag, provenance) VALUES (?1, ?2, ?3)`,
+			id,
+			tag,
+			provenance,
+		);
+
+		if (provenance === "manual" && previousValue !== value) {
+			const latestAnalysis = analysis[0];
+			storage.sql.exec(
+				`INSERT INTO email_triage_feedback
+					(id, email_id, event_type, previous_value, new_value,
+					 feature_schema_version, policy_version, model, created_at)
+				 VALUES (?1, ?2, 'manual_disposition', ?3, ?4, ?5, ?6, ?7, ?8)`,
+				crypto.randomUUID(),
+				id,
+				previousValue,
+				value,
+				latestAnalysis?.schema_version ?? null,
+				latestAnalysis?.policy_version ?? null,
+				latestAnalysis?.model ?? null,
+				new Date().toISOString(),
+			);
+		}
+
+		return { tag, provenance };
+	});
+}

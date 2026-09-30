@@ -1,0 +1,75 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+:root {
+  --shell: #dfe1e5;
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --ink: #14171c;
+  --ink-2: #5c6675;
+  --ink-3: #8d97a6;
+  --line: #e5e7ec;
+  --accent: #157f76;
+  --accent-soft: #e3f1ef;
+  --accent-ink: #0f6b63;
+  --iris-soft: #ece9fb;
+  --iris-ink: #5741bd;
+  --azure-soft: #e7f0fc;
+  --azure-ink: #2a5c9c;
+  --warm-soft: #fbf1e0;
+  --warm-ink: #8a5a12;
+  --moss-soft: #e9f2e5;
+  --moss-ink: #3f6b34;
+  --ruby-soft: #fceaea;
+  --ruby-ink: #a13636;
+}
+[data-theme='dark'] {
+  --shell: #06070a;
+  --bg: #0c0e12;
+  --surface: #14171d;
+  --surface-2: #101319;
+  --ink: #e9ecf1;
+  --ink-2: #9ba5b3;
+  --ink-3: #6c7683;
+  --line: #22262e;
+  --accent: #56cec1;
+  --accent-soft: #10312e;
+  --accent-ink: #6fdccf;
+  --iris-soft: #211d3a;
+  --iris-ink: #a99cf5;
+  --azure-soft: #16233a;
+  --azure-ink: #8db6ec;
+  --warm-soft: #2e2415;
+  --warm-ink: #dcb26a;
+  --moss-soft: #182615;
+  --moss-ink: #8fc47f;
+  --ruby-soft: #2d1717;
+  --ruby-ink: #ef9a9a;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--shell);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -166,6 +168,132 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_emails_folder_id ON emails(folder_id);
             CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date);
             CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
-        `,
+		`,
 	},
+	{
+		name: "9_add_envelope_recipient",
+		sql: txn(`ALTER TABLE emails ADD COLUMN envelope_recipient TEXT;`),
+	},
+	{
+		name: "10_add_email_tags",
+		sql: txn(`
+            CREATE TABLE email_tags (
+                email_id TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                provenance TEXT NOT NULL CHECK (provenance IN ('rule', 'agent', 'manual')),
+                PRIMARY KEY (email_id, tag),
+                FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX idx_email_tags_tag ON email_tags(tag);
+            CREATE UNIQUE INDEX idx_email_tags_one_disposition
+                ON email_tags(email_id) WHERE tag LIKE 'disposition:%';
+		`),
+	},
+	{
+		name: "11_add_trashed_at",
+		sql: txn(`
+			ALTER TABLE emails ADD COLUMN trashed_at TEXT;
+			UPDATE emails
+			SET trashed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			WHERE folder_id = 'trash' AND trashed_at IS NULL;
+		`),
+	},
+	{
+		name: "12_add_email_triage_analysis",
+		sql: txn(`
+			CREATE TABLE email_triage_analysis (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				schema_version INTEGER NOT NULL,
+				policy_version INTEGER NOT NULL,
+				model TEXT NOT NULL,
+				features_json TEXT NOT NULL,
+				predicted_disposition TEXT NOT NULL CHECK (predicted_disposition IN (
+					'action-required', 'review', 'auto-file', 'hold'
+				)),
+				analyzed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			CREATE INDEX idx_email_triage_analysis_disposition
+				ON email_triage_analysis(predicted_disposition);
+		`),
+	},
+	{
+		name: "13_add_email_triage_feedback",
+		sql: txn(`
+			CREATE TABLE email_triage_feedback (
+				id TEXT PRIMARY KEY NOT NULL,
+				email_id TEXT NOT NULL,
+				event_type TEXT NOT NULL CHECK (event_type IN ('manual_disposition')),
+				previous_value TEXT,
+				new_value TEXT NOT NULL,
+				feature_schema_version INTEGER,
+				policy_version INTEGER,
+				model TEXT,
+				created_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			CREATE INDEX idx_email_triage_feedback_email_created
+				ON email_triage_feedback(email_id, created_at);
+		`),
+	},
+	{
+		name: "14_remove_hold_disposition",
+		sql: txn(`
+			UPDATE email_tags
+			SET tag = 'disposition:auto-file'
+			WHERE tag = 'disposition:hold';
+
+			CREATE TABLE email_triage_analysis_v2 (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				schema_version INTEGER NOT NULL,
+				policy_version INTEGER NOT NULL,
+				model TEXT NOT NULL,
+				features_json TEXT NOT NULL,
+				predicted_disposition TEXT NOT NULL CHECK (predicted_disposition IN (
+					'action-required', 'review', 'auto-file'
+				)),
+				analyzed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+
+			INSERT INTO email_triage_analysis_v2
+				(email_id, schema_version, policy_version, model, features_json, predicted_disposition, analyzed_at)
+			SELECT
+				email_id,
+				schema_version,
+				CASE WHEN predicted_disposition = 'hold' THEN 2 ELSE policy_version END,
+				model,
+				features_json,
+				CASE WHEN predicted_disposition = 'hold' THEN 'auto-file' ELSE predicted_disposition END,
+				analyzed_at
+			FROM email_triage_analysis;
+
+			DROP TABLE email_triage_analysis;
+			ALTER TABLE email_triage_analysis_v2 RENAME TO email_triage_analysis;
+			CREATE INDEX idx_email_triage_analysis_disposition
+				ON email_triage_analysis(predicted_disposition);
+		`),
+	},
+	{
+		name: "15_add_email_triage_failures",
+		sql: txn(`
+			CREATE TABLE email_triage_failures (
+				email_id TEXT PRIMARY KEY NOT NULL,
+				failed_at TEXT NOT NULL,
+				FOREIGN KEY(email_id) REFERENCES emails(id) ON DELETE CASCADE
+			);
+		`),
+	},
+	{
+ name: "16_add_triage_policy_history",
+ sql: txn(`CREATE TABLE triage_policy_history (
+ revision INTEGER PRIMARY KEY NOT NULL,
+ policy_json TEXT NOT NULL,
+ reason TEXT NOT NULL,
+ created_at TEXT NOT NULL
+ );`),
+ },
 ];

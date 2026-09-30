@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Pagination, Tooltip } from "@cloudflare/kumo";
+import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
 	ArrowBendUpLeftIcon,
@@ -16,9 +18,9 @@ import {
 	TrashIcon,
 	TrayIcon,
 } from "@phosphor-icons/react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useIsMutating, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { Folders } from "shared/folders";
 import { formatListDate } from "shared/dates";
 import MailboxSplitView from "~/components/MailboxSplitView";
@@ -27,12 +29,31 @@ import {
 	useDeleteEmail,
 	useEmails,
 	useMarkThreadRead,
+	useMoveEmail,
+	useMoveThread,
 	useUpdateEmail,
 } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
 import { queryKeys } from "~/queries/keys";
 import { useUIStore } from "~/hooks/useUIStore";
 import type { Email } from "~/types";
+import MobileEmailRow from "~/components/mobile/MobileEmailRow";
+import MobileQuickActions from "~/components/mobile/MobileQuickActions";
+import MobileTagSheet from "~/components/mobile/MobileTagSheet";
+import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
+import {
+	getMobileArchiveSuccessAction,
+	getMobileEmailNeighborIds,
+	getMobileEmailPanelCloseAction,
+	getMobileEmailSelectionAction,
+	isEmailStillSelected,
+	isMobileEmailDetailHistoryEntry,
+	shouldMarkUrlSelectedEmailRead,
+	withMobileEmailDetailHistoryEntry,
+} from "~/lib/mobile-email-navigation";
+import EmailTagFilter from "~/components/EmailTagFilter";
+import { useAvailableEmailTags } from "~/queries/email-tags";
+import { buildEmailListParams } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -140,43 +161,126 @@ function FolderEmptyState({
 	);
 }
 
+function TagFilterEmptyState({ tag, onClear }: { tag: string; onClear: () => void }) {
+	return (
+		<div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+			<div className="mb-4"><EnvelopeSimpleIcon size={42} weight="thin" className="text-kumo-subtle" /></div>
+			<h3 className="text-base font-semibold text-kumo-default">No matching emails</h3>
+			<p className="mt-1 max-w-xs break-all text-sm text-kumo-subtle">
+				No conversations in this folder have the <span className="font-medium text-kumo-default">{tag}</span> tag.
+			</p>
+			<button type="button" onClick={onClear} className="mt-4 text-sm font-medium text-kumo-brand underline underline-offset-2">
+				Clear tag filter
+			</button>
+		</div>
+	);
+}
+
 export default function EmailListRoute() {
 	const { mailboxId, folder } = useParams<{
 		mailboxId: string;
 		folder: string;
 	}>();
+	const location = useLocation();
+	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const urlSelectedEmailId = searchParams.get("email");
 	const {
 		selectedEmailId,
 		isComposing,
 		selectEmail,
+		clearEmailSelection,
 		closePanel,
 		startCompose,
+		isSendingEmail: isDraftSending,
 	} = useUIStore();
 	const [page, setPage] = useState(1);
+	const [mobileFilter, setMobileFilter] = useState<"all" | "needs">("all");
+	const [selectedTag, setSelectedTag] = useState<string>();
+	const [isMobileViewport, setIsMobileViewport] = useState(false);
+	const isMobileViewportRef = useRef(false);
+	const [quickActionEmail, setQuickActionEmail] = useState<Email | null>(null);
+	const [tagsEmail, setTagsEmail] = useState<Email | null>(null);
+	const toastManager = useKumoToastManager();
+
+	useEffect(() => {
+		const media = window.matchMedia("(max-width: 767px)");
+		const update = () => {
+			isMobileViewportRef.current = media.matches;
+			setIsMobileViewport(media.matches);
+		};
+		update();
+		media.addEventListener("change", update);
+		return () => media.removeEventListener("change", update);
+	}, []);
 
 	const queryClient = useQueryClient();
 	const updateEmail = useUpdateEmail();
 	const markThreadRead = useMarkThreadRead();
 	const deleteEmail = useDeleteEmail();
+	const moveEmail = useMoveEmail();
+	const moveThread = useMoveThread();
+	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
+	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSendingEmail = isDraftSending || isSendingMutation;
+	const setUrlSelectedEmailId = useCallback((emailId: string | null, replace: boolean, markAsMobileDetail = false) => {
+		setSearchParams((current) => {
+			const next = new URLSearchParams(current);
+			if (emailId) next.set("email", emailId);
+			else next.delete("email");
+			return next;
+		}, {
+			replace,
+			state: markAsMobileDetail
+				? withMobileEmailDetailHistoryEntry(location.state)
+				: location.state,
+		});
+	}, [location.state, setSearchParams]);
+	const closeEmailPanel = useCallback((returnThroughHistory = true) => {
+		const closeAction = getMobileEmailPanelCloseAction({
+			urlSelectedEmailId,
+			returnThroughHistory,
+			locationState: location.state,
+		});
+		if (closeAction.type === "return-through-history") navigate(-1);
+		else if (closeAction.type === "clear-url-selection") setUrlSelectedEmailId(null, true);
+		closePanel();
+	}, [closePanel, location.state, navigate, setUrlSelectedEmailId, urlSelectedEmailId]);
 
 	const params = useMemo(
-		() => ({
+		() => buildEmailListParams({
 			folder: folder || "",
-			page: String(page),
-			limit: String(PAGE_SIZE),
+			page,
+			limit: PAGE_SIZE,
+			needsReply: isMobileViewport && folder === Folders.INBOX && mobileFilter === "needs",
+			tag: selectedTag,
 		}),
-		[folder, page],
+		[folder, isMobileViewport, mobileFilter, page, selectedTag],
 	);
 
 	const {
 		data: emailData,
 		isFetching: isRefreshing,
+		isError,
 	} = useEmails(mailboxId, params, { refetchInterval: 30_000 });
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
+	const { data: needsReplyData } = useEmails(
+		mailboxId,
+		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
+		{ enabled: folder === Folders.INBOX && isMobileViewport },
+	);
+	const { data: allFolderData } = useEmails(
+		mailboxId,
+		{ folder: folder || "", page: "1", limit: "1" },
+		{ enabled: !!folder && isMobileViewport },
+	);
 
 	const { data: folders = [] } = useFolders(mailboxId);
+	const availableTagsQuery = useAvailableEmailTags(mailboxId);
+	const availableTags = availableTagsQuery.data ?? [];
 
 	const folderName = useMemo(() => {
 		const found = folders.find((f) => f.id === folder);
@@ -185,19 +289,53 @@ export default function EmailListRoute() {
 	}, [folders, folder]);
 
 	const isPanelOpen = selectedEmailId !== null || isComposing;
+	const mobileEmailNeighbors = useMemo(
+		() => getMobileEmailNeighborIds(emails, selectedEmailId),
+		[emails, selectedEmailId],
+	);
+	const wasMobileViewportRef = useRef(false);
+	const wasComposingRef = useRef(isComposing);
+	const previousUrlSelectedEmailIdRef = useRef(urlSelectedEmailId);
+	const wasMobileEmailDetailHistoryEntryRef = useRef(isMobileEmailDetailHistoryEntry(location.state));
+	const readMarkedEmailIdRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		const action = getMobileEmailSelectionAction({
+			isMobileViewport,
+			wasMobileViewport: wasMobileViewportRef.current,
+			wasComposing: wasComposingRef.current,
+			previousUrlSelectedEmailId: previousUrlSelectedEmailIdRef.current,
+			urlSelectedEmailId,
+			selectedEmailId,
+			isComposing,
+			wasMobileEmailDetailHistoryEntry: wasMobileEmailDetailHistoryEntryRef.current,
+			isCurrentMobileEmailDetailHistoryEntry: isMobileEmailDetailHistoryEntry(location.state),
+		});
+		wasMobileViewportRef.current = isMobileViewport;
+		wasComposingRef.current = isComposing;
+		previousUrlSelectedEmailIdRef.current = urlSelectedEmailId;
+		wasMobileEmailDetailHistoryEntryRef.current = isMobileEmailDetailHistoryEntry(location.state);
+
+		if (action.type === "select-url-email") selectEmail(action.emailId);
+		else if (action.type === "write-selected-email-to-url") setUrlSelectedEmailId(action.emailId, true);
+		else if (action.type === "clear-selection") selectEmail(null);
+		else if (action.type === "restore-detail-history") navigate(1);
+	}, [isMobileViewport, isComposing, location.state, navigate, selectedEmailId, selectEmail, setUrlSelectedEmailId, urlSelectedEmailId]);
 
 	// Track folder identity to detect folder changes vs page changes
 	const prevFolderRef = useRef<string | undefined>(undefined);
 
 	useEffect(() => {
-		const folderChanged = prevFolderRef.current !== `${mailboxId}/${folder}`;
-		prevFolderRef.current = `${mailboxId}/${folder}`;
+		const currentFolder = `${mailboxId}/${folder}`;
+		const isInitialFolder = prevFolderRef.current === undefined;
+		const folderChanged = prevFolderRef.current !== currentFolder;
+		prevFolderRef.current = currentFolder;
 
 		if (folderChanged) {
-			closePanel();
+			if (!isComposing && !(isInitialFolder && urlSelectedEmailId)) closeEmailPanel(false);
 			setPage(1);
 		}
-	}, [mailboxId, folder, closePanel]);
+	}, [mailboxId, folder, isComposing, closeEmailPanel, urlSelectedEmailId]);
 
 	const toggleStar = (e: React.MouseEvent, email: Email) => {
 		e.preventDefault();
@@ -210,20 +348,64 @@ export default function EmailListRoute() {
 			});
 	};
 
-	const handleDelete = (e: React.MouseEvent, emailId: string) => {
-		e.preventDefault();
-		e.stopPropagation();
+	const deleteById = async (emailId: string) => {
+		if (isDeleting || moveEmail.isPending || isSavingDraft || isSendingEmail) return;
 		if (mailboxId) {
-			const confirmed = window.confirm("Are you sure you want to delete this email?");
+			const permanent = folder === Folders.TRASH || folder === Folders.DRAFT;
+			const confirmed = window.confirm(permanent
+				? "Permanently delete this email? This cannot be undone."
+				: "Move this email to Trash?");
 			if (!confirmed) return;
-			deleteEmail.mutate({ mailboxId, id: emailId });
-			if (selectedEmailId === emailId) closePanel();
+			try {
+				if (permanent) {
+					await deleteEmail.mutateAsync({ mailboxId, id: emailId });
+					toastManager.add({ title: "Email permanently deleted" });
+				} else {
+					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
+					toastManager.add({ title: "Email moved to Trash" });
+				}
+				if (!isEmailStillSelected(useUIStore.getState().selectedEmailId, emailId)) {
+					clearEmailSelection(emailId);
+					return;
+				}
+				if (urlSelectedEmailId === emailId) {
+					closeEmailPanel();
+				} else {
+					clearEmailSelection(emailId);
+				}
+			} catch {
+				toastManager.add({ title: "Failed to delete email", variant: "error" });
+			}
 		}
 	};
+
+	const handleDelete = async (e: React.MouseEvent, emailId: string) => {
+		e.preventDefault();
+		e.stopPropagation();
+		await deleteById(emailId);
+	};
+
+	const handleMoveToFolder = async (email: Email, folderId: string) => {
+		if (!mailboxId || moveEmail.isPending || moveThread.isPending) return;
+		try {
+			const sourceFolderId = folder || email.folder_id;
+			if (folder !== Folders.DRAFT && (email.thread_count ?? 1) > 1 && sourceFolderId) {
+				await moveThread.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId, sourceFolderId });
+			} else {
+				await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId });
+			}
+			toastManager.add({ title: folderId === Folders.ARCHIVE ? "Email archived" : "Email moved" });
+		} catch {
+			toastManager.add({ title: "Failed to move email", variant: "error" });
+		}
+	};
+
+	const handleArchive = (email: Email) => handleMoveToFolder(email, folder === Folders.ARCHIVE || folder === Folders.TRASH ? Folders.INBOX : Folders.ARCHIVE);
 
 	const handleRefresh = () => {
 		if (mailboxId) {
 			queryClient.invalidateQueries({ queryKey: ["emails", mailboxId] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.emailTags.available(mailboxId) });
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.folders.list(mailboxId),
 			});
@@ -238,13 +420,16 @@ export default function EmailListRoute() {
 		return !email.read;
 	};
 
-	const handleRowClick = (email: Email) => {
-		selectEmail(email.id);
-		if (mailboxId && hasUnread(email)) {
-			if (email.thread_id && email.thread_count && email.thread_count > 1) {
+	const markEmailRead = useCallback((email: Email) => {
+		const hasUnreadMessages = email.thread_unread_count !== undefined
+			? email.thread_unread_count > 0
+			: !email.read;
+		if (mailboxId && hasUnreadMessages) {
+			if ((email.thread_count ?? 1) > 1) {
 				markThreadRead.mutate({
 					mailboxId,
-					threadId: email.thread_id,
+					threadId: email.thread_id || email.id,
+					folderId: folder || email.folder_id || undefined,
 				});
 			} else {
 				updateEmail.mutate({
@@ -254,6 +439,70 @@ export default function EmailListRoute() {
 				});
 			}
 		}
+	}, [folder, mailboxId, markThreadRead, updateEmail]);
+
+	const markEmailReadOnce = useCallback((email: Email) => {
+		if (readMarkedEmailIdRef.current === email.id) return;
+		readMarkedEmailIdRef.current = email.id;
+		markEmailRead(email);
+	}, [markEmailRead]);
+
+	useEffect(() => {
+		if (selectedEmailId !== readMarkedEmailIdRef.current) {
+			readMarkedEmailIdRef.current = null;
+		}
+	}, [selectedEmailId]);
+
+	const handleUrlEmailLoaded = useCallback((email: Email) => {
+		if (!shouldMarkUrlSelectedEmailRead({
+			isMobileViewport,
+			isComposing,
+			urlSelectedEmailId,
+			selectedEmailId,
+			emailId: email.id,
+			lastMarkedEmailId: readMarkedEmailIdRef.current,
+		})) return;
+		markEmailReadOnce(email);
+	}, [isComposing, isMobileViewport, markEmailReadOnce, selectedEmailId, urlSelectedEmailId]);
+
+	useEffect(() => {
+		if (!urlSelectedEmailId) return;
+		const email = emails.find((item) => item.id === urlSelectedEmailId);
+		if (email) handleUrlEmailLoaded(email);
+	}, [emails, handleUrlEmailLoaded, urlSelectedEmailId]);
+
+	const handleRowClick = (email: Email) => {
+		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
+		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
+		selectEmail(email.id);
+		markEmailReadOnce(email);
+	};
+
+	const navigateMobileEmail = (emailId: string) => {
+		setUrlSelectedEmailId(emailId, true);
+		selectEmail(emailId);
+		const email = emails.find((item) => item.id === emailId);
+		if (email) markEmailReadOnce(email);
+	};
+
+	const handleArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
+		const action = getMobileArchiveSuccessAction({
+			isMobileViewport: isMobileViewportRef.current,
+			selectedEmailId: useUIStore.getState().selectedEmailId,
+			archivedEmailId,
+			nextEmailId,
+		});
+		if (action.type === "navigate") navigateMobileEmail(action.emailId);
+		else if (action.type === "close") closeEmailPanel();
+	};
+
+	const handleToggleRead = (email: Email) => {
+		if (!mailboxId) return;
+		if (hasUnread(email) && (email.thread_count ?? 1) > 1) {
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id, folderId: folder || email.folder_id || undefined });
+			return;
+		}
+		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
 	};
 
 	const formatParticipants = (email: Email): string => {
@@ -268,16 +517,61 @@ export default function EmailListRoute() {
 		return email.sender.split("@")[0];
 	};
 
+	const needsReplyCount = needsReplyData?.totalCount ?? 0;
+	const allFolderCount = allFolderData?.totalCount ?? totalCount;
+	const mobileEmails = emails;
+	const handleTagSelect = (tag?: string) => {
+		setSelectedTag(tag);
+		setPage(1);
+		closeEmailPanel(false);
+	};
+
+	useEffect(() => {
+		setPage(1);
+	}, [mobileFilter]);
+
 	return (
 		<MailboxSplitView
 			selectedEmailId={selectedEmailId}
 			isComposing={isComposing}
+			onCloseEmail={closeEmailPanel}
+			mobileEmailNavigation={{
+				...mobileEmailNeighbors,
+				onNavigate: navigateMobileEmail,
+				onUrlEmailLoaded: handleUrlEmailLoaded,
+				onArchiveSuccess: handleArchiveSuccess,
+			}}
 		>
+			<>
+				<div className="flex h-full flex-col bg-kumo-recessed md:hidden">
+					<div className="shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<h1 className="text-xl font-semibold text-kumo-default">{folderName}</h1>
+								<p className="mt-0.5 text-xs text-kumo-subtle">
+									{totalCount} conversations · {folders.find((item) => item.id === folder)?.unreadCount ?? 0} unread
+								</p>
+							</div>
+							<Button variant="ghost" shape="square" size="sm" icon={<ArrowsClockwiseIcon size={18} className={isRefreshing ? "animate-spin" : ""} />} onClick={handleRefresh} disabled={isRefreshing} aria-label="Refresh" />
+						</div>
+						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+							<button type="button" onClick={() => setMobileFilter("all")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "all" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>All {allFolderCount}</button>
+							{needsReplyCount > 0 && <button type="button" onClick={() => setMobileFilter("needs")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "needs" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>Needs you {needsReplyCount}</button>}
+							<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
+						</div>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+						{isRefreshing && emails.length === 0 ? <EmailListSkeleton /> : isError ? <p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p> : mobileEmails.length > 0 ? mobileEmails.map((email) => <MobileEmailRow key={email.id} email={email} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onArchive={() => handleArchive(email)} onToggleRead={() => handleToggleRead(email)} onToggleStar={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { starred: !email.starred } })} onLongPress={() => setQuickActionEmail(email)} />) : selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />}
+					</div>
+					{totalCount > PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
+				</div>
+				<div className="hidden h-full flex-col md:flex">
 				{/* Folder header */}
-				<div className="flex items-center justify-between px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-					<h1 className="text-lg font-semibold text-kumo-default">
-						{folderName}
-					</h1>
+				<div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+					<div className="flex min-w-0 flex-wrap items-center gap-3">
+						<h1 className="text-lg font-semibold text-kumo-default">{folderName}</h1>
+						<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
+					</div>
 					<div className="flex items-center gap-1">
 						{totalCount > 0 && (
 							<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
@@ -309,9 +603,11 @@ export default function EmailListRoute() {
 
 				{/* Email rows */}
 				<div className="flex-1 overflow-y-auto">
-				{isRefreshing && emails.length === 0 ? (
-					<EmailListSkeleton />
-				) : emails.length > 0 ? (
+					{isRefreshing && emails.length === 0 ? (
+						<EmailListSkeleton />
+					) : isError ? (
+						<p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p>
+					) : emails.length > 0 ? (
 						<div>
 							{emails.map((email) => {
 								const isSelected = selectedEmailId === email.id;
@@ -388,6 +684,11 @@ export default function EmailListRoute() {
 													{formatListDate(email.date)}
 												</span>
 											</div>
+							<TriageErrorBadge
+								tags={email.tags}
+								threadHasTriageError={email.thread_has_triage_error}
+								className="mt-1"
+							/>
 											<div className="truncate text-sm mt-0.5">
 												<span
 													className={hasUnread(email) ? "font-medium text-kumo-default" : "text-kumo-subtle"}
@@ -403,7 +704,7 @@ export default function EmailListRoute() {
 									</div>
 
 										{/* Hover actions */}
-										<div className="hidden group-hover:flex items-center shrink-0">
+										<div className="flex md:hidden md:group-hover:flex items-center shrink-0">
 											<Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
 												<Button
 													variant="ghost"
@@ -422,14 +723,15 @@ export default function EmailListRoute() {
 													aria-label={email.read ? "Mark unread" : "Mark read"}
 												/>
 											</Tooltip>
-											<Tooltip content="Delete" asChild>
+											<Tooltip content={folder === Folders.TRASH ? "Delete permanently" : "Delete"} asChild>
 												<Button
 													variant="ghost"
 													shape="square"
 													size="sm"
-													icon={<TrashIcon size={14} />}
-													onClick={(e) => handleDelete(e, email.id)}
-													aria-label="Delete"
+															icon={<TrashIcon size={14} />}
+															onClick={(e) => handleDelete(e, email.id)}
+															disabled={isDeleting || isSavingDraft || isSendingEmail}
+													aria-label={folder === Folders.TRASH ? "Delete permanently" : "Delete"}
 												/>
 											</Tooltip>
 										</div>
@@ -438,10 +740,7 @@ export default function EmailListRoute() {
 							})}
 						</div>
 					) : (
-						<FolderEmptyState
-							folder={folder}
-							onCompose={() => startCompose()}
-						/>
+						selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />
 					)}
 				</div>
 
@@ -456,6 +755,22 @@ export default function EmailListRoute() {
 						/>
 					</div>
 				)}
+				</div>
+				<MobileQuickActions
+					open={quickActionEmail !== null}
+					email={quickActionEmail || { read: false, starred: false }}
+					isArchived={folder === Folders.ARCHIVE}
+					isTrash={folder === Folders.TRASH}
+					onClose={() => setQuickActionEmail(null)}
+					onArchive={() => { if (quickActionEmail) void handleArchive(quickActionEmail); setQuickActionEmail(null); }}
+					onMoveToInbox={() => { if (quickActionEmail) void handleMoveToFolder(quickActionEmail, Folders.INBOX); setQuickActionEmail(null); }}
+					onToggleRead={() => { if (quickActionEmail) handleToggleRead(quickActionEmail); setQuickActionEmail(null); }}
+					onToggleStar={() => { if (quickActionEmail && mailboxId) updateEmail.mutate({ mailboxId, id: quickActionEmail.id, data: { starred: !quickActionEmail.starred } }); setQuickActionEmail(null); }}
+					onOpenTags={() => { setTagsEmail(quickActionEmail); setQuickActionEmail(null); }}
+					onDelete={() => { if (quickActionEmail) void deleteById(quickActionEmail.id); setQuickActionEmail(null); }}
+				/>
+				{tagsEmail && <MobileTagSheet open mailboxId={mailboxId} emailId={tagsEmail.id} emailSubject={tagsEmail.subject} emailSender={tagsEmail.sender} onClose={() => setTagsEmail(null)} />}
+			</>
 		</MailboxSplitView>
 	);
 }

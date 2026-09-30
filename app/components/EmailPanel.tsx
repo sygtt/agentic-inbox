@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useKumoToastManager } from "@cloudflare/kumo";
+import { useIsMutating } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
@@ -11,13 +14,23 @@ import EmailPanelHeader from "~/components/email-panel/EmailPanelHeader";
 import EmailPanelToolbar from "~/components/email-panel/EmailPanelToolbar";
 import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
+import { isEmailStillSelected } from "~/lib/mobile-email-navigation";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
-import { useDeleteEmail, useEmail, useMoveEmail, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
+import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
+import MobileEmailDetail from "~/components/mobile/MobileEmailDetail";
 import type { Email, Folder, Mailbox } from "~/types";
+
+interface MobileEmailNavigation {
+	previousEmailId: string | null;
+	nextEmailId: string | null;
+	onNavigate: (emailId: string) => void;
+	onUrlEmailLoaded: (email: Email) => void;
+	onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
+}
 
 function EmailPanelSkeleton() {
 	return (
@@ -29,28 +42,63 @@ function EmailPanelSkeleton() {
 	);
 }
 
-export default function EmailPanel({ emailId }: { emailId: string }) {
+function EmailPanelLoadError({ onClose }: { onClose: () => void }) {
+	return (
+		<div role="alert" className="flex h-full min-h-[240px] flex-col items-center justify-center p-6 text-center">
+			<h2 className="text-base font-semibold text-kumo-default">Could not load this email</h2>
+			<p className="mt-2 max-w-sm text-sm text-kumo-subtle">It may have been deleted or moved. Return to the list and choose another message.</p>
+			<button type="button" onClick={onClose} className="mt-4 text-sm font-medium text-kumo-brand underline underline-offset-2">
+				Back to list
+			</button>
+		</div>
+	);
+}
+
+export default function EmailPanel({
+	emailId,
+	onClose,
+	mobileEmailNavigation,
+}: {
+	emailId: string;
+	onClose: () => void;
+	mobileEmailNavigation: MobileEmailNavigation;
+}) {
 	const { mailboxId, folder } = useParams<{ mailboxId: string; folder: string }>();
-	const { data: email } = useEmail(mailboxId, emailId) as { data?: Email };
-	const { data: threadRepliesRaw } = useThreadReplies(mailboxId, email?.thread_id) as {
+	const { data: email, isError: isEmailError } = useEmail(mailboxId, emailId) as { data?: Email; isError: boolean };
+	const { data: threadRepliesRaw, isPending: isThreadPending, isError: isThreadError } = useThreadReplies(mailboxId, email?.thread_id || email?.id, folder || email?.folder_id) as {
 		data?: Email[];
+		isPending: boolean;
+		isError: boolean;
 	};
 	const updateEmail = useUpdateEmail();
+	const markThreadRead = useMarkThreadRead();
 	const deleteEmailMut = useDeleteEmail();
+	const isDeleting = useIsMutating({ mutationKey: ["deleteEmail"] }) > 0;
+	const isSendingMutation = useIsMutating({ mutationKey: ["sendEmail"] }) > 0;
+	const isSavingDraft = useIsMutating({ mutationKey: ["saveDraft"] }) > 0;
 	const moveEmailMut = useMoveEmail();
+	const moveThreadMut = useMoveThread();
 	const sendEmailMut = useSendEmail();
 	const replyMut = useReplyToEmail();
 	const { data: folders = [] } = useFolders(mailboxId) as { data?: Folder[] };
 	const { data: currentMailbox } = useMailbox(mailboxId) as {
 		data?: Mailbox;
 	};
-	const { closePanel, startCompose } = useUIStore();
+	const {
+		startCompose,
+		isSendingEmail: isDraftSending,
+		setSendingEmail,
+	} = useUIStore();
+	const isSendingEmail = isDraftSending || isSendingMutation;
+	const isDeletionBlocked = isDeleting || isSavingDraft || isSendingEmail;
+	// A failed thread fetch must not block safe single-message actions.
+	const threadActionsDisabled = isThreadPending;
 	const toastManager = useKumoToastManager();
 	const [isSending, setIsSending] = useState(false);
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
 	const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 	const [previewImage, setPreviewImage] = useState<{ url: string; filename: string } | null>(null);
-	const isDraftFolder = folder === Folders.DRAFT;
+	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
 
 	const threadReplies = useMemo(() => {
 		if (!threadRepliesRaw || !email) return [];
@@ -61,6 +109,17 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		if (!email) return [];
 		return [email, ...threadReplies].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 	}, [email, threadReplies]);
+	useEffect(() => {
+		if (!email || isThreadPending) return;
+		const emailWithThreadReadState = isThreadError
+			? email
+			: {
+				...email,
+				thread_count: allMessages.length,
+				thread_unread_count: allMessages.filter((message) => !message.read).length,
+			};
+		mobileEmailNavigation.onUrlEmailLoaded(emailWithThreadReadState);
+	}, [allMessages, email, isThreadError, isThreadPending, mobileEmailNavigation.onUrlEmailLoaded]);
 
 	// Reset expanded state only when the selected email changes, not on every refetch.
 	// Using allMessages as a dependency would reset user expand/collapse state on background refetches.
@@ -85,11 +144,66 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const moveToFolders = useMemo(() => { const cur = folder || email?.folder_id; return folders.filter((f) => f.id !== cur); }, [folders, folder, email?.folder_id]);
 
-	if (!email) return <EmailPanelSkeleton />;
+	if (!email) {
+		if (isEmailError || !mailboxId) return <EmailPanelLoadError onClose={onClose} />;
+		return <EmailPanelSkeleton />;
+	}
 
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
-	const handleMove = (folderId: string) => { if (mailboxId) { moveEmailMut.mutate({ mailboxId, id: email.id, folderId }); closePanel(); } };
-	const handleDelete = () => { if (mailboxId) { if (!window.confirm("Are you sure you want to delete this email?")) return; deleteEmailMut.mutate({ mailboxId, id: email.id }); closePanel(); } };
+	const handleToggleRead = () => {
+		if (!mailboxId || threadActionsDisabled) return;
+		if (!isThreadError && allMessages.length > 1 && allMessages.some((message) => !message.read)) {
+			markThreadRead.mutate({ mailboxId, threadId: email.thread_id || email.id, folderId: folder || email.folder_id || undefined });
+			return;
+		}
+		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
+	};
+	const closeIfStillSelected = () => {
+		if (isEmailStillSelected(useUIStore.getState().selectedEmailId, email.id)) onClose();
+	};
+	const handleMove = async (folderId: string, closeOnSuccess = true) => {
+		if (!mailboxId || threadActionsDisabled) return false;
+		try {
+			const sourceFolderId = folder || email.folder_id;
+			if (!isThreadError && !isDraftFolder && email.folder_id !== Folders.DRAFT && allMessages.length > 1 && sourceFolderId) {
+				await moveThreadMut.mutateAsync({ mailboxId, threadId: email.thread_id || email.id, folderId, sourceFolderId });
+			} else {
+				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
+			}
+			if (closeOnSuccess) closeIfStillSelected();
+			return true;
+		} catch {
+			toastManager.add({ title: "Failed to move email", variant: "error" });
+			return false;
+		}
+	};
+	const handleArchive = async () => {
+		const nextEmailId = mobileEmailNavigation.nextEmailId;
+		const moved = await handleMove(
+			email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE,
+			false,
+		);
+		if (moved) mobileEmailNavigation.onArchiveSuccess(email.id, nextEmailId);
+	};
+	const handleDelete = async () => {
+		if (!mailboxId || isDeletionBlocked) return;
+		const permanent = isDraftFolder || folder === Folders.TRASH || email.folder_id === Folders.TRASH;
+		if (!window.confirm(permanent
+			? "Permanently delete this email? This cannot be undone."
+			: "Move this email to Trash?")) return;
+		try {
+			if (permanent) {
+				await deleteEmailMut.mutateAsync({ mailboxId, id: email.id });
+				toastManager.add({ title: "Email permanently deleted" });
+			} else {
+				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
+				toastManager.add({ title: "Email moved to Trash" });
+			}
+			closeIfStillSelected();
+		} catch {
+			toastManager.add({ title: "Failed to delete email", variant: "error" });
+		}
+	};
 
 	const handleEditDraft = (draftMsg?: Email) => {
 		const target = draftMsg || email;
@@ -99,16 +213,18 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 	const handleDeleteDraft = async (draftMsg?: Email) => {
 		const target = draftMsg || email;
-		if (!mailboxId) return;
+		if (!mailboxId || isDeletionBlocked) return;
 		if (!window.confirm("Discard this draft?")) return;
 		deleteEmailMut.mutate({ mailboxId, id: target.id });
 		toastManager.add({ title: "Draft discarded" });
-		if (target.id === emailId) closePanel();
+		if (target.id === emailId) onClose();
 	};
 
 	const handleSendDraft = async (draftMsg?: Email) => {
+		if (isDeletionBlocked) return;
 		let target = draftMsg || email;
 		if (!mailboxId || !currentMailbox) return;
+		setSendingEmail(true);
 		setIsSending(true);
 		try {
 			if (!target.recipient || !target.subject) { try { const fresh = await api.getEmail(mailboxId, target.id) as Email; if (fresh) target = fresh; } catch {} }
@@ -130,55 +246,87 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 			if (originalEmail) await replyMut.mutateAsync({ mailboxId, emailId: originalEmail.id, email: emailData }); else await sendEmailMut.mutateAsync({ mailboxId, email: emailData });
 			await deleteEmailMut.mutateAsync({ mailboxId, id: target.id });
 			toastManager.add({ title: "Email sent!" });
-			if (isDraftFolder) closePanel();
+			if (isDraftFolder) closeIfStillSelected();
 		} catch (err) {
 			const message = (err instanceof Error ? err.message : null) || "Failed to send email.";
 			toastManager.add({ title: message, variant: "error" });
-		} finally { setIsSending(false); }
+		} finally {
+			setSendingEmail(false);
+			setIsSending(false);
+		}
 	};
 
 	const hasThread = allMessages.length > 1;
 
 	return (
-		<div className="flex flex-col h-full">
-			<EmailPanelToolbar
-				email={email}
-				mailboxId={mailboxId}
-				isDraftFolder={isDraftFolder}
-				isSending={isSending}
-				moveToFolders={moveToFolders}
-				onBack={closePanel}
-				onSendDraft={() => handleSendDraft()}
-				onEditDraft={() => handleEditDraft()}
-				onReply={() =>
-					startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
-				}
-				onReplyAll={() =>
-					startCompose({
-						mode: "reply-all",
-						originalEmail: lastReceivedMessage,
-					})
-				}
-				onForward={() => startCompose({ mode: "forward", originalEmail: email })}
-				onToggleStar={toggleStar}
-				onToggleRead={() => {
-					if (mailboxId) {
-						updateEmail.mutate({
-							mailboxId,
-							id: email.id,
-							data: { read: !email.read },
-						});
+		<>
+			<div className="h-full md:hidden">
+				<MobileEmailDetail
+					email={email}
+					allMessages={allMessages}
+					mailboxId={mailboxId}
+					mailboxEmail={currentMailbox?.email}
+					folder={folder}
+					folders={folders}
+					isDraftFolder={isDraftFolder}
+					isDeleting={isDeletionBlocked}
+					isSending={isSending}
+					threadActionsDisabled={threadActionsDisabled}
+					expandedMessages={expandedMessages}
+					onToggleExpand={toggleExpand}
+					onBack={onClose}
+					previousEmailId={mobileEmailNavigation.previousEmailId}
+					nextEmailId={mobileEmailNavigation.nextEmailId}
+					onNavigate={mobileEmailNavigation.onNavigate}
+					onArchive={handleArchive}
+					onMove={handleMove}
+					onToggleRead={handleToggleRead}
+					onToggleStar={toggleStar}
+					onDelete={handleDelete}
+					onReply={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })}
+					onEditDraft={(message) => handleEditDraft(message)}
+					onSendDraft={(message) => handleSendDraft(message)}
+					onDeleteDraft={(message) => handleDeleteDraft(message)}
+					onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
+				/>
+			</div>
+			<div className="hidden h-full flex-col md:flex">
+				<EmailPanelToolbar
+					email={email}
+					mailboxId={mailboxId}
+					isDraftFolder={isDraftFolder}
+					isTrash={folder === Folders.TRASH || email.folder_id === Folders.TRASH}
+					isSending={isSending}
+					isDeleting={isDeletionBlocked}
+					threadActionsDisabled={threadActionsDisabled}
+					hasUnread={allMessages.some((message) => !message.read)}
+					moveToFolders={moveToFolders}
+					onBack={onClose}
+					onSendDraft={() => handleSendDraft()}
+					onEditDraft={() => handleEditDraft()}
+					onReply={() =>
+						startCompose({ mode: "reply", originalEmail: lastReceivedMessage })
 					}
-				}}
-				onMove={handleMove}
-				onViewSource={() => setSourceViewEmail(email)}
-				onDelete={handleDelete}
-			/>
+					onReplyAll={() =>
+						startCompose({
+							mode: "reply-all",
+							originalEmail: lastReceivedMessage,
+						})
+					}
+					onForward={() => startCompose({ mode: "forward", originalEmail: email })}
+					onToggleStar={toggleStar}
+					onToggleRead={handleToggleRead}
+					onMove={handleMove}
+					onViewSource={() => setSourceViewEmail(email)}
+					onDelete={handleDelete}
+				/>
 
 			<EmailPanelHeader
 				subject={email.subject}
 				messageCount={allMessages.length}
 				showThreadCount={hasThread}
+				mailboxId={mailboxId}
+				emailId={email.id}
 			/>
 
 			<div className="flex-1 overflow-y-auto">
@@ -194,7 +342,9 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 								isLast={idx === allMessages.length - 1}
 								isDraft={isDraft}
 								isSending={isDraft ? isSending : false}
+				isDeleting={isDeletionBlocked}
 								isExpanded={expandedMessages.has(msg.id)}
+								showTriageErrorBadge={msg.id !== email.id}
 								onToggleExpand={() => toggleExpand(msg.id)}
 								onSendDraft={isDraft ? () => handleSendDraft(msg) : undefined}
 								onEditDraft={isDraft ? () => handleEditDraft(msg) : undefined}
@@ -217,12 +367,13 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				)}
 			</div>
 
+			</div>
 			<EmailPanelDialogs
 				sourceViewEmail={sourceViewEmail}
 				previewImage={previewImage}
 				onCloseSource={() => setSourceViewEmail(null)}
 				onClosePreview={() => setPreviewImage(null)}
 			/>
-		</div>
+		</>
 	);
 }

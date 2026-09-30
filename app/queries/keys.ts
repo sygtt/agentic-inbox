@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -13,8 +15,17 @@ export const queryKeys = {
 			["emails", mailboxId, params] as const,
 		detail: (mailboxId: string, emailId: string) =>
 			["emails", mailboxId, emailId] as const,
-		thread: (mailboxId: string, threadId: string) =>
-			["emails", mailboxId, "thread", threadId] as const,
+		thread: (mailboxId: string, threadId: string, folderId?: string) =>
+			["emails", mailboxId, "thread", threadId, folderId] as const,
+	},
+	emailTags: {
+		list: (mailboxId: string, emailId: string) =>
+			["email-tags", mailboxId, emailId] as const,
+		available: (mailboxId: string) => ["email-tags", mailboxId, "available"] as const,
+	},
+	emailTriage: {
+		analysis: (mailboxId: string, emailId: string) =>
+			["email-triage", mailboxId, emailId] as const,
 	},
 	folders: {
 		list: (mailboxId: string) => ["folders", mailboxId] as const,

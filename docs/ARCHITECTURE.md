@@ -1,0 +1,592 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# Architecture
+
+This document describes the current architecture of this fork of Cloudflare's `agentic-inbox`.
+
+It is intended primarily as a map for maintainers and AI coding agents. Read it before making architectural, persistence, routing, authentication, or cross-cutting changes.
+
+When the implementation changes, update this document in the same branch.
+
+## High-level overview
+
+Agentic Inbox is a Cloudflare Workers application that combines a React web UI, an HTTP API, email receive/send handlers, per-mailbox Durable Objects, R2 storage, Cloudflare Access, Workers AI, and the Cloudflare Agents SDK.
+
+```text
+                         Cloudflare Access
+                               |
+                               v
++-------------+        +--------------------+
+| Browser     |------->| workers/app.ts     |
+| React UI    |        | Hono entrypoint    |
++-------------+        +---------+----------+
+                                |
+             +------------------+------------------+
+             |                  |                  |
+             v                  v                  v
+       /api/v1/*          /agents/*             /mcp*
+       Hono API           EmailAgent DO         EmailMCP DO
+             |                  |                  |
+             v                  v                  |
+       MailboxDO          Workers AI              |
+       SQLite                   |                  |
+             |                  +------------------+
+             |
+             +---------> R2
+                         mailbox settings
+                         attachment blobs
+
+Cloudflare Email Routing
+             |
+             v
+      Worker email handler
+             |
+             v
+        receiveEmail()
+             |
+             +-------> MailboxDO
+             +-------> R2 attachments
+             +-------> EmailAgent auto-triage trigger
+
+Outbound UI/API
+             |
+             v
+       send_email binding
+             |
+             v
+      Cloudflare Email Service
+```
+
+## Runtime entrypoint
+
+The Worker entrypoint is `workers/app.ts`, configured by `wrangler.jsonc`.
+
+`workers/app.ts` is responsible for the top-level request pipeline:
+
+1. Validate Cloudflare Access JWTs outside local development.
+2. Expose the MCP endpoint at `/mcp` and `/mcp/*`.
+3. Mount the Hono API from `workers/index.ts`.
+4. Route `/agents/*` to Cloudflare Agents SDK Durable Objects.
+5. Fall back to React Router for UI/SSR requests.
+6. Export the Cloudflare Email Worker `email()` handler for inbound mail.
+
+Order matters. MCP and agent routes must be registered before the React Router catch-all.
+
+## Authentication boundary
+
+Production authentication is enforced in `workers/app.ts` using Cloudflare Access.
+
+The Worker expects two production secrets:
+
+- `POLICY_AUD`
+- `TEAM_DOMAIN`
+
+The `cf-access-jwt-assertion` header is validated with `jose` against the Access JWKS endpoint and configured audience.
+
+Local development skips Access validation through `import.meta.env.DEV`.
+
+### Authorization model
+
+Cloudflare Access is the trust boundary for the entire application.
+
+There is currently no per-mailbox authorization. Any identity allowed through the shared Access policy can access all mailboxes and the MCP server.
+
+Do not assume mailbox isolation is an authorization boundary. Mailbox Durable Objects isolate storage and state, not user permissions.
+
+## Cloudflare bindings
+
+`wrangler.jsonc` defines the primary runtime bindings.
+
+| Binding / variable | Purpose |
+| --- | --- |
+| `MAILBOX` | `MailboxDO` namespace, one logical Durable Object per mailbox ID |
+| `EMAIL_AGENT` | `EmailAgent` namespace, normally addressed by mailbox ID |
+| `EMAIL_MCP` | `EmailMCP` Durable Object binding for MCP access |
+| `BUCKET` | R2 bucket used for mailbox settings and attachment blobs |
+| `AI` | Workers AI binding |
+| `EMAIL` | `send_email` binding used for outbound delivery |
+| `TYPESAFE_API_KEY` | Secret used only by direct TypeSafe Jev inbound triage |
+| `DOMAINS` | Comma-separated domains exposed to the application |
+| `EMAIL_ADDRESSES` | Optional allow-list restricting mailbox creation and inbound matching |
+| `POLICY_AUD` | Cloudflare Access audience secret |
+| `TEAM_DOMAIN` | Cloudflare Access team/JWKS URL secret |
+
+Deployment-specific values should not be embedded into reusable application logic.
+
+## HTTP API
+
+The primary HTTP API is implemented in `workers/index.ts` under `/api/v1`.
+
+Major API areas include:
+
+- configuration
+- mailbox CRUD
+- email listing and retrieval
+- sending
+- drafts
+- read/star updates
+- delete/move
+- thread retrieval, read, and move operations
+- reply/forward
+- folders
+- search
+- attachment download
+- email tag and disposition management
+- read-only triage analysis
+
+Email tag endpoints are mailbox-scoped and inherit the existing Cloudflare
+Access and `requireMailbox` checks:
+
+- `GET /api/v1/mailboxes/:mailboxId/emails/:id/tags`
+- `GET /api/v1/mailboxes/:mailboxId/emails/:id/triage`
+- `GET /api/v1/mailboxes/:mailboxId/tags` for distinct available tag names
+- `PUT /api/v1/mailboxes/:mailboxId/emails/:id/tags` with `{ tag, provenance }`
+- `DELETE /api/v1/mailboxes/:mailboxId/emails/:id/tags/:tag`
+- `PUT /api/v1/mailboxes/:mailboxId/emails/:id/disposition` with `{ value, provenance }`
+
+Folder email-list requests accept an exact `tag` query parameter. The Durable
+Object applies the filter before paginating and returns a matching total count;
+threaded rows match when a message in the current folder's conversation has
+that tag. The synthetic `triage:error` tag is matched against triage-failure
+records as well as stored user tags. Search accepts the same exact filter
+through the `tag:` operator. Available tag names refresh every thirty seconds
+with the email list and on manual refresh so synthetic triage-error options do
+not remain stale in a long-lived mailbox view.
+
+Tags use a conservative lowercase `namespace:value` format. Generic tag
+updates cannot bypass disposition replacement; disposition values are limited
+to `action-required`, `review`, and `auto-file`. The name `triage:error`
+remains available as a normal user tag for compatibility. Automatic triage
+failure state is stored separately and returned as a synthetic tag with
+`system` provenance; generic tag updates do not affect that state.
+
+Routes scoped to `/api/v1/mailboxes/:mailboxId/*` use `requireMailbox` middleware to resolve and validate the mailbox before operating on its Durable Object.
+
+The browser UI normally talks to this same-origin API.
+
+## Mailbox identity and registry
+
+A mailbox is identified by its lower-case email address.
+
+Creating a mailbox performs two distinct operations:
+
+1. Store mailbox settings in R2 at:
+
+   ```text
+   mailboxes/<email-address>.json
+   ```
+
+2. Resolve `MAILBOX.idFromName(email)` and initialize the corresponding `MailboxDO`.
+
+The R2 settings object acts as the current mailbox registry. A mailbox can have a Durable Object identity even if no registry object exists, so application code explicitly checks R2 when deciding whether a mailbox exists.
+
+Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, and optional per-mailbox agent system prompt.
+
+## Mailbox storage
+
+Each mailbox maps to its own `MailboxDO` using the mailbox address as the Durable Object name.
+
+`MailboxDO` uses SQLite-backed Durable Object storage through Drizzle ORM.
+
+Primary tables are:
+
+### `folders`
+
+Stores built-in and custom folders.
+
+### `emails`
+
+Stores message metadata and body content, including:
+
+- sender
+- recipient
+- SMTP envelope recipient, when received through Email Routing
+- cc / bcc
+- subject
+- received/saved timestamp
+- read/starred state
+- body
+- thread metadata
+- original Message-ID
+- raw parsed headers
+- `trashed_at`, set when a message enters Trash and cleared when restored
+
+### `attachments`
+
+Stores attachment metadata only.
+
+Attachment bytes are stored separately in R2.
+
+### `email_tags`
+
+Stores zero or more user and automation tags per email. Each `(email_id, tag)`
+pair is unique and stores a constrained provenance value: `rule`, `agent`, or
+`manual`. The three `disposition:*` values are mutually exclusive and are
+replaced atomically when a new disposition is set. Existing user tags named
+`triage:error` remain ordinary editable tags.
+
+### `email_triage_failures`
+
+Stores the most recent automatic triage failure timestamp for each email. A
+successful validated analysis clears the row in the same transaction that
+persists the new analysis and disposition state. The tag read APIs add a
+synthetic `{ tag: "triage:error", provenance: "system" }` entry while this row
+exists, keeping the system state distinct from any existing user tag with the
+same name. Rows cascade when the email is deleted.
+
+### `email_triage_analysis`
+
+Stores the latest validated Jev feature set, returned model version, policy and
+schema versions, predicted disposition, and analysis timestamp for each email.
+Rows are upserted during re-analysis and cascade when the email is deleted.
+
+### `email_triage_feedback`
+
+Stores append-only `manual_disposition` events when a human changes an email's
+disposition. Each event records the previous and new values, the email,
+timestamp, and the latest available triage schema, policy, and model versions.
+Feedback rows cascade when their email is deleted. Repeated corrections remain
+separate events; an idempotent manual write and an agent disposition do not
+create feedback.
+
+## Durable Object migrations
+
+Mailbox schema migrations are defined in `workers/durableObject/migrations.ts`.
+
+The migration runner keeps a `d1_migrations` compatibility table and applies missing migrations during `MailboxDO` construction.
+
+Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, structured inbound email triage analysis, append-only manual triage feedback, and a separate triage-failure table that preserves pre-existing tags.
+
+Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
+
+## R2 layout
+
+R2 currently has two important responsibilities.
+
+### Mailbox settings
+
+```text
+mailboxes/<mailbox-id>.json
+```
+
+These files are also used to determine whether a mailbox is registered.
+
+### Attachment blobs
+
+```text
+attachments/<email-id>/<attachment-id>/<filename>
+```
+
+Attachment metadata is stored in the mailbox SQLite database while the actual content lives in R2.
+
+Permanent email deletion removes its attachment blobs. Normal UI deletion moves the message to Trash and retains its SQLite metadata and R2 attachments. `DELETE /api/v1/.../emails/:id` is a guarded permanent primitive: only Trash and Draft messages can use it. Moving into Trash sets `trashed_at`; moving out clears it, and moving an already trashed message to Trash does not reset it.
+
+The Worker `scheduled()` handler runs daily from the configured Cron Trigger. It enumerates registered mailboxes from the R2 mailbox registry and asks each `MailboxDO` to purge current Trash rows with `trashed_at` at least 30 days old. The DO deletes attachment objects from R2 before deleting their SQLite rows, so an R2 failure leaves retryable metadata for the next run. A failure for one mailbox is logged without stopping the remaining mailboxes.
+
+Deleting a mailbox currently removes the R2 mailbox settings object but does not yet delete the corresponding Durable Object data or all mailbox-owned blobs; the API contains a TODO for that behavior.
+
+## Inbound email flow
+
+Inbound mail enters through the Worker `email()` handler in `workers/app.ts`, which calls `receiveEmail()` in `workers/index.ts`.
+
+Current flow:
+
+1. Resolve the mailbox from the SMTP envelope recipient and the optional `CATCH_ALL_MAILBOX` setting.
+2. Confirm the selected storage mailbox registry object exists in R2, or explicitly reject a routing policy failure with `setReject()`.
+3. Reject invalid or oversized raw message streams.
+4. Parse the message with `postal-mime`.
+5. Extract visible `To`, `Cc`, and `Bcc` addresses from the parsed message.
+6. Resolve the mailbox Durable Object.
+7. Store attachment blobs in R2.
+8. Compute threading information.
+9. Store the email in the mailbox SQLite database, preserving the envelope recipient separately from visible headers.
+10. Trigger the corresponding `EmailAgent` asynchronously to run structured triage. A rejected invocation or non-2xx response also records `triage:error` from the inbound handler.
+
+### Recipient resolution and catch-all behavior
+
+The SMTP envelope recipient is the source of truth for routing. Visible `To`, `Cc`, and `Bcc` headers remain message metadata and are not rewritten.
+
+When `EMAIL_ADDRESSES` is configured, addresses in that list retain direct-mailbox behavior. Unknown or non-allow-listed recipients are routed to the registered `CATCH_ALL_MAILBOX` when it is configured. When catch-all is empty, unknown recipients are rejected so they are not silently stored in an unrelated mailbox.
+
+A non-empty `EMAIL_ADDRESSES` value remains restrictive even if its entries are malformed; invalid configuration cannot disable the allow-list by normalization alone.
+
+The mailbox creation API permits the configured catch-all address in addition to an explicit `EMAIL_ADDRESSES` allow-list, so a fresh environment can register the catch-all mailbox before receiving mail.
+
+The config API exposes the catch-all mailbox to the home screen, which includes it in the mailbox picker and auto-creation flow. Search queries match `envelope_recipient` for both free-text and `to:` searches.
+
+The home screen protects the configured catch-all mailbox from deletion. When only catch-all routing is configured, other explicitly created mailboxes remain manageable.
+
+The original envelope recipient is stored in `emails.envelope_recipient`. The Durable Object and Agent scope is the storage mailbox, which may be the catch-all mailbox.
+
+If the selected mailbox is not registered, or `CATCH_ALL_MAILBOX` is invalid or unregistered, the email handler explicitly rejects the message with `setReject()`. Genuine storage or processing failures are rethrown so Email Routing can retry them.
+
+## Threading
+
+Inbound threading uses standard email headers when available:
+
+- `Message-ID`
+- `In-Reply-To`
+- `References`
+
+The first reference, `In-Reply-To`, or the new internal message ID is used as the initial `thread_id`.
+
+For messages without threading headers, the mailbox Durable Object can fall back to subject/sender-based conversation discovery.
+
+Thread list and detail queries contain additional subject-normalization fallback logic for legacy messages without explicit thread IDs. Thread-level read operations use the same fallback so a legacy subject-grouped conversation is handled as one conversation. Thread moves are scoped to the source folder, preserving Sent and Draft copies that share the same conversation.
+
+## Outbound email flow
+
+Outbound email is handled by the mailbox email POST API and `workers/email-sender.ts`.
+
+Current behavior is important to understand:
+
+1. Validate that the sender matches the selected mailbox.
+2. Generate internal and outbound Message-IDs.
+3. Check per-mailbox send rate limiting.
+4. Store attachments.
+5. Create a copy in the mailbox `Sent` folder.
+6. Start Email Service delivery with `executionCtx.waitUntil()`.
+7. Immediately return HTTP `202` with `status: "sent"`.
+
+Because delivery is deferred, a successful API/UI response means the application accepted and queued the send attempt. It does **not** prove remote delivery succeeded.
+
+Deferred delivery failures are currently logged with `console.error` after the API response has already been returned.
+
+This distinction should be preserved in UI/observability work unless the send architecture is intentionally redesigned.
+
+## AI agent architecture
+
+Each mailbox has an `EmailAgent` Durable Object addressed by mailbox ID.
+
+`EmailAgent` extends `AIChatAgent` from `@cloudflare/ai-chat` and uses Workers AI through `workers-ai-provider`.
+
+The current default model is configured in code in `workers/agent/index.ts`.
+
+The agent has tools for operations including:
+
+- listing messages
+- reading a message
+- loading a full thread
+- searching messages
+- creating a new draft
+- creating a reply draft
+- marking messages read/unread
+- moving messages
+- discarding drafts
+
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat continues to use GLM-4.7-Flash. The separate inbound trigger extracts triage metadata and conditionally moves a newly received message from Inbox to Archive when the persisted agent disposition is still `auto-file`. It does not create drafts, send, or delete messages.
+
+### Inbound triage flow
+
+After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
+
+The agent builds bounded plain-text current-email and recent-thread state, calls
+Jev through the provider boundary in `workers/lib/jev-provider.ts`, validates
+the structured response, and stores it in `email_triage_analysis`. The active
+provider calls TypeSafe's direct System One API with the `TYPESAFE_API_KEY`
+secret. A deterministic policy then applies an `agent`-provenance
+`disposition:*` tag unless a manual disposition already exists. Manual
+disposition changes through the existing disposition API replace the tag and,
+when the value changes, append a feedback event in the same Durable Object
+transaction. A successful inbound triage result moves a newly received email from Inbox to Archive only when its `disposition:auto-file` tag was applied and persisted. The mailbox operation rechecks the stored analysis, agent disposition, and current folder together, so a manual folder move or disposition change made while Jev is running takes precedence. Review, action-required, and preserved manual dispositions do not trigger a move. Archive failures are logged separately without marking triage as failed or rolling back the triage result. Existing auto-file messages are not backfilled. No draft, send, or delete occurs. Jev failure is
+logged and does not roll back the already stored inbound message. For an
+existing email, a catchable failure also makes a best-effort, idempotent
+failure-state write. If marker persistence fails, that error is logged
+separately while the original triage failure remains the result. Tag reads
+expose the stored system state as `triage:error` with `system` provenance. A
+later successful analysis removes the marker atomically with analysis
+persistence, including when a manual disposition remains authoritative. The inbound
+handler also marks rejected EmailAgent fetches and non-2xx responses, covering
+failures before the agent's triage handler runs.
+
+The mailbox-scoped triage read endpoint returns only the latest validated
+analysis and its timestamp. The email detail panel presents it in a collapsed
+section, and labels Jev's predicted disposition separately from the current
+disposition tag. Thread detail responses include each message's own tags so a
+failure badge remains attached to the message that owns the system
+`triage:error` state. Each displayed thread message refreshes its tags every
+three seconds for at most twenty query attempts, so a sibling's pending triage
+result can appear without refetching the full thread. The selected email detail
+also rechecks missing analysis and refreshes tags. Tag refresh continues after
+a failure marker appears; when a previously observed marker clears, the detail
+view reloads analysis once so a successful retry replaces any earlier result.
+Email lists refresh every thirty seconds. Threaded folder lists expose a
+separate thread-level error state when any message in the conversation has a
+stored failure row; the representative email's `tags` remain limited to that
+message, while thread details continue to show tags per message.
+
+### Prompt safety
+
+AI logic includes draft verification. Jev output remains untrusted metadata;
+it is not used as an authentication or authorization signal, and its
+deterministic disposition policy performs no destructive or external action.
+
+## MCP
+
+`EmailMCP` is exposed under `/mcp` and `/mcp/*`.
+
+It is protected by the same top-level Cloudflare Access middleware as the rest of the production application.
+
+Because there is no per-mailbox authorization, an MCP client that passes Access can potentially operate across mailboxes when given mailbox identifiers. Treat MCP credentials and Access policy scope accordingly.
+
+MCP `get_email` and `get_thread` responses expose normalized readable text in
+the `body` and `body_text` fields. When the stored representation is retained,
+it is exposed as `body_html`; database persistence and browser/API body
+rendering remain unchanged.
+
+MCP email list, search, single-email, and thread responses retain the existing
+`folder_id` as the current folder and add a `tags` array containing `{ tag,
+provenance }` objects. The `set_email_disposition` tool accepts only
+`action-required`, `review`, or `auto-file`; it replaces the previous
+disposition and records the new tag with `agent` provenance without taking any
+other action.
+
+Email list and search results derive their `snippet` from normalized readable
+text, then truncate it to the list limit. Stored email bodies and pagination
+semantics are unchanged.
+
+## Frontend architecture
+
+The frontend lives under `app/` and is built with:
+
+- React 19
+- React Router v7
+- Tailwind CSS
+- Zustand
+- TanStack Query
+- TipTap
+- Cloudflare Kumo components
+
+Important areas:
+
+```text
+app/components/   reusable UI and email-client components
+app/hooks/        client hooks and UI state behavior
+app/queries/      TanStack Query definitions
+app/routes/       React Router route modules
+app/services/     API-facing client services
+app/types/        frontend types
+app/root.tsx      root layout/providers
+app/routes.ts     route configuration
+```
+
+The React application and API are served from the same Worker/origin.
+
+At viewport widths below `md`, `app/routes/mailbox.tsx` supplies the mailbox
+identity bar and safe-area-aware bottom navigation. The mobile layer under
+`app/components/mobile/` renders real list rows, pointer gestures, quick/tag
+sheets, and the narrow detail view while reusing the same TanStack Query and
+Zustand state as the desktop split view. Threaded list requests support the
+server-side `needs_reply` filter and thread-level read/move mutations. The
+mobile folders route uses the existing folder API; search remains server-side
+through `useSearchEmails`. Mobile list and search rows show Japanese disposition
+labels and prioritize system triage errors, with a compact overflow count.
+
+Opening a message from a mobile folder list stores its ID in the `email` query
+parameter. Browser Back restores the same list state, while previous/next
+controls replace that parameter and follow the loaded list order. Opening a
+message through those controls marks it read and resets detail scrolling to
+the top. Opening or refreshing a URL-selected unread message also marks it
+read after its email and thread data load, using the thread-aware read mutation.
+Entering the mobile layout preserves an existing desktop selection in the URL,
+and an unavailable URL-selected email shows a recoverable error state. While a
+compose is active, URL selection takes no action so viewport changes do not
+discard unsaved fields; closing a compose after resizing to mobile restores any
+underlying selected email in the URL. Browser Back during a compose restores the
+marked mobile detail history entry so the compose remains open with its fields
+intact. Closing detail through filters, sending a compose successfully, or
+deleting the selected list row clears its URL selection, preventing stale IDs
+from reopening the detail. On mobile, archiving
+selects the next lower message from the pre-archive list when available,
+provided the archived message is still selected when the request completes;
+the viewport at completion determines whether it advances or closes the detail.
+Async moves, deletions, and draft sends close detail only when their original
+email remains selected after the request completes.
+
+## Important files by responsibility
+
+| Responsibility | Main files |
+| --- | --- |
+| Worker request entrypoint / auth / SSR | `workers/app.ts` |
+| HTTP API and inbound-email orchestration | `workers/index.ts` |
+| Mailbox persistence and querying | `workers/durableObject/index.ts` |
+| Mailbox schema | `workers/db/schema.ts` |
+| Mailbox migrations | `workers/durableObject/migrations.ts` |
+| AI mailbox agent | `workers/agent/index.ts` |
+| Outbound message construction/delivery | `workers/email-sender.ts` |
+| Reply/forward endpoints | `workers/routes/reply-forward.ts` |
+| Shared email helpers | `workers/lib/email-helpers.ts` |
+| Agent tools | `workers/lib/tools.ts` |
+| R2 attachment helpers | `workers/lib/attachments.ts` |
+| Runtime bindings | `wrangler.jsonc` |
+| Frontend | `app/` |
+| Shared folder constants | `shared/folders.ts` |
+
+## Architectural invariants
+
+When modifying this repository, preserve these invariants unless the task explicitly changes them:
+
+1. Production requests fail closed when Cloudflare Access is missing or invalid.
+2. Mailbox identity is deterministic and lower-case.
+3. Mailbox persisted state is isolated by Durable Object identity.
+4. Attachment metadata and attachment bytes remain consistent across SQLite and R2.
+5. Original email provenance must not be discarded for routing convenience.
+6. AI decisions are not security decisions.
+7. AI-created replies remain drafts until an explicit send action.
+8. Runtime customization should remain as small as practical to ease upstream synchronization.
+
+## Known architectural pressure points
+
+These areas deserve extra care because they are likely customization or conflict hotspots:
+
+- inbound recipient/mailbox resolution
+- future catch-all behavior
+- R2 mailbox registry semantics
+- Durable Object migrations
+- threading logic
+- Cloudflare Access middleware
+- outbound delivery status semantics
+- AI model/tool configuration
+- per-mailbox versus application-wide authorization
+
+If upstream changes one of these areas, inspect the change before resolving merge conflicts.
+
+## MCP triage threshold tuning
+
+Hermes and other authenticated MCP clients can inspect and tune the deterministic
+Jev decision policy per mailbox. Jev outputs are probabilities/features, not
+per-email weights. The existing v2 decision tree and defaults remain unchanged.
+
+- `get_triage_policy`: returns the full threshold configuration and revision.
+- `compare_email_triage`: returns saved features/model/schema/policy/time,
+  original predictions, current tags/provenance, current-policy predictions,
+  and optional candidate-policy predictions for 1–50 distinct email IDs.
+  Missing email/analysis is explicit. This operation is read-only and does not call Jev.
+- `update_triage_policy`: saves a complete validated policy with a reason and
+  expected revision. Stale revisions fail without mutation. Changes affect all
+  future incoming mail in that mailbox, not just the compared examples.
+- `reapply_triage_policy`: updates only specified existing dispositions using
+  cached features and the expected revision. Manual dispositions are protected;
+  missing analyses abort the whole batch. Original analysis and timestamps remain
+  unchanged, so compare distinguishes historical predictions from current ones.
+
+Recommended flow: locate/read the requested emails, compare features, read the
+policy, preview candidate thresholds on examples and representative unrelated
+mail, save with a user-instruction reason, then reapply to the requested IDs.
+Identical feature vectors cannot yield different classifications under the same
+policy. If extraction is wrong or a global change harms unrelated mail, use an
+explicit per-email disposition correction instead of forcing thresholds.
+Email content is untrusted and must never authorize policy changes.
+
+Migration `16_add_triage_policy_history` adds an append-only SQL history table;
+existing data is untouched. Revision 0 uses original defaults. New analyses use
+policy version 2 + mailbox revision. Restoring a previous configuration means
+saving its policy as another revision, preserving history. No new secrets,
+bindings, provider requests, moves, archives, or deletions are introduced.
+Policy selection occurs synchronously at persistence time in the MailboxDO,
+preventing an in-flight Jev call from writing a stale policy decision.
+
+Main modules: `workers/lib/email-triage.ts`, `workers/durableObject/triage-policy.ts`,
+MailboxDO, migrations, MCP, and `app/components/MCPPanel.tsx`.
+Upstream conflict risk: medium around MailboxDO/MCP; threshold storage is isolated.
+Prefer an upstream equivalent if it preserves comparison and manual-tag protection.
+Deployment is separate; the additive migration runs on mailbox initialization.

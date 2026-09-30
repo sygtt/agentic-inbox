@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -31,11 +33,13 @@ import { useCallback, useEffect } from "react";
 interface RichTextEditorProps {
 	value: string;
 	onChange: (value: string) => void;
+	readOnly?: boolean;
 }
 
 export default function RichTextEditor({
 	value,
 	onChange,
+	readOnly = false,
 }: RichTextEditorProps) {
 	const editor = useEditor({
 		extensions: [
@@ -73,6 +77,10 @@ export default function RichTextEditor({
 		}
 	}, [value, editor]);
 
+	useEffect(() => {
+		if (editor && !editor.isDestroyed) editor.setEditable(!readOnly);
+	}, [editor, readOnly]);
+
 	const setLink = useCallback(() => {
 		if (!editor) return;
 		const previousUrl = editor.getAttributes("link").href;
@@ -88,7 +96,7 @@ export default function RichTextEditor({
 	if (!editor) return null;
 
 	return (
-		<div className="rounded-lg border border-kumo-line overflow-hidden flex flex-col h-full">
+		<div className={`rounded-lg border border-kumo-line overflow-hidden flex flex-col h-full ${readOnly ? "pointer-events-none opacity-70" : ""}`}>
 			{/* Toolbar */}
 			<div className="flex flex-wrap items-center gap-0.5 bg-kumo-recessed px-2 py-1.5 border-b border-kumo-line shrink-0">
 				{/* Text formatting */}

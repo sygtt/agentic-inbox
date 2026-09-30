@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -46,6 +48,11 @@ function CopyButton({ text }: { text: string }) {
 }
 
 const TOOLS = [
+ { name: "get_triage_policy", desc: "Jev分類の閾値・設定版を取得" },
+ { name: "compare_email_triage", desc: "メールの特徴量比較・変更後の分類を試算" },
+ { name: "update_triage_policy", desc: "メールボックス全体の分類閾値を保存" },
+ { name: "reapply_triage_policy", desc: "指定メールを再分類（手動分類は保護）" },
+ { name: "set_email_disposition", desc: "メールの分類タグを変更" },
 	{ name: "list_mailboxes", desc: "List all mailboxes" },
 	{ name: "list_emails", desc: "List emails in a folder" },
 	{ name: "get_email", desc: "Read a full email with body" },
@@ -95,7 +102,10 @@ export default function MCPPanel() {
 					</p>
 				</div>
 
-				{/* MCP URL */}
+				<p className="text-xs text-kumo-subtle leading-relaxed">
+ Hermesなどから「似たメールの分類を統一」と指示できます。特徴量を比較し、閾値変更を試算してから保存します。設定はメールボックス全体の今後の受信メールに適用され、既存メールの変更は再適用ツールで指定します。
+ </p>
+ {/* MCP URL */}
 				<div className="space-y-1.5">
 					<label className="text-xs font-medium text-kumo-strong block">
 						Server URL
@@ -119,7 +129,7 @@ export default function MCPPanel() {
 						{TOOLS.map((tool) => (
 							<div
 								key={tool.name}
-								className="flex items-center gap-2.5 px-3 py-2"
+								className="flex flex-wrap items-center gap-2.5 px-3 py-2"
 							>
 								<WrenchIcon
 									size={12}
@@ -131,7 +141,7 @@ export default function MCPPanel() {
 										{tool.name}
 									</span>
 								</div>
-								<span className="text-[11px] text-kumo-subtle shrink-0">
+								<span className="text-[11px] text-kumo-subtle">
 									{tool.desc}
 								</span>
 							</div>

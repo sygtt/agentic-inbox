@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Modified in the sygtt/agentic-inbox fork; see Git history. -->
+
 <div align="center">
   <h1>Agentic Inbox</h1>
   <p><em>A self-hosted email client with an AI agent, running entirely on Cloudflare Workers</em></p>
@@ -61,6 +64,7 @@ npm run dev
 
 1. Set your domain in `wrangler.jsonc`
 2. Create an R2 bucket named `agentic-inbox`: `wrangler r2 bucket create agentic-inbox`
+3. Optional: set `CATCH_ALL_MAILBOX` to a registered mailbox such as `all@example.com` to store mail sent to unknown aliases. The configured catch-all address appears in the mailbox picker and may be created even when `EMAIL_ADDRESSES` is a non-empty allow-list. Its original SMTP recipients are also searchable. Leave it empty to reject unknown SMTP envelope recipients.
 
 ### Deploy
 
@@ -93,6 +97,15 @@ Any user who passes the shared Cloudflare Access policy can access all mailboxes
                      └──────────────────┘     └─────────────────┘
 ```
 
+## Contributing
+
+The fork's branch and pull request workflow is documented in
+[Development](docs/DEVELOPMENT.md). The [main-first migration runbook](docs/MAIN-FIRST-MIGRATION.md)
+describes the branch-history transition and its owner verification steps.
+
 ## License
 
 Apache 2.0 -- see [LICENSE](LICENSE).
+
+See [licensing and provenance](docs/LICENSING.md) for fork-change notices,
+third-party exceptions, and the automated licensing check.

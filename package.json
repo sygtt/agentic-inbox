@@ -9,6 +9,9 @@
 		"bindings": {
 			"DOMAINS": {
 				"description": "Your domain with [Email Routing](https://developers.cloudflare.com/email-routing/) enabled (e.g. `example.com`). After deploying, create a catch-all Email Routing rule pointing to this Worker."
+			},
+			"CATCH_ALL_MAILBOX": {
+				"description": "Optional registered mailbox for unknown SMTP envelope recipients (e.g. `all@example.com`). Leave empty to reject unknown recipients."
 			}
 		}
 	},
@@ -17,7 +20,10 @@
 		"cf-typegen": "wrangler types",
 		"deploy": "npm run build && wrangler deploy",
 		"dev": "react-router dev",
+		"license:check": "node scripts/license-check.mjs",
+		"license:test": "node --experimental-strip-types tests/license-check.test.ts",
 		"preview": "npm run build && vite preview",
+		"test": "node --experimental-strip-types --test tests/*.test.ts",
 		"typecheck": "npm run cf-typegen && react-router typegen && tsc -b"
 	},
 	"dependencies": {
@@ -38,6 +44,7 @@
 		"ai": "^6.0.116",
 		"dompurify": "^3.3.3",
 		"drizzle-orm": "^0.45.1",
+		"entities": "^4.5.0",
 		"hono": "^4.7.11",
 		"isbot": "^5.1.27",
 		"jose": "^6.2.1",

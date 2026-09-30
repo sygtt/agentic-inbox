@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -16,6 +18,17 @@ export interface StoredAttachment {
 	size: number;
 	content_id: string | null;
 	disposition: string;
+}
+
+export async function deleteAttachmentObjects(
+	bucket: Env["BUCKET"],
+	emailId: string,
+	attachments: Pick<StoredAttachment, "id" | "filename">[],
+): Promise<void> {
+	if (attachments.length === 0) return;
+	await bucket.delete(attachments.map((attachment) =>
+		`attachments/${emailId}/${attachment.id}/${attachment.filename}`,
+	));
 }
 
 /**

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -35,6 +37,7 @@ export function useSearchEmails(
 			if (parsed.to) params.to = parsed.to;
 			if (parsed.subject) params.subject = parsed.subject;
 			if (parsed.folder) params.folder = parsed.folder;
+			if (parsed.tag) params.tag = parsed.tag;
 			if (parsed.date_start) params.date_start = parsed.date_start;
 			if (parsed.date_end) params.date_end = parsed.date_end;
 			if (parsed.is_read !== undefined)

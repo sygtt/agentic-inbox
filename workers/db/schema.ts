@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const folders = sqliteTable("folders", {
 	id: text("id").primaryKey(),
@@ -18,6 +20,7 @@ export const emails = sqliteTable("emails", {
 	subject: text("subject"),
 	sender: text("sender"),
 	recipient: text("recipient"),
+	envelope_recipient: text("envelope_recipient"),
 	cc: text("cc"),
 	bcc: text("bcc"),
 	date: text("date"),
@@ -29,6 +32,7 @@ export const emails = sqliteTable("emails", {
 	thread_id: text("thread_id"),
 	message_id: text("message_id"),
 	raw_headers: text("raw_headers"),
+	trashed_at: text("trashed_at"),
 });
 
 export const attachments = sqliteTable("attachments", {
@@ -41,4 +45,47 @@ export const attachments = sqliteTable("attachments", {
 	size: integer("size").notNull(),
 	content_id: text("content_id"),
 	disposition: text("disposition"),
+});
+
+export const emailTags = sqliteTable("email_tags", {
+	email_id: text("email_id")
+		.notNull()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	tag: text("tag").notNull(),
+	provenance: text("provenance").notNull(),
+}, (table) => ({
+	pk: primaryKey({ columns: [table.email_id, table.tag] }),
+}));
+
+export const emailTriageFailures = sqliteTable("email_triage_failures", {
+	email_id: text("email_id")
+		.primaryKey()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	failed_at: text("failed_at").notNull(),
+});
+
+export const emailTriageAnalysis = sqliteTable("email_triage_analysis", {
+	email_id: text("email_id")
+		.primaryKey()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	schema_version: integer("schema_version").notNull(),
+	policy_version: integer("policy_version").notNull(),
+	model: text("model").notNull(),
+	features_json: text("features_json").notNull(),
+	predicted_disposition: text("predicted_disposition").notNull(),
+	analyzed_at: text("analyzed_at").notNull(),
+});
+
+export const emailTriageFeedback = sqliteTable("email_triage_feedback", {
+	id: text("id").primaryKey(),
+	email_id: text("email_id")
+		.notNull()
+		.references(() => emails.id, { onDelete: "cascade" }),
+	event_type: text("event_type").notNull(),
+	previous_value: text("previous_value"),
+	new_value: text("new_value").notNull(),
+	feature_schema_version: integer("feature_schema_version"),
+	policy_version: integer("policy_version"),
+	model: text("model"),
+	created_at: text("created_at").notNull(),
 });

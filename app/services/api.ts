@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Email, Folder, Mailbox } from "~/types";
+import type { Email, EmailTag, EmailTriageAnalysis, Folder, Mailbox } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -97,7 +99,7 @@ interface EmailListResponse {
 const api = {
 	// Config
 	getConfig: () =>
-		get<{ domains: string[]; emailAddresses: string[] }>("/api/v1/config"),
+		get<{ domains: string[]; emailAddresses: string[]; catchAllMailbox: string | null }>("/api/v1/config"),
 
 	// Mailboxes
 	listMailboxes: () => get<Mailbox[]>("/api/v1/mailboxes"),
@@ -123,12 +125,26 @@ const api = {
 		del<void>(`/api/v1/mailboxes/${mailboxId}/emails/${id}`),
 	moveEmail: (mailboxId: string, id: string, folderId: string) =>
 		post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${id}/move`, { folderId }),
-	getThread: (mailboxId: string, threadId: string, opts?: { signal?: AbortSignal }) =>
-		get<Email[]>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}`, { signal: opts?.signal }),
-	markThreadRead: (mailboxId: string, threadId: string) =>
-		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`),
+	moveThread: (mailboxId: string, threadId: string, folderId: string, sourceFolderId: string) =>
+		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/move`, { folderId, sourceFolderId }),
+	getThread: (mailboxId: string, threadId: string, opts?: { signal?: AbortSignal; folderId?: string }) =>
+		get<Email[]>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}`, { signal: opts?.signal, params: opts?.folderId ? { folder: opts.folderId } : undefined }),
+	markThreadRead: (mailboxId: string, threadId: string, folderId?: string) =>
+		post<void>(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}/read`, folderId ? { folderId } : undefined),
 	getAttachment: (mailboxId: string, emailId: string, attachmentId: string) =>
 		get<Blob>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/attachments/${attachmentId}`, { responseType: "blob" }),
+	getEmailTags: (mailboxId: string, emailId: string) =>
+		get<EmailTag[]>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`),
+	getEmailTriageAnalysis: (mailboxId: string, emailId: string, opts?: { signal?: AbortSignal }) =>
+		get<EmailTriageAnalysis | null>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/triage`, { signal: opts?.signal }),
+	listEmailTags: (mailboxId: string) =>
+		get<string[]>(`/api/v1/mailboxes/${mailboxId}/tags`),
+	upsertEmailTag: (mailboxId: string, emailId: string, tag: string, provenance: "manual" | "rule" | "agent" = "manual") =>
+		put<EmailTag>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags`, { tag, provenance }),
+	removeEmailTag: (mailboxId: string, emailId: string, tag: string) =>
+		del<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/tags/${encodeURIComponent(tag)}`),
+	setEmailDisposition: (mailboxId: string, emailId: string, value: string) =>
+		put<EmailTag>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/disposition`, { value, provenance: "manual" }),
 	saveDraft: (
 		mailboxId: string,
 		draft: {
