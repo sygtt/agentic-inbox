@@ -40,9 +40,9 @@ import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 import {
+	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
 	getMobileEmailNeighborIds,
-	isMobileEmailDetailHistoryEntry,
 	shouldAdvanceAfterMobileArchive,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
@@ -229,12 +229,15 @@ export default function EmailListRoute() {
 		});
 	}, [location.state, setSearchParams]);
 	const closeEmailPanel = useCallback((returnThroughHistory = true) => {
-		if (searchParams.has("email")) {
-			if (returnThroughHistory && isMobileEmailDetailHistoryEntry(location.state)) navigate(-1);
-			else setUrlSelectedEmailId(null, true);
-		}
+		const closeAction = getMobileEmailPanelCloseAction({
+			urlSelectedEmailId,
+			returnThroughHistory,
+			locationState: location.state,
+		});
+		if (closeAction.type === "return-through-history") navigate(-1);
+		else if (closeAction.type === "clear-url-selection") setUrlSelectedEmailId(null, true);
 		closePanel();
-	}, [closePanel, location.state, navigate, searchParams, setUrlSelectedEmailId]);
+	}, [closePanel, location.state, navigate, setUrlSelectedEmailId, urlSelectedEmailId]);
 
 	const params = useMemo(
 		() => buildEmailListParams({
@@ -340,7 +343,12 @@ export default function EmailListRoute() {
 					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
 					toastManager.add({ title: "Email moved to Trash" });
 				}
-				clearEmailSelection(emailId);
+				if (urlSelectedEmailId === emailId && selectedEmailId === emailId) {
+					closeEmailPanel();
+				} else {
+					if (urlSelectedEmailId === emailId) setUrlSelectedEmailId(null, true);
+					clearEmailSelection(emailId);
+				}
 			} catch {
 				toastManager.add({ title: "Failed to delete email", variant: "error" });
 			}
@@ -453,7 +461,7 @@ export default function EmailListRoute() {
 	const handleTagSelect = (tag?: string) => {
 		setSelectedTag(tag);
 		setPage(1);
-		closePanel();
+		closeEmailPanel(false);
 	};
 
 	useEffect(() => {

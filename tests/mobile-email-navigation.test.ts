@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	getMobileEmailPanelCloseAction,
 	getMobileEmailNeighborIds,
 	getMobileEmailSelectionAction,
 	isMobileEmailDetailHistoryEntry,
@@ -71,5 +72,29 @@ test("preserves an active compose instead of applying a stale URL email selectio
 		urlSelectedEmailId: "previously-selected",
 		selectedEmailId: null,
 		isComposing: true,
+	}), { type: "none" });
+});
+
+test("clears URL email selection when closing the panel outside its mobile history entry", () => {
+	const historyState = withMobileEmailDetailHistoryEntry({ from: "inbox" });
+	assert.deepEqual(getMobileEmailPanelCloseAction({
+		urlSelectedEmailId: "selected",
+		returnThroughHistory: true,
+		locationState: historyState,
+	}), { type: "return-through-history" });
+	assert.deepEqual(getMobileEmailPanelCloseAction({
+		urlSelectedEmailId: "selected",
+		returnThroughHistory: false,
+		locationState: historyState,
+	}), { type: "clear-url-selection" });
+	assert.deepEqual(getMobileEmailPanelCloseAction({
+		urlSelectedEmailId: "selected",
+		returnThroughHistory: true,
+		locationState: null,
+	}), { type: "clear-url-selection" });
+	assert.deepEqual(getMobileEmailPanelCloseAction({
+		urlSelectedEmailId: null,
+		returnThroughHistory: true,
+		locationState: historyState,
 	}), { type: "none" });
 });

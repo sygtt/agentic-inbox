@@ -59,6 +59,27 @@ export function isMobileEmailDetailHistoryEntry(state: unknown): boolean {
 	);
 }
 
+export type MobileEmailPanelCloseAction =
+	| { type: "none" }
+	| { type: "return-through-history" }
+	| { type: "clear-url-selection" };
+
+export function getMobileEmailPanelCloseAction({
+	urlSelectedEmailId,
+	returnThroughHistory,
+	locationState,
+}: {
+	urlSelectedEmailId: string | null;
+	returnThroughHistory: boolean;
+	locationState: unknown;
+}): MobileEmailPanelCloseAction {
+	if (!urlSelectedEmailId) return { type: "none" };
+	if (returnThroughHistory && isMobileEmailDetailHistoryEntry(locationState)) {
+		return { type: "return-through-history" };
+	}
+	return { type: "clear-url-selection" };
+}
+
 /** Return adjacent email IDs in the order currently shown in the loaded list. */
 export function getMobileEmailNeighborIds(
 	emails: readonly { id: string }[],
