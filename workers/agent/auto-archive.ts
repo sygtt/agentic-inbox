@@ -2,8 +2,6 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Folders } from "../../shared/folders.ts";
-
 type InboundTriageOutcome = {
 	status: string;
 	predictedDisposition?: string;
@@ -11,7 +9,7 @@ type InboundTriageOutcome = {
 };
 
 type EmailFolderStorage = {
-	moveEmail(emailId: string, folderId: string): Promise<boolean>;
+	archiveAutoFiledEmailIfInInbox(emailId: string): Promise<"archived" | "skipped">;
 };
 
 export type AutoArchiveResult = "skipped" | "archived" | "failed";
@@ -37,12 +35,7 @@ export async function archiveAutoFiledEmail(
 	}
 
 	try {
-		const moved = await storage.moveEmail(emailId, Folders.ARCHIVE);
-		if (!moved) {
-			logError("Auto-archive failed: email could not be moved to Archive", emailId);
-			return "failed";
-		}
-		return "archived";
+		return await storage.archiveAutoFiledEmailIfInInbox(emailId);
 	} catch (error) {
 		logError("Auto-archive failed:", emailId, errorMessage(error));
 		return "failed";
