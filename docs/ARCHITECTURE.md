@@ -386,7 +386,7 @@ secret. A deterministic policy then applies an `agent`-provenance
 `disposition:*` tag unless a manual disposition already exists. Manual
 disposition changes through the existing disposition API replace the tag and,
 when the value changes, append a feedback event in the same Durable Object
-transaction. No folder move, draft, send, or delete occurs. Jev failure is
+transaction. A successful inbound triage result moves a newly received email to Archive only when its `disposition:auto-file` tag was applied and persisted. Review, action-required, and preserved manual dispositions do not trigger a move. Archive failures are logged separately without marking triage as failed or rolling back the triage result. Existing auto-file messages are not backfilled. No draft, send, or delete occurs. Jev failure is
 logged and does not roll back the already stored inbound message. For an
 existing email, a catchable failure also makes a best-effort, idempotent
 failure-state write. If marker persistence fails, that error is logged
