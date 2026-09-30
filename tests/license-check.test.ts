@@ -23,16 +23,17 @@ function sha256(bytes: Buffer): string {
 
 function addRecord(
 	root: string,
-	{ path: file, cls, evidence, audited = "", preserved = "[]" }: {
+	{ path: file, cls, evidence, upstream = "", audited = "", preserved = "[]" }: {
 		path: string;
 		cls: string;
 		evidence: string;
+		upstream?: string;
 		audited?: string;
 		preserved?: string;
 	},
 ) {
 	const manifestPath = path.join(root, "docs/LICENSING-PROVENANCE.csv");
-	const row = [file, cls, "", audited, evidence, "[]", preserved].map(csvField).join(",");
+	const row = [file, cls, upstream, audited, evidence, "[]", preserved].map(csvField).join(",");
 	writeFileSync(manifestPath, `${readFileSync(manifestPath, "utf8")}${row}\n`);
 }
 
@@ -200,6 +201,25 @@ test("rejects binary fork-created assets without a sidecar", () => {
 		writeFileSync(path.join(root, "orphan.ico"), Buffer.from([0x00, 0xff, 0x01]));
 		addRecord(root, { path: "orphan.ico", cls: "C", evidence: "Fork-created icon asset." });
 		assert.ok(checkRepository(root).some((error) => error.includes("orphan.ico: add a .license sidecar")));
+	});
+});
+
+test("requires a sidecar when a binary B file begins with comment-like license text", () => {
+	withFixture((root) => {
+		const binary = Buffer.concat([
+			Buffer.from(`// SPDX-License-Identifier: Apache-2.0\n// ${CHANGE_NOTICE}\n`),
+			Buffer.from([0x00, 0xff]),
+		]);
+		writeFileSync(path.join(root, "upstream-asset.bin"), binary);
+		addRecord(root, { path: "upstream-asset.bin", cls: "B", upstream: upstreamBaseline, evidence: "Modified upstream binary asset." });
+		assert.ok(checkRepository(root).some((error) => error.includes("upstream-asset.bin: add a .license sidecar")));
+
+		writeFileSync(
+			path.join(root, "upstream-asset.bin.license"),
+			`SPDX-License-Identifier: Apache-2.0\n${CHANGE_NOTICE}\nApplies to: upstream-asset.bin\n`,
+		);
+		addRecord(root, { path: "upstream-asset.bin.license", cls: "C", evidence: "Sidecar for upstream binary asset." });
+		assert.deepEqual(checkRepository(root), []);
 	});
 });
 

@@ -238,6 +238,9 @@ export function checkRepository(root) {
 		if (needsSidecar || cls === "D") originalNoticeSource = content;
 		if (binary && hasSidecar) originalNoticeSource = sidecarContent;
 
+		if ((cls === "B" || cls === "C") && needsSidecar && !hasSidecar) {
+			errors.push(`${file}: add a .license sidecar for this no-comment or binary format`);
+		}
 		if (cls === "A") {
 			if (!record.upstream_sha256 || digest !== record.upstream_sha256) {
 				errors.push(`${file}: differs from its pinned upstream bytes; reclassify as B and add a change notice`);
@@ -272,9 +275,6 @@ export function checkRepository(root) {
 			}
 		}
 		if (cls === "C") {
-			if (needsSidecar && !hasSidecar) {
-				errors.push(`${file}: add a .license sidecar for this no-comment or binary format`);
-			}
 			if (!metadataHeader.includes("SPDX-License-Identifier: Apache-2.0")) {
 				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${needsSidecar ? ` to ${sibling}` : ""}`);
 			}
