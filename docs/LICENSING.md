@@ -80,11 +80,20 @@ and `Modified in the sygtt/agentic-inbox fork; see Git history.` For formats
 that do not permit comments (for example JSON and binary files), a sibling
 `.license` sidecar records the applicable identifier and change status. The
 sidecar is an explicit metadata association; it does not alter the data file.
+The checker requires B/C files in JSON-like formats and binary assets such as
+PNG, ICO, and PDF to use sidecars, and also recognizes binary bytes in other
+extensions. For text sources, recorded upstream or third-party notices must
+remain in the source itself even if a sidecar exists. For binary sources,
+provenance notices may be recorded in the sidecar. E/F assets remain outside
+Apache claims unless their provenance is reviewed.
 
 Generated files should be regenerated from their recorded source rather than
 hand-edited to add headers. Files with uncertain provenance are explicitly
-classified and excluded from automatic Apache assertions until a human reviews
-them. Do not resolve an unknown classification by adding an SPDX line.
+classified and excluded from automatic Apache assertions in source bytes and
+sidecars until a human reviews them. The generated package lock has one exact
+sidecar exception documenting the repository-level license and its fork change;
+other generated and uncertain artifacts cannot assert Apache-2.0 in a sidecar.
+Do not resolve an unknown classification by adding an SPDX line.
 
 ## Dependency review
 

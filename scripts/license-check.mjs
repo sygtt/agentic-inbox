@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { isUtf8 } from "node:buffer";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -11,6 +12,14 @@ export const CHANGE_NOTICE =
 	"Modified in the sygtt/agentic-inbox fork; see Git history.";
 const MANIFEST = "docs/LICENSING-PROVENANCE.csv";
 const NO_COMMENT_FORMATS = new Set([".json", ".webmanifest", ".csv"]);
+const BINARY_FORMATS = new Set([".png", ".ico", ".pdf"]);
+const APPROVED_LOCKFILE_SIDECAR = [
+	"SPDX-License-Identifier: Apache-2.0",
+	CHANGE_NOTICE,
+	"Generated file; do not edit headers in package-lock.json.",
+	"Applies to: package-lock.json",
+	"",
+].join("\n");
 
 function parseCsv(text) {
 	const rows = [];
@@ -56,6 +65,10 @@ function parseCsv(text) {
 
 function sha256(bytes) {
 	return createHash("sha256").update(bytes).digest("hex");
+}
+
+function isBinaryFile(file, bytes) {
+	return BINARY_FORMATS.has(path.extname(file).toLowerCase()) || bytes.includes(0) || !isUtf8(bytes);
 }
 
 function gitFiles(root) {
@@ -167,12 +180,17 @@ export function checkRepository(root) {
 		const content = bytes.toString("utf8");
 		const digest = sha256(bytes);
 		const sibling = `${file}.license`;
-		const noComments = NO_COMMENT_FORMATS.has(path.extname(file));
-		const isSidecar = file.endsWith(".license") || (noComments && fileSet.has(sibling));
-		const noticeContent = noComments && fileSet.has(sibling)
-			? read(root, sibling).toString("utf8")
-			: content;
-		const header = leadingHeader(noticeContent, isSidecar);
+		const extension = path.extname(file).toLowerCase();
+		const binary = isBinaryFile(file, bytes);
+		const needsSidecar = NO_COMMENT_FORMATS.has(extension) || binary;
+		const hasSidecar = fileSet.has(sibling);
+		const isSidecar = file.endsWith(".license");
+		const sidecarContent = hasSidecar ? read(root, sibling).toString("utf8") : "";
+		const metadataContent = needsSidecar && hasSidecar ? sidecarContent : content;
+		const metadataHeader = leadingHeader(metadataContent, isSidecar || (needsSidecar && hasSidecar));
+		let originalNoticeSource = leadingHeader(content);
+		if (needsSidecar || cls === "D") originalNoticeSource = content;
+		if (binary && hasSidecar) originalNoticeSource = sidecarContent;
 
 		if (cls === "A") {
 			if (!record.upstream_sha256 || digest !== record.upstream_sha256) {
@@ -182,55 +200,57 @@ export function checkRepository(root) {
 			if (!record.upstream_sha256 || digest === record.upstream_sha256) {
 				errors.push(`${file}: B requires an upstream baseline hash and a fork change`);
 			}
-			if (!header.includes("SPDX-License-Identifier: Apache-2.0")) {
-				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${noComments ? ` to ${sibling}` : ""}`);
+			if (!metadataHeader.includes("SPDX-License-Identifier: Apache-2.0")) {
+				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${needsSidecar ? ` to ${sibling}` : ""}`);
 			}
-			if (!header.includes(CHANGE_NOTICE)) {
-				errors.push(`${file}: add the prominent fork modification notice${noComments ? ` to ${sibling}` : ""}`);
+			if (!metadataHeader.includes(CHANGE_NOTICE)) {
+				errors.push(`${file}: add the prominent fork modification notice${needsSidecar ? ` to ${sibling}` : ""}`);
 			}
 			try {
 				const original = JSON.parse(record.upstream_notices || "[]");
 				for (const notice of original) {
-					if (notice && !header.includes(notice)) errors.push(`${file}: preserve upstream notice: ${notice}`);
+					if (notice && !originalNoticeSource.includes(notice)) errors.push(`${file}: preserve upstream notice: ${notice}`);
 				}
 			} catch {
 				errors.push(`${file}: upstream_notices must be a JSON array`);
 			}
 		}
-		if (cls === "B" || cls === "C") {
+		if (cls === "B" || cls === "C" || cls === "D") {
 			try {
 				const original = JSON.parse(record.preserved_notices || "[]");
 				for (const notice of original) {
-					if (notice && !header.includes(notice)) errors.push(`${file}: preserve existing notice: ${notice}`);
+					if (notice && !originalNoticeSource.includes(notice)) errors.push(`${file}: preserve existing notice: ${notice}`);
 				}
 			} catch {
 				errors.push(`${file}: preserved_notices must be a JSON array`);
 			}
 		}
 		if (cls === "C") {
-			if (noComments && !fileSet.has(sibling)) {
-				errors.push(`${file}: add a .license sidecar for this no-comment format`);
+			if (needsSidecar && !hasSidecar) {
+				errors.push(`${file}: add a .license sidecar for this no-comment or binary format`);
 			}
-			if (!header.includes("SPDX-License-Identifier: Apache-2.0")) {
-				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${noComments ? ` to ${sibling}` : ""}`);
+			if (!metadataHeader.includes("SPDX-License-Identifier: Apache-2.0")) {
+				errors.push(`${file}: add SPDX-License-Identifier: Apache-2.0${needsSidecar ? ` to ${sibling}` : ""}`);
 			}
-		} else if (cls === "D" && !/license|terms|copyright/i.test(record.evidence)) {
+		}
+		if (cls === "D" && !/license|terms|copyright/i.test(record.evidence)) {
 			errors.push(`${file}: record the third-party license or terms in evidence`);
-		} else if (cls === "E" || cls === "F") {
+		}
+		if (cls === "E" || cls === "F") {
 			if (!record.audited_sha256 || digest !== record.audited_sha256) {
 				errors.push(`${file}: generated/uncertain content changed; review provenance and update the audit`);
 			}
-			if (/SPDX-License-Identifier:\s*Apache-2\.0/.test(content)) {
-				errors.push(`${file}: class ${cls} must not claim Apache-2.0 until provenance is reviewed`);
+			const approvedLockfileSidecar = cls === "E" && file === "package-lock.json" && sidecarContent === APPROVED_LOCKFILE_SIDECAR;
+			const sidecarClaimsApache = /SPDX-License-Identifier:\s*Apache-2\.0/.test(sidecarContent);
+			if (
+				/SPDX-License-Identifier:\s*Apache-2\.0/.test(content) ||
+				(sidecarClaimsApache && !approvedLockfileSidecar)
+			) {
+				errors.push(`${file}: class ${cls} must not claim Apache-2.0 in the source or sidecar until provenance is reviewed`);
 			}
 			if (cls === "E" && file === "package-lock.json") {
-				if (!fileSet.has(sibling)) {
-					errors.push(`${file}: add a .license sidecar recording its generated-file change notice`);
-				} else {
-					const sidecar = read(root, sibling).toString("utf8");
-					if (!sidecar.includes("SPDX-License-Identifier: Apache-2.0") || !sidecar.includes(CHANGE_NOTICE)) {
-						errors.push(`${file}: sidecar must record SPDX and the fork modification notice`);
-					}
+				if (!hasSidecar || !approvedLockfileSidecar) {
+					errors.push(`${file}: generated-file sidecar differs from the approved package-lock exception`);
 				}
 			}
 		}
