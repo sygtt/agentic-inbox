@@ -4,6 +4,7 @@ import {
 	getMobileEmailNeighborIds,
 	getMobileEmailSelectionAction,
 	isMobileEmailDetailHistoryEntry,
+	shouldAdvanceAfterMobileArchive,
 	withMobileEmailDetailHistoryEntry,
 } from "../app/lib/mobile-email-navigation.ts";
 
@@ -29,6 +30,12 @@ test("disables navigation at either list edge and for an email outside the loade
 		previousEmailId: null,
 		nextEmailId: null,
 	});
+});
+
+test("only auto-advances after archive while the archived email remains selected", () => {
+	assert.equal(shouldAdvanceAfterMobileArchive("archived", "archived"), true);
+	assert.equal(shouldAdvanceAfterMobileArchive("another-email", "archived"), false);
+	assert.equal(shouldAdvanceAfterMobileArchive(null, "archived"), false);
 });
 
 test("marks mobile detail history entries while preserving existing location state", () => {

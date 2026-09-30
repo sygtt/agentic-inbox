@@ -476,7 +476,8 @@ message through those controls marks it read and resets detail scrolling to
 the top. Entering the mobile layout preserves an existing desktop selection
 in the URL, and an unavailable URL-selected email shows a recoverable error
 state. Archiving selects the next lower message from the pre-archive list when
-available.
+available, provided the archived message is still selected when the request
+completes; otherwise the user's current selection is preserved.
 
 ## Important files by responsibility
 

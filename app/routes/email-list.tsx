@@ -43,6 +43,7 @@ import {
 	getMobileEmailSelectionAction,
 	getMobileEmailNeighborIds,
 	isMobileEmailDetailHistoryEntry,
+	shouldAdvanceAfterMobileArchive,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
 
@@ -396,7 +397,8 @@ export default function EmailListRoute() {
 		if (email) markEmailRead(email);
 	};
 
-	const handleMobileArchiveSuccess = (nextEmailId: string | null) => {
+	const handleMobileArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
+		if (!shouldAdvanceAfterMobileArchive(useUIStore.getState().selectedEmailId, archivedEmailId)) return;
 		if (nextEmailId) navigateMobileEmail(nextEmailId);
 		else closeEmailPanel();
 	};

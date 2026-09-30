@@ -3,6 +3,14 @@ export interface MobileEmailNeighborIds {
 	nextEmailId: string | null;
 }
 
+/** Only auto-advance after archiving while the archived email remains selected. */
+export function shouldAdvanceAfterMobileArchive(
+	selectedEmailId: string | null,
+	archivedEmailId: string,
+): boolean {
+	return selectedEmailId === archivedEmailId;
+}
+
 export type MobileEmailSelectionAction =
 	| { type: "select-url-email"; emailId: string }
 	| { type: "write-selected-email-to-url"; emailId: string }

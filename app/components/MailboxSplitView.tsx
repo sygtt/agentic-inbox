@@ -15,7 +15,7 @@ interface MailboxSplitViewProps {
 		previousEmailId: string | null;
 		nextEmailId: string | null;
 		onNavigate: (emailId: string) => void;
-		onArchiveSuccess: (nextEmailId: string | null) => void;
+		onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
 	};
 	children: ReactNode;
 }

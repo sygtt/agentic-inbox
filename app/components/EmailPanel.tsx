@@ -25,7 +25,7 @@ interface MobileEmailNavigation {
 	previousEmailId: string | null;
 	nextEmailId: string | null;
 	onNavigate: (emailId: string) => void;
-	onArchiveSuccess: (nextEmailId: string | null) => void;
+	onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
 }
 
 function EmailPanelSkeleton() {
@@ -165,7 +165,7 @@ export default function EmailPanel({
 			email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE,
 			false,
 		);
-		if (moved) mobileEmailNavigation.onArchiveSuccess(nextEmailId);
+		if (moved) mobileEmailNavigation.onArchiveSuccess(email.id, nextEmailId);
 	};
 	const handleDelete = async () => {
 		if (!mailboxId || isDeletionBlocked) return;
