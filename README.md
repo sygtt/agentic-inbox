@@ -97,6 +97,12 @@ Any user who passes the shared Cloudflare Access policy can access all mailboxes
                      └──────────────────┘     └─────────────────┘
 ```
 
+## Contributing
+
+The fork's branch and pull request workflow is documented in
+[Development](docs/DEVELOPMENT.md). The [main-first migration runbook](docs/MAIN-FIRST-MIGRATION.md)
+describes the branch-history transition and its owner verification steps.
+
 ## License
 
 Apache 2.0 -- see [LICENSE](LICENSE).

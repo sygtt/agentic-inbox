@@ -171,77 +171,35 @@ Do not deploy automatically after implementation.
 
 # 3. Branch Strategy
 
-Use the following branch model:
+`main` is the canonical integration branch for this fork. It carries local
+functionality and is the source for explicitly authorized production releases.
+It is not a passive mirror of upstream.
+
+Create focused work branches from an up-to-date `origin/main` and target normal
+implementation PRs at `main`:
 
 ```text
-upstream/main
-      ↓
-    main
-      ↓
-   develop
-      ↓
- feat/*
- fix/*
- refactor/*
- docs/*
- chore/*
+origin/main
+    ↓
+feat/* / fix/* / refactor/* / docs/* / chore/*
+    ↓ PR + review + validation
+origin/main
 ```
 
-## `main`
+Use a prefix that describes the work, for example `feat/catch-all-mailbox`,
+`fix/email-routing`, or `docs/update-architecture`. Keep each branch focused
+on one logical change. Do not implement features directly on `main`.
 
-`main` exists primarily to track the upstream `cloudflare/agentic-inbox`.
+`develop` is a legacy branch and is no longer part of the normal workflow.
+Do not start new work from it or target new implementation PRs at it.
+The transition and retained archival references are documented in
+`docs/MAIN-FIRST-MIGRATION.md`.
 
-Do not add personal features directly to `main`.
-
-Keep the difference between `main` and `upstream/main` as small as practical.
-
-The preferred update flow is:
-
-```text
-upstream/main
-      ↓
-    main
-      ↓
-   develop
-```
-
-Resolve customization conflicts in `develop`, not by unnecessarily modifying upstream history.
-
-## `develop`
-
-`develop` is the integration branch for this fork.
-
-It is also the branch intended for production deployment.
-
-Stable customizations are merged into `develop`.
-
-Do not implement non-trivial features directly on `develop`.
-
-## Feature branches
-
-Create feature branches from `develop`.
-
-Use prefixes such as:
-
-```text
-feat/<name>
-fix/<name>
-refactor/<name>
-docs/<name>
-chore/<name>
-```
-
-Examples:
-
-```text
-feat/catch-all-mailbox
-feat/mailbox-rules
-fix/email-routing
-refactor/mailbox-resolver
-docs/update-architecture
-```
-
-Keep each branch focused on one logical change.
+Track the original Cloudflare repository through the `upstream` remote.
+Inspect upstream changes and integrate selected changes on a dedicated
+`sync/upstream-YYYY-MM` branch created from `main`, then open a PR to `main`.
+Do not blindly merge `upstream/main` into `main` or push upstream bytes over
+fork functionality. See the upstream synchronization policy below.
 
 ---
 
@@ -679,7 +637,8 @@ Verify both:
 
 Never commit directly to `main`.
 
-Avoid direct feature development on `develop`.
+Use a focused branch from `main` and open a PR to `main`.
+Do not use the retired `develop` branch for new work.
 
 Do not force-push shared branches unless explicitly requested.
 
@@ -747,9 +706,10 @@ Closes #123
 
 `Fixes #123` or `Resolves #123` are also valid, but prefer `Closes` for consistency.
 
-Because this repository's default branch is `main` while normal implementation PRs target `develop`, GitHub's built-in closing-keyword behavior alone is not sufficient for the normal fork workflow. The repository therefore uses `.github/workflows/close-linked-issues-on-develop-merge.yml`. It runs on pushes to `develop`, resolves the merged PR associated with the pushed commit, interprets closing references in that PR body, and closes the referenced issues.
-
-If a PR targets the default branch directly, GitHub's normal closing-keyword behavior still applies.
+Normal implementation PRs target `main`, the repository's default branch.
+GitHub therefore handles supported closing keywords when those PRs merge;
+the old `develop`-specific issue-closing workflow is unnecessary. Do not
+introduce a second issue-closing automation for the normal workflow.
 
 If a PR only partially implements an issue, do **not** use a closing keyword. Use a non-closing reference instead:
 
@@ -765,31 +725,26 @@ Before merging an issue implementation PR, verify that the PR body contains the 
 
 # 16. Upstream Synchronization
 
-The purpose of `main` is to make upstream synchronization predictable.
+`origin/main` preserves this fork's functionality. `upstream/main` is a
+read-only comparison source, not a branch to copy over the fork.
 
 When upstream changes are available:
 
-1. fetch upstream,
-2. inspect upstream changes,
-3. update `main` from `upstream/main`,
-4. merge or rebase the updated `main` into `develop`,
-5. resolve conflicts based on understanding, not convenience,
-6. run relevant validation,
-7. inspect `main..develop`.
+1. fetch the `upstream` remote,
+2. inspect upstream commits and diffs against the shared history,
+3. create a dedicated `sync/upstream-YYYY-MM` branch from current `origin/main`,
+4. integrate only reviewed, desired changes on that branch,
+5. resolve conflicts based on intended fork behavior,
+6. update relevant customization and provenance documentation,
+7. run relevant tests, `npm run license:check`, `npm run typecheck`, and `npm run build`,
+8. open a PR to `main`; merge only after review and user authorization.
 
-Do not blindly resolve conflicts with either:
+A whole upstream merge may be used on the sync branch only after reviewing
+its scope. Selective cherry-picks or adaptations may be preferable. Do not
+force-push `main`, rewrite upstream history, or automatically deploy.
 
-```text
-ours
-```
-
-or:
-
-```text
-theirs
-```
-
-Understand what upstream changed first.
+Do not blindly resolve conflicts with either `ours` or `theirs`. Understand
+what upstream changed and preserve the reasons for intentional fork behavior.
 
 If upstream introduces equivalent functionality to a local customization:
 
@@ -798,9 +753,9 @@ If upstream introduces equivalent functionality to a local customization:
 3. remove or simplify duplicate local code,
 4. update `docs/CUSTOMIZATIONS.md`.
 
-The goal is not to preserve local code forever.
-
-The goal is to preserve desired behavior with the smallest sustainable fork.
+Preserve applicable upstream notices and refresh licensing classifications
+when synchronization changes file provenance. The goal is to preserve desired
+behavior with the smallest sustainable fork.
 
 ---
 

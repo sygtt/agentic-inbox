@@ -348,57 +348,60 @@ May be simplified if upstream later provides equivalent AI-agent guidance, but f
 
 ## Fork branch model
 
-**Status:** Active
+**Status:** Migration in progress under issue #53; the main-first policy takes effect when its migration PR is merged.
 
 ### Why
 
-The fork needs to consume upstream updates while also carrying production customizations.
-
-Using `main` for both purposes would make upstream synchronization and production history harder to reason about.
+The previous workflow used `main` to follow upstream and `develop` for fork
+work, even though GitHub already used `main` as the default branch. This split
+made pull request targets, issue closure, and deployment assumptions harder to
+reason about. The fork now intends to keep its complete history on canonical
+`main`, while reviewing upstream changes through separate sync branches.
 
 ### Behavior
 
-The intended branch flow is:
+After the migration PR is merged, the workflow is:
 
 ```text
-upstream/main
-      |
-      v
-    main
-      |
-      v
-   develop
-      |
-      +--> feat/*
-      +--> fix/*
-      +--> refactor/*
-      +--> docs/*
-      +--> chore/*
+upstream/main --reviewed sync branch/PR--> main
+                                            ^
+                                            |
+                         feat/* fix/* docs/* chore/*
 ```
 
-- `main` should remain close to upstream.
-- `develop` is the fork integration branch and intended production-deployment branch.
-- normal work occurs on focused branches from `develop`.
+- `main` is the canonical fork branch and PR target; do not push work directly to it.
+- Feature and maintenance branches start from the latest `origin/main`.
+- Upstream changes are inspected and integrated through a `sync/upstream-YYYY-MM` branch and PR. Do not make `main` track or fast-forward to `upstream/main`.
+- Keep the existing `develop` branch until the owner separately confirms it is safe to retire. The migration does not delete it or its archive refs.
+- Pull requests that fully implement an issue use a native GitHub closing keyword such as `Closes #123`, because they target the default branch.
 
 ### Main affected areas
 
-Git workflow and deployment process.
+Git workflow, issue closure, and deployment branch selection.
 
 ### Configuration involved
 
-Cloudflare/GitHub deployment settings may need to target `develop` rather than `main` when branch-based deployment is used.
+GitHub's default branch is already `main`. The Cloudflare build and deployment
+branch settings are external to this repository and must be checked by the
+owner before the migration PR is merged. This documentation does not assert
+that those settings currently target `main`.
 
 ### Persistence / migration implications
 
-None directly.
+The migration PR preserves existing fork commits by merging with a merge
+commit, not by squashing or rebasing. The existing `develop` and archived
+branch refs remain available for rollback and are retired only in a separate,
+owner-approved step.
 
 ### Upstream synchronization risk
 
-Low, provided `main` remains clean and runtime customizations stay on `develop`.
+Moderate during the transition. Review upstream diffs and customization notes
+before integrating changes; do not blindly merge an upstream branch.
 
 ### Removal / replacement condition
 
-Only change this model deliberately and update `AGENTS.md` and `docs/DEVELOPMENT.md` at the same time.
+Revise this model only through an explicit decision, updating `AGENTS.md` and
+`docs/DEVELOPMENT.md` at the same time.
 
 ---
 

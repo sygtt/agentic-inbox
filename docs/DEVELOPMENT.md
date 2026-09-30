@@ -8,27 +8,23 @@ It complements `AGENTS.md`. The rules in `AGENTS.md` take priority when there is
 
 ## Branch model
 
-Use the branch structure defined in `AGENTS.md`:
+`main` is the canonical branch for this fork. Feature and maintenance work
+starts from `main` and returns through a pull request targeting `main`. Do not
+push feature work directly to `main`.
 
 ```text
-upstream/main
-      |
-      v
-    main
-      |
-      v
-   develop
-      |
-      +--> feat/*
-      +--> fix/*
-      +--> refactor/*
-      +--> docs/*
-      +--> chore/*
+                  upstream/main
+                       |
+             inspected sync PR
+                       v
+origin/main <--- feature/fix/docs branches
 ```
 
-- `main` tracks upstream as closely as practical.
-- `develop` is the integration and production-deployment branch for this fork.
-- Feature and maintenance work should normally start from `develop`.
+The repository's GitHub default branch is already `main`; the code and commit
+history move to the main-first model only when the owner merges the migration
+PR. Until that PR is merged, continue following the current branch workflow.
+See [the migration runbook](MAIN-FIRST-MIGRATION.md) for the transition and
+verification steps.
 
 For documentation-only work, use a `docs/*` branch.
 
@@ -55,33 +51,38 @@ git remote add upstream https://github.com/cloudflare/agentic-inbox.git
 
 Do not rewrite upstream history.
 
-## Updating from upstream
+## Synchronizing upstream changes
 
-A conservative synchronization flow is:
+Keep the `upstream` remote as a read-only source for reviewing Cloudflare
+changes. Do not fast-forward or reset this fork's `main` to `upstream/main`.
+Bring selected upstream changes in through a focused sync branch and pull
+request:
 
 ```bash
 git fetch upstream
+git fetch origin --prune
+git log --oneline --left-right origin/main...upstream/main
+git diff --stat origin/main...upstream/main
 git switch main
-git merge --ff-only upstream/main
-git push origin main
-
-git switch develop
-git merge main
+git pull --ff-only origin main
+git switch -c sync/upstream-YYYY-MM
 ```
 
-If `main` cannot fast-forward cleanly, inspect why before changing history.
-
-Resolve fork-specific conflicts in `develop`, not by turning `main` into a long-lived customization branch.
-
-Before resolving a conflict involving known local behavior, read `docs/CUSTOMIZATIONS.md`.
+Inspect the upstream commits and affected files, read relevant customization
+notes, and decide which changes are appropriate for this fork. Integrate only
+after that review, then push the sync branch and open a PR targeting `main`.
+Resolve conflicts with an understanding of both versions; never blindly merge
+all upstream changes. Do not rewrite upstream history or force-push shared
+branches. Before resolving a conflict involving known local behavior, read
+`docs/CUSTOMIZATIONS.md`.
 
 ## Creating a work branch
 
-Start from an up-to-date `develop`:
+Start from an up-to-date `main`:
 
 ```bash
-git switch develop
-git pull --ff-only origin develop
+git switch main
+git pull --ff-only origin main
 git switch -c feat/example-feature
 ```
 
@@ -95,7 +96,7 @@ docs/
 chore/
 ```
 
-Keep one branch focused on one logical change.
+Keep one branch focused on one logical change. Open its PR against `main`.
 
 ## Prerequisites
 
@@ -488,7 +489,7 @@ Do not mix broad refactoring with a behavior change unless the refactor is stric
 
 ## Pull requests
 
-Target normal fork development PRs at `develop`.
+Target normal fork development PRs at `main`.
 
 A useful PR description should state:
 
@@ -511,13 +512,16 @@ For a PR that fully implements a GitHub issue, include an explicit closing refer
 Closes #123
 ```
 
-Normal fork development PRs target `develop`, while the repository default branch is `main`. GitHub's built-in closing keywords are only interpreted for PRs targeting the default branch, so this repository includes `.github/workflows/close-linked-issues-on-develop-merge.yml`. The workflow runs on pushes to `develop`, finds the merged PR associated with the pushed commit, parses supported closing references such as `Closes #123`, and closes those issues.
+Because implementation PRs target the default branch `main`, use GitHub's
+built-in closing keywords in the PR body. GitHub closes the issue when the PR
+merges. No custom workflow is needed for issue closure.
 
 When creating implementation issues, include this requirement in the issue body so AI coding agents preserve the lifecycle without needing an extra reminder.
 
 Use a non-closing reference such as `Refs #123` when the PR is partial. Roadmap, tracking, umbrella, and observation issues should not be closed by a child implementation PR unless that PR genuinely completes the entire tracking issue.
 
-Before merging, verify that the PR description contains the intended closing keyword and issue number.
+Before merging, verify that the PR description contains the intended closing
+keyword and issue number.
 
 ## Production deployment checklist
 
