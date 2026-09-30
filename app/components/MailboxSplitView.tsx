@@ -51,10 +51,10 @@ export default function MailboxSplitView({
 			{isPanelOpen && (
 				<div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full md:w-auto">
 					{isComposing && !selectedEmailId ? (
-						<ComposePanel />
+						<ComposePanel onSendSuccess={closeEmail} />
 					) : isComposing && selectedEmailId ? (
 						<div className="flex flex-col h-full overflow-y-auto">
-							<ComposePanel />
+							<ComposePanel onSendSuccess={closeEmail} />
 							<div className="border-t border-kumo-line">
 								<EmailPanel emailId={selectedEmailId} onClose={closeEmail} mobileEmailNavigation={navigation} />
 							</div>

@@ -8,7 +8,7 @@ import { useParams } from "react-router";
 import { useComposeForm } from "~/hooks/useComposeForm";
 import RichTextEditor from "./RichTextEditor";
 
-export default function ComposePanel() {
+export default function ComposePanel({ onSendSuccess }: { onSendSuccess?: () => void } = {}) {
 	const { mailboxId, folder } = useParams<{
 		mailboxId: string;
 		folder: string;
@@ -58,7 +58,7 @@ export default function ComposePanel() {
 			</div>
 
 			<form
-				onSubmit={(e) => handleSend(e, closePanel)}
+				onSubmit={(e) => handleSend(e, onSendSuccess ?? closePanel)}
 				className="flex flex-col flex-1 min-h-0 overflow-y-auto"
 			>
 				<div className="p-4 md:p-6 space-y-4">

@@ -487,11 +487,12 @@ message through those controls marks it read and resets detail scrolling to
 the top. Entering the mobile layout preserves an existing desktop selection
 in the URL, and an unavailable URL-selected email shows a recoverable error
 state. While a compose is active, URL selection takes no action so viewport
-changes do not discard unsaved fields. Closing detail through filters or
-deleting the selected list row clears its URL selection, preventing stale IDs
-from reopening the detail. Archiving selects the next lower message from the
-pre-archive list when available, provided the archived message is still selected
-when the request completes; otherwise the user's current selection is preserved.
+changes do not discard unsaved fields. Closing detail through filters, sending
+a compose successfully, or deleting the selected list row clears its URL
+selection, preventing stale IDs from reopening the detail. Archiving selects
+the next lower message from the pre-archive list when available, provided the
+archived message is still selected when the request completes; otherwise the
+user's current selection is preserved.
 
 ## Important files by responsibility
 
