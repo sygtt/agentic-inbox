@@ -490,9 +490,11 @@ Entering the mobile layout preserves an existing desktop selection in the URL,
 and an unavailable URL-selected email shows a recoverable error state. While a
 compose is active, URL selection takes no action so viewport changes do not
 discard unsaved fields; closing a compose after resizing to mobile restores any
-underlying selected email in the URL. Closing detail through filters, sending a
-compose successfully, or deleting the selected list row clears its URL
-selection, preventing stale IDs from reopening the detail. On mobile, archiving
+underlying selected email in the URL. Browser Back during a compose restores the
+marked mobile detail history entry so the compose remains open with its fields
+intact. Closing detail through filters, sending a compose successfully, or
+deleting the selected list row clears its URL selection, preventing stale IDs
+from reopening the detail. On mobile, archiving
 selects the next lower message from the pre-archive list when available,
 provided the archived message is still selected when the request completes;
 the viewport at completion determines whether it advances or closes the detail.

@@ -85,17 +85,23 @@ test("keeps a desktop selection when entering mobile and clears it after mobile 
 		isMobileViewport: true,
 		wasMobileViewport: false,
 		wasComposing: false,
+		previousUrlSelectedEmailId: null,
 		urlSelectedEmailId: null,
 		selectedEmailId: "selected",
 		isComposing: false,
+		wasMobileEmailDetailHistoryEntry: false,
+		isCurrentMobileEmailDetailHistoryEntry: false,
 	}), { type: "write-selected-email-to-url", emailId: "selected" });
 	assert.deepEqual(getMobileEmailSelectionAction({
 		isMobileViewport: true,
 		wasMobileViewport: true,
 		wasComposing: false,
+		previousUrlSelectedEmailId: null,
 		urlSelectedEmailId: null,
 		selectedEmailId: "selected",
 		isComposing: false,
+		wasMobileEmailDetailHistoryEntry: false,
+		isCurrentMobileEmailDetailHistoryEntry: false,
 	}), { type: "clear-selection" });
 });
 
@@ -104,9 +110,12 @@ test("preserves an active compose instead of applying a stale URL email selectio
 		isMobileViewport: true,
 		wasMobileViewport: false,
 		wasComposing: false,
+		previousUrlSelectedEmailId: null,
 		urlSelectedEmailId: "previously-selected",
 		selectedEmailId: null,
 		isComposing: true,
+		wasMobileEmailDetailHistoryEntry: false,
+		isCurrentMobileEmailDetailHistoryEntry: true,
 	}), { type: "none" });
 });
 
@@ -115,10 +124,27 @@ test("restores a selected email to the URL when closing a compose after resizing
 		isMobileViewport: true,
 		wasMobileViewport: true,
 		wasComposing: true,
+		previousUrlSelectedEmailId: null,
 		urlSelectedEmailId: null,
 		selectedEmailId: "restored-email",
 		isComposing: false,
+		wasMobileEmailDetailHistoryEntry: false,
+		isCurrentMobileEmailDetailHistoryEntry: false,
 	}), { type: "write-selected-email-to-url", emailId: "restored-email" });
+});
+
+test("restores mobile email history when browser Back is pressed during a compose", () => {
+	assert.deepEqual(getMobileEmailSelectionAction({
+		isMobileViewport: true,
+		wasMobileViewport: true,
+		wasComposing: true,
+		previousUrlSelectedEmailId: "selected",
+		urlSelectedEmailId: null,
+		selectedEmailId: "selected",
+		isComposing: true,
+		wasMobileEmailDetailHistoryEntry: true,
+		isCurrentMobileEmailDetailHistoryEntry: false,
+	}), { type: "restore-detail-history" });
 });
 
 test("clears URL email selection when closing the panel outside its mobile history entry", () => {

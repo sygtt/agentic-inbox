@@ -54,6 +54,7 @@ export function shouldMarkUrlSelectedEmailRead({
 export type MobileEmailSelectionAction =
 	| { type: "select-url-email"; emailId: string }
 	| { type: "write-selected-email-to-url"; emailId: string }
+	| { type: "restore-detail-history" }
 	| { type: "clear-selection" }
 	| { type: "none" };
 
@@ -61,18 +62,33 @@ export function getMobileEmailSelectionAction({
 	isMobileViewport,
 	wasMobileViewport,
 	wasComposing,
+	previousUrlSelectedEmailId,
 	urlSelectedEmailId,
 	selectedEmailId,
 	isComposing,
+	wasMobileEmailDetailHistoryEntry,
+	isCurrentMobileEmailDetailHistoryEntry,
 }: {
 	isMobileViewport: boolean;
 	wasMobileViewport: boolean;
 	wasComposing: boolean;
+	previousUrlSelectedEmailId: string | null;
 	urlSelectedEmailId: string | null;
 	selectedEmailId: string | null;
 	isComposing: boolean;
+	wasMobileEmailDetailHistoryEntry: boolean;
+	isCurrentMobileEmailDetailHistoryEntry: boolean;
 }): MobileEmailSelectionAction {
-	if (!isMobileViewport || isComposing) return { type: "none" };
+	if (isComposing) {
+		const returnedToListFromDetail = isMobileViewport &&
+			wasMobileEmailDetailHistoryEntry &&
+			!isCurrentMobileEmailDetailHistoryEntry &&
+			previousUrlSelectedEmailId !== null &&
+			urlSelectedEmailId === null &&
+			selectedEmailId === previousUrlSelectedEmailId;
+		return returnedToListFromDetail ? { type: "restore-detail-history" } : { type: "none" };
+	}
+	if (!isMobileViewport) return { type: "none" };
 	if (urlSelectedEmailId) {
 		return selectedEmailId === urlSelectedEmailId
 			? { type: "none" }

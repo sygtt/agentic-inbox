@@ -44,6 +44,7 @@ import {
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
+	isMobileEmailDetailHistoryEntry,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
@@ -291,6 +292,8 @@ export default function EmailListRoute() {
 	);
 	const wasMobileViewportRef = useRef(false);
 	const wasComposingRef = useRef(isComposing);
+	const previousUrlSelectedEmailIdRef = useRef(urlSelectedEmailId);
+	const wasMobileEmailDetailHistoryEntryRef = useRef(isMobileEmailDetailHistoryEntry(location.state));
 	const readMarkedEmailIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
@@ -298,17 +301,23 @@ export default function EmailListRoute() {
 			isMobileViewport,
 			wasMobileViewport: wasMobileViewportRef.current,
 			wasComposing: wasComposingRef.current,
+			previousUrlSelectedEmailId: previousUrlSelectedEmailIdRef.current,
 			urlSelectedEmailId,
 			selectedEmailId,
 			isComposing,
+			wasMobileEmailDetailHistoryEntry: wasMobileEmailDetailHistoryEntryRef.current,
+			isCurrentMobileEmailDetailHistoryEntry: isMobileEmailDetailHistoryEntry(location.state),
 		});
 		wasMobileViewportRef.current = isMobileViewport;
 		wasComposingRef.current = isComposing;
+		previousUrlSelectedEmailIdRef.current = urlSelectedEmailId;
+		wasMobileEmailDetailHistoryEntryRef.current = isMobileEmailDetailHistoryEntry(location.state);
 
 		if (action.type === "select-url-email") selectEmail(action.emailId);
 		else if (action.type === "write-selected-email-to-url") setUrlSelectedEmailId(action.emailId, true);
 		else if (action.type === "clear-selection") selectEmail(null);
-	}, [isMobileViewport, isComposing, selectedEmailId, selectEmail, setUrlSelectedEmailId, urlSelectedEmailId]);
+		else if (action.type === "restore-detail-history") navigate(1);
+	}, [isMobileViewport, isComposing, location.state, navigate, selectedEmailId, selectEmail, setUrlSelectedEmailId, urlSelectedEmailId]);
 
 	// Track folder identity to detect folder changes vs page changes
 	const prevFolderRef = useRef<string | undefined>(undefined);
