@@ -480,6 +480,27 @@ mobile folders route uses the existing folder API; search remains server-side
 through `useSearchEmails`. Mobile list and search rows show Japanese disposition
 labels and prioritize system triage errors, with a compact overflow count.
 
+Opening a message from a mobile folder list stores its ID in the `email` query
+parameter. Browser Back restores the same list state, while previous/next
+controls replace that parameter and follow the loaded list order. Opening a
+message through those controls marks it read and resets detail scrolling to
+the top. Opening or refreshing a URL-selected unread message also marks it
+read after its email and thread data load, using the thread-aware read mutation.
+Entering the mobile layout preserves an existing desktop selection in the URL,
+and an unavailable URL-selected email shows a recoverable error state. While a
+compose is active, URL selection takes no action so viewport changes do not
+discard unsaved fields; closing a compose after resizing to mobile restores any
+underlying selected email in the URL. Browser Back during a compose restores the
+marked mobile detail history entry so the compose remains open with its fields
+intact. Closing detail through filters, sending a compose successfully, or
+deleting the selected list row clears its URL selection, preventing stale IDs
+from reopening the detail. On mobile, archiving
+selects the next lower message from the pre-archive list when available,
+provided the archived message is still selected when the request completes;
+the viewport at completion determines whether it advances or closes the detail.
+Async moves, deletions, and draft sends close detail only when their original
+email remains selected after the request completes.
+
 ## Important files by responsibility
 
 | Responsibility | Main files |
