@@ -323,35 +323,50 @@ export async function analyzeInboundEmail(
 	return parseJevResponse(response);
 }
 
-/** Deterministic disposition policy v1; this never moves or deletes mail. */
-export function decideDisposition(features: TriageFeatures): TriageDisposition {
+/** Deterministic disposition policy; this never moves or deletes mail. */
+export function decideDisposition(features: TriageFeatures, policy: TriagePolicy = DEFAULT_TRIAGE_POLICY): TriageDisposition {
 	if (
-		features.securityRelevance >= 0.8 ||
-		features.financialImpact >= 0.85 ||
-		features.requiresAction >= 0.8 ||
-		features.requiresReply >= 0.8 ||
-		(features.hasDeadline >= 0.75 && features.urgency.score >= 1.5)
+		features.securityRelevance >= policy.securityAction ||
+		features.financialImpact >= policy.financialAction ||
+		features.requiresAction >= policy.requiresAction ||
+		features.requiresReply >= policy.requiresReply ||
+		(features.hasDeadline >= policy.deadlineAction && features.urgency.score >= policy.deadlineUrgency)
 	) {
 		return "action-required";
 	}
 
 	if (
-		features.bulkMarketing >= 0.9 &&
-		features.requiresAction <= 0.2 &&
-		features.requiresReply <= 0.2 &&
-		features.financialImpact <= 0.2 &&
-		features.securityRelevance <= 0.2
+		features.bulkMarketing >= policy.bulkMarketing &&
+		features.requiresAction <= policy.marketingMaxSignal &&
+		features.requiresReply <= policy.marketingMaxSignal &&
+		features.financialImpact <= policy.marketingMaxSignal &&
+		features.securityRelevance <= policy.marketingMaxSignal
 	) {
 		return "auto-file";
 	}
 
 	const clearlyLowSignal =
-		features.requiresAction < 0.3 &&
-		features.requiresReply < 0.3 &&
-		features.hasDeadline < 0.3 &&
-		features.financialImpact < 0.3 &&
-		features.securityRelevance < 0.3 &&
-		features.urgency.score < 1;
+		features.requiresAction < policy.lowSignal &&
+		features.requiresReply < policy.lowSignal &&
+		features.hasDeadline < policy.lowSignal &&
+		features.financialImpact < policy.lowSignal &&
+		features.securityRelevance < policy.lowSignal &&
+		features.urgency.score < policy.lowUrgency;
 	if (clearlyLowSignal) return "auto-file";
 	return "review";
 }
+
+/** Thresholds applied to Jev features; model outputs are never edited. */
+export const TriagePolicySchema = z.object({
+    securityAction: confidenceSchema, financialAction: confidenceSchema,
+    requiresAction: confidenceSchema, requiresReply: confidenceSchema,
+    deadlineAction: confidenceSchema, deadlineUrgency: z.number().finite().min(0).max(3),
+    bulkMarketing: confidenceSchema, marketingMaxSignal: confidenceSchema,
+    lowSignal: confidenceSchema, lowUrgency: z.number().finite().min(0).max(3),
+}).strict();
+export type TriagePolicy = z.infer<typeof TriagePolicySchema>;
+export const DEFAULT_TRIAGE_POLICY: TriagePolicy = {
+    securityAction: 0.8, financialAction: 0.85, requiresAction: 0.8, requiresReply: 0.8,
+    deadlineAction: 0.75, deadlineUrgency: 1.5, bulkMarketing: 0.9,
+    marketingMaxSignal: 0.2, lowSignal: 0.3, lowUrgency: 1,
+};

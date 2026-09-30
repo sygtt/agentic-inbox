@@ -285,4 +285,13 @@ export const mailboxMigrations: Migration[] = [
 			);
 		`),
 	},
+	{
+ name: "16_add_triage_policy_history",
+ sql: txn(`CREATE TABLE triage_policy_history (
+ revision INTEGER PRIMARY KEY NOT NULL,
+ policy_json TEXT NOT NULL,
+ reason TEXT NOT NULL,
+ created_at TEXT NOT NULL
+ );`),
+ },
 ];
