@@ -12,6 +12,7 @@ import EmailPanelHeader from "~/components/email-panel/EmailPanelHeader";
 import EmailPanelToolbar from "~/components/email-panel/EmailPanelToolbar";
 import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
+import { isEmailStillSelected } from "~/lib/mobile-email-navigation";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
 import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
@@ -155,6 +156,9 @@ export default function EmailPanel({
 		}
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
 	};
+	const closeIfStillSelected = () => {
+		if (isEmailStillSelected(useUIStore.getState().selectedEmailId, email.id)) onClose();
+	};
 	const handleMove = async (folderId: string, closeOnSuccess = true) => {
 		if (!mailboxId || threadActionsDisabled) return false;
 		try {
@@ -164,7 +168,7 @@ export default function EmailPanel({
 			} else {
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId });
 			}
-			if (closeOnSuccess) onClose();
+			if (closeOnSuccess) closeIfStillSelected();
 			return true;
 		} catch {
 			toastManager.add({ title: "Failed to move email", variant: "error" });
@@ -193,7 +197,7 @@ export default function EmailPanel({
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
 				toastManager.add({ title: "Email moved to Trash" });
 			}
-			onClose();
+			closeIfStillSelected();
 		} catch {
 			toastManager.add({ title: "Failed to delete email", variant: "error" });
 		}
@@ -240,7 +244,7 @@ export default function EmailPanel({
 			if (originalEmail) await replyMut.mutateAsync({ mailboxId, emailId: originalEmail.id, email: emailData }); else await sendEmailMut.mutateAsync({ mailboxId, email: emailData });
 			await deleteEmailMut.mutateAsync({ mailboxId, id: target.id });
 			toastManager.add({ title: "Email sent!" });
-			if (isDraftFolder) onClose();
+			if (isDraftFolder) closeIfStillSelected();
 		} catch (err) {
 			const message = (err instanceof Error ? err.message : null) || "Failed to send email.";
 			toastManager.add({ title: message, variant: "error" });

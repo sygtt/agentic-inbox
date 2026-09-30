@@ -40,10 +40,10 @@ import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 import {
+	getMobileArchiveSuccessAction,
+	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
-	getMobileEmailNeighborIds,
-	getMobileArchiveSuccessAction,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
@@ -194,13 +194,17 @@ export default function EmailListRoute() {
 	const [mobileFilter, setMobileFilter] = useState<"all" | "needs">("all");
 	const [selectedTag, setSelectedTag] = useState<string>();
 	const [isMobileViewport, setIsMobileViewport] = useState(false);
+	const isMobileViewportRef = useRef(false);
 	const [quickActionEmail, setQuickActionEmail] = useState<Email | null>(null);
 	const [tagsEmail, setTagsEmail] = useState<Email | null>(null);
 	const toastManager = useKumoToastManager();
 
 	useEffect(() => {
 		const media = window.matchMedia("(max-width: 767px)");
-		const update = () => setIsMobileViewport(media.matches);
+		const update = () => {
+			isMobileViewportRef.current = media.matches;
+			setIsMobileViewport(media.matches);
+		};
 		update();
 		media.addEventListener("change", update);
 		return () => media.removeEventListener("change", update);
@@ -468,7 +472,7 @@ export default function EmailListRoute() {
 
 	const handleArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
 		const action = getMobileArchiveSuccessAction({
-			isMobileViewport,
+			isMobileViewport: isMobileViewportRef.current,
 			selectedEmailId: useUIStore.getState().selectedEmailId,
 			archivedEmailId,
 			nextEmailId,

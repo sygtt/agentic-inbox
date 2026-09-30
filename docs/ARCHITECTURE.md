@@ -495,7 +495,9 @@ compose successfully, or deleting the selected list row clears its URL
 selection, preventing stale IDs from reopening the detail. On mobile, archiving
 selects the next lower message from the pre-archive list when available,
 provided the archived message is still selected when the request completes;
-at desktop widths, a successful archive closes the detail as before.
+the viewport at completion determines whether it advances or closes the detail.
+Async moves, deletions, and draft sends close detail only when their original
+email remains selected after the request completes.
 
 ## Important files by responsibility
 

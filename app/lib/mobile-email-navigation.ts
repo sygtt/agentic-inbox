@@ -8,6 +8,10 @@ export type MobileArchiveSuccessAction =
 	| { type: "close" }
 	| { type: "navigate"; emailId: string };
 
+export function isEmailStillSelected(selectedEmailId: string | null, emailId: string): boolean {
+	return selectedEmailId === emailId;
+}
+
 /** Keep archive completion behavior scoped to the still-selected email. */
 export function getMobileArchiveSuccessAction({
 	isMobileViewport,
@@ -20,7 +24,7 @@ export function getMobileArchiveSuccessAction({
 	archivedEmailId: string;
 	nextEmailId: string | null;
 }): MobileArchiveSuccessAction {
-	if (selectedEmailId !== archivedEmailId) return { type: "none" };
+	if (!isEmailStillSelected(selectedEmailId, archivedEmailId)) return { type: "none" };
 	if (!isMobileViewport || !nextEmailId) return { type: "close" };
 	return { type: "navigate", emailId: nextEmailId };
 }

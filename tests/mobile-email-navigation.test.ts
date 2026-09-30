@@ -5,6 +5,7 @@ import {
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
+	isEmailStillSelected,
 	isMobileEmailDetailHistoryEntry,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
@@ -46,6 +47,12 @@ test("advances only mobile archive completion and closes the desktop detail", ()
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, nextEmailId: null }), { type: "close" });
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: "another-email" }), { type: "none" });
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: null }), { type: "none" });
+});
+
+test("only closes async email actions while their email remains selected", () => {
+	assert.equal(isEmailStillSelected("email-a", "email-a"), true);
+	assert.equal(isEmailStillSelected("email-b", "email-a"), false);
+	assert.equal(isEmailStillSelected(null, "email-a"), false);
 });
 
 test("allows URL-selected email read marking only for active mobile detail", () => {
