@@ -708,6 +708,25 @@ docs: document local customization
 test: cover catch-all fallback
 ```
 
+## Issue creation and duplicate prevention
+
+Before creating a new GitHub issue:
+
+1. Search existing open issues and recently closed issues for the same or substantially overlapping task.
+2. Reuse or update an existing issue when it already covers the requested work.
+3. Create a new issue only when the requested scope is materially different.
+4. When two issues overlap but are not identical, prefer clarifying or extending the existing issue instead of creating a near-duplicate.
+5. When uncertain whether an existing issue is sufficient, report the existing issue and the scope difference before creating another one.
+
+Do not create issues solely from the current request without first checking the repository's existing issue tracker.
+
+If a duplicate is created accidentally:
+
+1. identify the canonical issue,
+2. add a short comment on the duplicate pointing to the canonical issue,
+3. close the duplicate with the `duplicate` reason,
+4. do not copy implementation work across both issues.
+
 ## Issue and PR linkage
 
 Implementation issues should normally close automatically when their implementation PR is merged.
