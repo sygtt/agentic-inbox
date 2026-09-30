@@ -43,7 +43,7 @@ import {
 	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
 	getMobileEmailNeighborIds,
-	shouldAdvanceAfterMobileArchive,
+	getMobileArchiveSuccessAction,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "~/lib/mobile-email-navigation";
@@ -286,17 +286,20 @@ export default function EmailListRoute() {
 		[emails, selectedEmailId],
 	);
 	const wasMobileViewportRef = useRef(false);
+	const wasComposingRef = useRef(isComposing);
 	const readMarkedEmailIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		const action = getMobileEmailSelectionAction({
 			isMobileViewport,
 			wasMobileViewport: wasMobileViewportRef.current,
+			wasComposing: wasComposingRef.current,
 			urlSelectedEmailId,
 			selectedEmailId,
 			isComposing,
 		});
 		wasMobileViewportRef.current = isMobileViewport;
+		wasComposingRef.current = isComposing;
 
 		if (action.type === "select-url-email") selectEmail(action.emailId);
 		else if (action.type === "write-selected-email-to-url") setUrlSelectedEmailId(action.emailId, true);
@@ -463,10 +466,15 @@ export default function EmailListRoute() {
 		if (email) markEmailReadOnce(email);
 	};
 
-	const handleMobileArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
-		if (!shouldAdvanceAfterMobileArchive(useUIStore.getState().selectedEmailId, archivedEmailId)) return;
-		if (nextEmailId) navigateMobileEmail(nextEmailId);
-		else closeEmailPanel();
+	const handleArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
+		const action = getMobileArchiveSuccessAction({
+			isMobileViewport,
+			selectedEmailId: useUIStore.getState().selectedEmailId,
+			archivedEmailId,
+			nextEmailId,
+		});
+		if (action.type === "navigate") navigateMobileEmail(action.emailId);
+		else if (action.type === "close") closeEmailPanel();
 	};
 
 	const handleToggleRead = (email: Email) => {
@@ -512,7 +520,7 @@ export default function EmailListRoute() {
 				...mobileEmailNeighbors,
 				onNavigate: navigateMobileEmail,
 				onUrlEmailLoaded: handleUrlEmailLoaded,
-				onArchiveSuccess: handleMobileArchiveSuccess,
+				onArchiveSuccess: handleArchiveSuccess,
 			}}
 		>
 			<>

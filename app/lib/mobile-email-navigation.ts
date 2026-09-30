@@ -3,12 +3,26 @@ export interface MobileEmailNeighborIds {
 	nextEmailId: string | null;
 }
 
-/** Only auto-advance after archiving while the archived email remains selected. */
-export function shouldAdvanceAfterMobileArchive(
-	selectedEmailId: string | null,
-	archivedEmailId: string,
-): boolean {
-	return selectedEmailId === archivedEmailId;
+export type MobileArchiveSuccessAction =
+	| { type: "none" }
+	| { type: "close" }
+	| { type: "navigate"; emailId: string };
+
+/** Keep archive completion behavior scoped to the still-selected email. */
+export function getMobileArchiveSuccessAction({
+	isMobileViewport,
+	selectedEmailId,
+	archivedEmailId,
+	nextEmailId,
+}: {
+	isMobileViewport: boolean;
+	selectedEmailId: string | null;
+	archivedEmailId: string;
+	nextEmailId: string | null;
+}): MobileArchiveSuccessAction {
+	if (selectedEmailId !== archivedEmailId) return { type: "none" };
+	if (!isMobileViewport || !nextEmailId) return { type: "close" };
+	return { type: "navigate", emailId: nextEmailId };
 }
 
 export function shouldMarkUrlSelectedEmailRead({
@@ -42,12 +56,14 @@ export type MobileEmailSelectionAction =
 export function getMobileEmailSelectionAction({
 	isMobileViewport,
 	wasMobileViewport,
+	wasComposing,
 	urlSelectedEmailId,
 	selectedEmailId,
 	isComposing,
 }: {
 	isMobileViewport: boolean;
 	wasMobileViewport: boolean;
+	wasComposing: boolean;
 	urlSelectedEmailId: string | null;
 	selectedEmailId: string | null;
 	isComposing: boolean;
@@ -59,7 +75,7 @@ export function getMobileEmailSelectionAction({
 			: { type: "select-url-email", emailId: urlSelectedEmailId };
 	}
 	if (!selectedEmailId) return { type: "none" };
-	if (!wasMobileViewport) return { type: "write-selected-email-to-url", emailId: selectedEmailId };
+	if (wasComposing || !wasMobileViewport) return { type: "write-selected-email-to-url", emailId: selectedEmailId };
 	return { type: "clear-selection" };
 }
 

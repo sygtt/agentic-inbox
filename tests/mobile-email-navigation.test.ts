@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-	getMobileEmailPanelCloseAction,
+	getMobileArchiveSuccessAction,
 	getMobileEmailNeighborIds,
+	getMobileEmailPanelCloseAction,
 	getMobileEmailSelectionAction,
 	isMobileEmailDetailHistoryEntry,
-	shouldAdvanceAfterMobileArchive,
 	shouldMarkUrlSelectedEmailRead,
 	withMobileEmailDetailHistoryEntry,
 } from "../app/lib/mobile-email-navigation.ts";
@@ -34,10 +34,18 @@ test("disables navigation at either list edge and for an email outside the loade
 	});
 });
 
-test("only auto-advances after archive while the archived email remains selected", () => {
-	assert.equal(shouldAdvanceAfterMobileArchive("archived", "archived"), true);
-	assert.equal(shouldAdvanceAfterMobileArchive("another-email", "archived"), false);
-	assert.equal(shouldAdvanceAfterMobileArchive(null, "archived"), false);
+test("advances only mobile archive completion and closes the desktop detail", () => {
+	const selectedArchive = {
+		isMobileViewport: true,
+		selectedEmailId: "archived",
+		archivedEmailId: "archived",
+		nextEmailId: "next",
+	};
+	assert.deepEqual(getMobileArchiveSuccessAction(selectedArchive), { type: "navigate", emailId: "next" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, isMobileViewport: false }), { type: "close" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, nextEmailId: null }), { type: "close" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: "another-email" }), { type: "none" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: null }), { type: "none" });
 });
 
 test("allows URL-selected email read marking only for active mobile detail", () => {
@@ -69,6 +77,7 @@ test("keeps a desktop selection when entering mobile and clears it after mobile 
 	assert.deepEqual(getMobileEmailSelectionAction({
 		isMobileViewport: true,
 		wasMobileViewport: false,
+		wasComposing: false,
 		urlSelectedEmailId: null,
 		selectedEmailId: "selected",
 		isComposing: false,
@@ -76,6 +85,7 @@ test("keeps a desktop selection when entering mobile and clears it after mobile 
 	assert.deepEqual(getMobileEmailSelectionAction({
 		isMobileViewport: true,
 		wasMobileViewport: true,
+		wasComposing: false,
 		urlSelectedEmailId: null,
 		selectedEmailId: "selected",
 		isComposing: false,
@@ -86,10 +96,22 @@ test("preserves an active compose instead of applying a stale URL email selectio
 	assert.deepEqual(getMobileEmailSelectionAction({
 		isMobileViewport: true,
 		wasMobileViewport: false,
+		wasComposing: false,
 		urlSelectedEmailId: "previously-selected",
 		selectedEmailId: null,
 		isComposing: true,
 	}), { type: "none" });
+});
+
+test("restores a selected email to the URL when closing a compose after resizing to mobile", () => {
+	assert.deepEqual(getMobileEmailSelectionAction({
+		isMobileViewport: true,
+		wasMobileViewport: true,
+		wasComposing: true,
+		urlSelectedEmailId: null,
+		selectedEmailId: "restored-email",
+		isComposing: false,
+	}), { type: "write-selected-email-to-url", emailId: "restored-email" });
 });
 
 test("clears URL email selection when closing the panel outside its mobile history entry", () => {

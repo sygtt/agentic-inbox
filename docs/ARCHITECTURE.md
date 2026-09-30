@@ -485,16 +485,17 @@ parameter. Browser Back restores the same list state, while previous/next
 controls replace that parameter and follow the loaded list order. Opening a
 message through those controls marks it read and resets detail scrolling to
 the top. Opening or refreshing a URL-selected unread message also marks it
-read after its email data loads, using the thread-aware read mutation. Entering
-the mobile layout preserves an existing desktop selection
-in the URL, and an unavailable URL-selected email shows a recoverable error
-state. While a compose is active, URL selection takes no action so viewport
-changes do not discard unsaved fields. Closing detail through filters, sending
-a compose successfully, or deleting the selected list row clears its URL
-selection, preventing stale IDs from reopening the detail. Archiving selects
-the next lower message from the pre-archive list when available, provided the
-archived message is still selected when the request completes; otherwise the
-user's current selection is preserved.
+read after its email and thread data load, using the thread-aware read mutation.
+Entering the mobile layout preserves an existing desktop selection in the URL,
+and an unavailable URL-selected email shows a recoverable error state. While a
+compose is active, URL selection takes no action so viewport changes do not
+discard unsaved fields; closing a compose after resizing to mobile restores any
+underlying selected email in the URL. Closing detail through filters, sending a
+compose successfully, or deleting the selected list row clears its URL
+selection, preventing stale IDs from reopening the detail. On mobile, archiving
+selects the next lower message from the pre-archive list when available,
+provided the archived message is still selected when the request completes;
+at desktop widths, a successful archive closes the detail as before.
 
 ## Important files by responsibility
 
