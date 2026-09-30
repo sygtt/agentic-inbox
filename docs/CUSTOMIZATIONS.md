@@ -687,17 +687,20 @@ actions under operator control.
 - The bounded current-email and recent-thread state is validated into versioned structured features.
 - A deterministic policy stores the predicted disposition and applies an `agent`-provenance `disposition:*` tag.
 - Existing `provenance=manual` dispositions are preserved during re-analysis.
+- A newly received email is moved from Inbox to Archive only after triage and automatic `disposition:auto-file` persistence both succeed. The mailbox operation atomically rechecks the stored prediction, agent disposition, and current folder, so an intervening manual disposition change or folder move takes precedence. Review/action-required results and preserved manual dispositions do not trigger the move. Existing messages are not backfilled, and manual tag edits do not trigger archiving.
+- Archive move failures are logged separately and leave the stored message, triage analysis, and disposition intact; they do not set `triage:error`.
 - A catchable failed attempt on an existing message sets one idempotent failure record without changing its disposition or existing tags. Tag reads expose that system state as `triage:error` with `system` provenance. The next successful persisted analysis clears the record in the same transaction, including when a manual disposition is preserved.
 - A rejected asynchronous EmailAgent invocation or non-2xx response is also marked by the inbound handler, covering failures before the agent triage handler can write the marker.
 - Existing or newly assigned user tags named `triage:error` remain ordinary editable tags and are preserved by the failure-state migration. Only the synthetic tag with `system` provenance indicates an automatic triage failure. Threaded list rows show an accessible thread-level error when any conversation message has the failure record, while detail views retain each message's own tags and badge.
 - The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features. Open detail views and each displayed thread message refresh tags every three seconds for up to twenty query attempts total. Tag refresh continues after a failure marker appears; when a previously observed marker clears, the detail view reloads analysis once so a successful retry replaces any earlier result. Email lists already refresh every thirty seconds.
 - If the current-disposition tag query fails, the detail panel reports that state and offers a retry instead of claiming there is no disposition.
-- The unattended path does not create summaries in Agent chat history, drafts, sends, moves, archives, trashes, or deletes messages.
+- The unattended path does not create summaries in Agent chat history, drafts, sends, trashes, or deletes messages. Its only automatic mailbox action is archiving a newly triaged email after an agent-provenance `disposition:auto-file` tag is persisted.
 - Jev failures retain the inbound email and leave disposition tags unchanged.
 
 ### Main affected areas
 
 - `workers/agent/index.ts`
+- `workers/agent/auto-archive.ts`
 - `workers/agent/triage-failure.ts`
 - `workers/index.ts`
 - `workers/lib/email-triage.ts`
@@ -735,15 +738,16 @@ cascade when their email is deleted.
 
 ### Upstream synchronization risk
 
-Medium. Upstream changes to the inbound Agent trigger or MailboxDO schema may
-conflict with the local triage flow and its manual-disposition protection. The
-provider adapter is isolated from upstream code to keep future host changes
-small.
+Medium. Upstream changes to the inbound Agent trigger, MailboxDO move operation,
+or disposition persistence may conflict with the local triage flow, its
+manual-disposition protection, and post-persistence auto-archive. The provider
+adapter is isolated from upstream code to keep future host changes small.
 
 ### Removal / replacement condition
 
 Remove or shrink this customization if upstream provides equivalent structured
-inbound triage with versioned persistence and manual disposition protection.
+inbound triage with versioned persistence, manual disposition protection, and
+safe auto-file archiving.
 
 ## Human triage correction feedback
 

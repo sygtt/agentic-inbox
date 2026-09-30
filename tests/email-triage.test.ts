@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { test } from "node:test";
 import { applyMigrations, mailboxMigrations } from "../workers/durableObject/migrations.ts";
 import {
+	archivePersistedAutoFiledEmail,
 	applyEmailTriageResult,
 	getEmailTriageAnalysis,
 	markEmailTriageFailed,
@@ -10,6 +11,7 @@ import {
 } from "../workers/durableObject/triage.ts";
 import { handleTriageFailure, handleTriageTriggerFailure } from "../workers/agent/triage-failure.ts";
 import { TRIAGE_ERROR_TAG } from "../workers/lib/email-tags.ts";
+import { Folders } from "../shared/folders.ts";
 import {
 	analyzeInboundEmail,
 	buildInboundTriageState,
@@ -207,6 +209,61 @@ function features(overrides: Partial<TriageFeatures> = {}): TriageFeatures {
 		...overrides,
 	};
 }
+
+test("archives only a persisted agent auto-file message that remains in Inbox", () => {
+	const { database, storage } = createDatabase();
+	insertEmail(database, "email-auto-file");
+	applyEmailTriageResult(storage, "email-auto-file", {
+		model: "jev-test",
+		features: features(),
+		schemaVersion: 1,
+		policyVersion: 1,
+		predictedDisposition: "auto-file",
+	});
+
+	assert.equal(archivePersistedAutoFiledEmail(storage, "email-auto-file"), "archived");
+	assert.equal(
+		database.prepare("SELECT folder_id FROM emails WHERE id = ?").get("email-auto-file").folder_id,
+		Folders.ARCHIVE,
+	);
+	database.close();
+});
+
+test("does not override a folder move or manual disposition made during triage", () => {
+	const { database, storage } = createDatabase();
+	insertEmail(database, "email-moved");
+	applyEmailTriageResult(storage, "email-moved", {
+		model: "jev-test",
+		features: features(),
+		schemaVersion: 1,
+		policyVersion: 1,
+		predictedDisposition: "auto-file",
+	});
+	const trashedAt = "2026-09-30T12:00:00.000Z";
+	database.prepare("UPDATE emails SET folder_id = ?, trashed_at = ? WHERE id = ?")
+		.run(Folders.TRASH, trashedAt, "email-moved");
+
+	assert.equal(archivePersistedAutoFiledEmail(storage, "email-moved"), "skipped");
+	const movedEmail = database.prepare("SELECT folder_id, trashed_at FROM emails WHERE id = ?").get("email-moved");
+	assert.equal(movedEmail.folder_id, Folders.TRASH);
+	assert.equal(movedEmail.trashed_at, trashedAt);
+
+	insertEmail(database, "email-manual");
+	applyEmailTriageResult(storage, "email-manual", {
+		model: "jev-test",
+		features: features(),
+		schemaVersion: 1,
+		policyVersion: 1,
+		predictedDisposition: "auto-file",
+	});
+	setEmailDisposition(storage, "email-manual", "auto-file", "manual");
+	assert.equal(archivePersistedAutoFiledEmail(storage, "email-manual"), "skipped");
+	assert.equal(
+		database.prepare("SELECT folder_id FROM emails WHERE id = ?").get("email-manual").folder_id,
+		Folders.INBOX,
+	);
+	database.close();
+});
 
 test("marks failed triage idempotently without changing dispositions or unrelated tags", () => {
 	for (const provenance of ["agent", "manual"] as const) {
