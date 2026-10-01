@@ -23,7 +23,10 @@ export default function VerificationCodeAction({
 	const analysisQuery = useEmailTriageAnalysis(mailboxId, messageId, { refreshWhilePending: true });
 	const features = analysisQuery.data?.features;
 	const selection = features && "verificationCodeCandidateId" in features
-		? { candidateId: features.verificationCodeCandidateId }
+		? {
+			candidateId: features.verificationCodeCandidateId,
+			candidateValue: features.verificationCodeCandidateValue,
+		}
 		: undefined;
 	const code = resolveVerificationCode(subject, body, selection);
 	const [feedback, setFeedback] = useState<"idle" | "copied" | "failed">("idle");

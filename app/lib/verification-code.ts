@@ -63,13 +63,13 @@ export function extractVerificationCode(
 export function resolveVerificationCode(
 	subject?: string | null,
 	body?: string | null,
-	selection?: { candidateId?: string | null },
+	selection?: { candidateId?: string | null; candidateValue?: string | null },
 ): string | null {
 	if (selection?.candidateId === null) return null;
 	if (selection?.candidateId) {
-		const selected = extractVerificationCodeCandidates(subject, body)
-			.find(({ id }) => id === selection.candidateId);
-		if (selected) return selected.value;
+		if (selection.candidateValue && /^\d{4,8}$/.test(selection.candidateValue)) {
+			return selection.candidateValue;
+		}
 	}
 
 	return extractVerificationCode(subject, body);

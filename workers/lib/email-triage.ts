@@ -7,13 +7,18 @@ import { z } from "zod";
 import { stripHtmlToText } from "./email-content.ts";
 import { DISPOSITION_VALUES } from "./email-tags.ts";
 import type { JevProvider } from "./jev-provider.ts";
-import { extractVerificationCodeCandidates, type VerificationCodeCandidate } from "../../shared/verification-code.ts";
+import {
+	extractVerificationCodeCandidates,
+	MAX_VERIFICATION_CODE_CANDIDATES,
+	type VerificationCodeCandidate,
+} from "../../shared/verification-code.ts";
 
 export const TRIAGE_SCHEMA_VERSION = 2;
 export const TRIAGE_POLICY_VERSION = 2;
 export const MAX_CURRENT_BODY_CHARS = 12_000;
 export const MAX_THREAD_MESSAGES = 8;
 export const MAX_THREAD_MESSAGE_CHARS = 500;
+export { MAX_VERIFICATION_CODE_CANDIDATES };
 
 export const TRIAGE_CATEGORIES = [
 	"personal",
@@ -82,6 +87,7 @@ export interface TriageFeatures {
 		probabilities: Record<string, number>;
 	};
 	verificationCodeCandidateId?: string | null;
+	verificationCodeCandidateValue?: string | null;
 }
 
 export interface InboundTriageResult {
@@ -289,6 +295,7 @@ export const TriageFeaturesSchema = z.object({
 		probabilities: probabilitySchema,
 	}),
 	verificationCodeCandidateId: z.string().regex(/^candidate_\d+$/).nullable().optional(),
+	verificationCodeCandidateValue: z.string().regex(/^\d{4,8}$/).nullable().optional(),
 }) satisfies z.ZodType<TriageFeatures>;
 const responseSchema = z.object({
 	model: z.string().min(1),
@@ -313,7 +320,7 @@ function parseAnswer<T>(schema: z.ZodType<T>, answer: unknown, name: string): T 
 /** Validate and normalize the raw Jev response; model versions remain data. */
 export function parseJevResponse(
 	raw: unknown,
-	validVerificationCodeCandidateIds: readonly string[] = [],
+	validVerificationCodeCandidates: readonly VerificationCodeCandidate[] = [],
 ): InboundTriageResult {
 	const response = responseSchema.safeParse(raw);
 	if (!response.success) {
@@ -328,7 +335,10 @@ export function parseJevResponse(
 		requiredAnswer(answers, "verification_code_candidate"),
 		"verification_code_candidate",
 	);
-	if (verificationCode.choice !== "none" && !validVerificationCodeCandidateIds.includes(verificationCode.choice)) {
+	const selectedVerificationCodeCandidate = verificationCode.choice === "none"
+		? undefined
+		: validVerificationCodeCandidates.find(({ id }) => id === verificationCode.choice);
+	if (verificationCode.choice !== "none" && !selectedVerificationCodeCandidate) {
 		throw new Error(`Invalid Jev answer "verification_code_candidate": unknown candidate ID`);
 	}
 	const features: TriageFeatures = {
@@ -350,7 +360,8 @@ export function parseJevResponse(
 			confidence: urgency.confidence,
 			probabilities: urgency.probabilities,
 		},
-		verificationCodeCandidateId: verificationCode.choice === "none" ? null : verificationCode.choice,
+		verificationCodeCandidateId: selectedVerificationCodeCandidate?.id ?? null,
+		verificationCodeCandidateValue: selectedVerificationCodeCandidate?.value ?? null,
 	};
 
 	return { model: response.data.model, features };
@@ -363,7 +374,7 @@ export async function analyzeInboundEmail(
 ): Promise<InboundTriageResult> {
 	const candidates = state.email.verificationCodeCandidates;
 	const response = await provider.evaluate(state, buildTriageQuestions(candidates));
-	return parseJevResponse(response, candidates.map(({ id }) => id));
+	return parseJevResponse(response, candidates);
 }
 
 /** Deterministic disposition policy; this never moves or deletes mail. */

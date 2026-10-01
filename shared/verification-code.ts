@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 Cloudflare, Inc.
-// Licensed under the Apache 2.0 license found in the LICENSE file or at:
-//     https://opensource.org/licenses/Apache-2.0
 
 import { decodeHTML } from "entities";
+
+export const MAX_VERIFICATION_CODE_CANDIDATES = 20;
 
 export interface VerificationCodeCandidate {
 	id: string;
@@ -40,6 +39,7 @@ export function extractVerificationCodeCandidates(
 			if (seenValues.has(code)) continue;
 			seenValues.add(code);
 			candidates.push({ id: `candidate_${candidates.length + 1}`, value: code });
+			if (candidates.length === MAX_VERIFICATION_CODE_CANDIDATES) return candidates;
 		}
 	}
 

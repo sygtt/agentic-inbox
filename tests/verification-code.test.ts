@@ -65,8 +65,19 @@ test("extracts stable candidates from subject and body without relying on Englis
 test("uses only a valid Jev candidate selection and preserves deterministic fallback", () => {
 	const subject = "Your verification code";
 	const body = "Use 482913 to verify. Order 617204 is ready.";
-	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_2" }), "617204");
+	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_2", candidateValue: "617204" }), "617204");
 	assert.equal(resolveVerificationCode(subject, body, { candidateId: null }), null);
 	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_99" }), "482913");
 	assert.equal(resolveVerificationCode(subject, body), "482913");
+});
+
+test("uses the server-derived candidate mapping when HTML normalization differs", () => {
+	const body = '<p><img alt="1111"> ... 2222</p>';
+	assert.equal(
+		resolveVerificationCode("Security alert", body, {
+			candidateId: "candidate_1",
+			candidateValue: "1111",
+		}),
+		"1111",
+	);
 });

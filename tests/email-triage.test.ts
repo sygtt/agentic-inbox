@@ -19,6 +19,7 @@ import {
 	buildTriageQuestions,
 	decideDisposition,
 	MAX_CURRENT_BODY_CHARS,
+	MAX_VERIFICATION_CODE_CANDIDATES,
 	MAX_THREAD_MESSAGES,
 	MAX_THREAD_MESSAGE_CHARS,
 	parseJevResponse,
@@ -117,6 +118,7 @@ test("parses Jev Choice, Noul, and Score answers and preserves model version", (
 	assert.equal(result.features.requiresReply, 0.8);
 	assert.equal(result.features.urgency.score, 2.2);
 	assert.equal(result.features.verificationCodeCandidateId, null);
+	assert.equal(result.features.verificationCodeCandidateValue, null);
 
 	const newer = parseJevResponse({ ...validResponse(), model: "jev-next" });
 	assert.equal(newer.model, "jev-next");
@@ -155,6 +157,7 @@ test("runs the configured Jev provider with deterministic candidate choices", as
 	]);
 	assert.equal(result.features.category.choice, "transactional");
 	assert.equal(result.features.verificationCodeCandidateId, "candidate_2");
+	assert.equal(result.features.verificationCodeCandidateValue, "654321");
 });
 
 test("Jev can choose none and cannot select an unknown or malformed code candidate", () => {
@@ -164,11 +167,11 @@ test("Jev can choose none and cannot select an unknown or malformed code candida
 	assert.deepEqual(Object.keys(buildTriageQuestions([]).verification_code_candidate.criteria), ["none"]);
 
 	assert.throws(
-		() => parseJevResponse(validResponse("candidate_9"), ["candidate_1"]),
+		() => parseJevResponse(validResponse("candidate_9"), [{ id: "candidate_1", value: "654321" }]),
 		/unknown candidate ID/,
 	);
 	assert.throws(
-		() => parseJevResponse(validResponse("654321"), ["candidate_1"]),
+		() => parseJevResponse(validResponse("654321"), [{ id: "candidate_1", value: "654321" }]),
 		/unknown candidate ID/,
 	);
 	const malformed = structuredClone(validResponse());
@@ -190,9 +193,11 @@ test("legacy triage feature JSON stays distinguishable from an explicit Jev none
 		urgency: { score: 0, confidence: 1, probabilities: { "0": 1 } },
 	});
 	assert.equal("verificationCodeCandidateId" in legacy, false);
+	assert.equal("verificationCodeCandidateValue" in legacy, false);
 	const explicitNone = TriageFeaturesSchema.parse(parseJevResponse(validResponse()).features);
 	assert.equal("verificationCodeCandidateId" in explicitNone, true);
 	assert.equal(explicitNone.verificationCodeCandidateId, null);
+	assert.equal(explicitNone.verificationCodeCandidateValue, null);
 });
 
 test("calls the direct TypeSafe System One API without exposing provider details to triage", async () => {
@@ -586,16 +591,46 @@ test("extracts ambiguous multilingual candidates before Jev selects a candidate 
 	]);
 	const selected = parseJevResponse(
 		validResponse("candidate_2"),
-		state.email.verificationCodeCandidates.map(({ id }) => id),
+		state.email.verificationCodeCandidates,
 	);
 	assert.equal(selected.features.verificationCodeCandidateId, "candidate_2");
-	assert.equal(state.email.verificationCodeCandidates.find(({ id }) => id === selected.features.verificationCodeCandidateId)?.value, "654321");
+	assert.equal(selected.features.verificationCodeCandidateValue, "654321");
+});
+
+test("persists the exact worker candidate value when HTML contributes image alt text", () => {
+	const state = buildInboundTriageState({
+		id: "html-candidates",
+		subject: "Security alert",
+		body: '<img alt="1111"> ... 2222',
+	});
+	assert.deepEqual(state.email.verificationCodeCandidates, [
+		{ id: "candidate_1", value: "1111" },
+		{ id: "candidate_2", value: "2222" },
+	]);
+	const selected = parseJevResponse(validResponse("candidate_1"), state.email.verificationCodeCandidates);
+	assert.equal(selected.features.verificationCodeCandidateId, "candidate_1");
+	assert.equal(selected.features.verificationCodeCandidateValue, "1111");
+});
+
+test("caps verification-code candidate options before building Jev questions", () => {
+	const subject = Array.from({ length: 30 }, (_, index) => `Reference ${String(100000 + index)}`).join(" ");
+	const state = buildInboundTriageState({ id: "many-candidates", subject, body: "" });
+	assert.equal(state.email.verificationCodeCandidates.length, MAX_VERIFICATION_CODE_CANDIDATES);
+	assert.equal(state.email.verificationCodeCandidates.at(-1)?.id, `candidate_${MAX_VERIFICATION_CODE_CANDIDATES}`);
+	assert.equal(
+		Object.keys(buildTriageQuestions(state.email.verificationCodeCandidates).verification_code_candidate.criteria).length,
+		MAX_VERIFICATION_CODE_CANDIDATES + 1,
+	);
 });
 
 test("persists candidate selection in features_json and keeps legacy rows without a selection", () => {
 	const { database, storage } = createDatabase();
 	insertEmail(database, "email-selection");
-	const selectedFeatures = { ...features(), verificationCodeCandidateId: "candidate_2" };
+	const selectedFeatures = {
+		...features(),
+		verificationCodeCandidateId: "candidate_2",
+		verificationCodeCandidateValue: "654321",
+	};
 	applyEmailTriageResult(storage, "email-selection", {
 		model: "jev-test",
 		features: selectedFeatures,
@@ -606,6 +641,7 @@ test("persists candidate selection in features_json and keeps legacy rows withou
 	const stored = getEmailTriageAnalysis(storage, "email-selection").analysis;
 	assert.equal(stored?.schemaVersion, 2);
 	assert.equal(stored?.features.verificationCodeCandidateId, "candidate_2");
+	assert.equal(stored?.features.verificationCodeCandidateValue, "654321");
 
 	insertEmail(database, "email-legacy");
 	database.prepare(
