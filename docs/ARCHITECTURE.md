@@ -238,6 +238,9 @@ same name. Rows cascade when the email is deleted.
 Stores the latest validated Jev feature set, returned model version, policy and
 schema versions, predicted disposition, and analysis timestamp for each email.
 Rows are upserted during re-analysis and cascade when the email is deleted.
+Triage schema version 2 also stores the selected verification-code candidate ID
+in `features_json`. Older rows remain readable without that optional field and
+continue to use the contextual regex fallback.
 
 ### `email_triage_feedback`
 
@@ -379,10 +382,21 @@ The interactive agent policy is draft-oriented. The agent does not receive a dir
 
 After a new message is persisted, the inbound handler asynchronously POSTs to the matching `EmailAgent` at `/onNewEmail`.
 
-The agent builds bounded plain-text current-email and recent-thread state, calls
-Jev through the provider boundary in `workers/lib/jev-provider.ts`, validates
-the structured response, and stores it in `email_triage_analysis`. The active
-provider calls TypeSafe's direct System One API with the `TYPESAFE_API_KEY`
+The agent builds bounded plain-text current-email and recent-thread state,
+deterministically extracts 4–8 digit candidates from the current email, and
+includes those IDs and values in the existing Jev request. A structured choice
+asks Jev to select one candidate ID or `none`; response validation rejects any
+ID outside the deterministic candidate list. The selected ID, never a model
+generated code value, is stored in `email_triage_analysis.features_json` under
+triage schema version 2. The email detail OTP action maps that ID back to the
+deterministically extracted value and copies only that value. Until a result is
+available, after a failed request, or for a legacy analysis without the new
+field, the existing contextual regex detector remains the fallback. A valid
+`none` selection suppresses the OTP action. This additional question uses the
+same inbound Jev request and does not affect disposition policy. Jev is called
+through the provider boundary in `workers/lib/jev-provider.ts`; the validated
+result is stored in `email_triage_analysis`. The active provider calls
+TypeSafe's direct System One API with the `TYPESAFE_API_KEY`
 secret. A deterministic policy then applies an `agent`-provenance
 `disposition:*` tag unless a manual disposition already exists. Manual
 disposition changes through the existing disposition API replace the tag and,

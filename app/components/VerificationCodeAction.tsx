@@ -6,18 +6,26 @@
 import { Button } from "@cloudflare/kumo";
 import { CheckIcon, CopyIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
-import { extractVerificationCode } from "~/lib/verification-code";
+import { resolveVerificationCode } from "~/lib/verification-code";
+import { useEmailTriageAnalysis } from "~/queries/email-triage";
 
 export default function VerificationCodeAction({
 	subject,
 	body,
 	messageId,
+	mailboxId,
 }: {
 	subject: string;
 	body?: string | null;
 	messageId: string;
+	mailboxId?: string;
 }) {
-	const code = extractVerificationCode(subject, body);
+	const analysisQuery = useEmailTriageAnalysis(mailboxId, messageId, { refreshWhilePending: true });
+	const features = analysisQuery.data?.features;
+	const selection = features && "verificationCodeCandidateId" in features
+		? { candidateId: features.verificationCodeCandidateId }
+		: undefined;
+	const code = resolveVerificationCode(subject, body, selection);
 	const [feedback, setFeedback] = useState<"idle" | "copied" | "failed">("idle");
 	const copyVersion = useRef(0);
 	useEffect(() => {

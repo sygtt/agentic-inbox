@@ -7,8 +7,9 @@ import { z } from "zod";
 import { stripHtmlToText } from "./email-content.ts";
 import { DISPOSITION_VALUES } from "./email-tags.ts";
 import type { JevProvider } from "./jev-provider.ts";
+import { extractVerificationCodeCandidates, type VerificationCodeCandidate } from "../../shared/verification-code.ts";
 
-export const TRIAGE_SCHEMA_VERSION = 1;
+export const TRIAGE_SCHEMA_VERSION = 2;
 export const TRIAGE_POLICY_VERSION = 2;
 export const MAX_CURRENT_BODY_CHARS = 12_000;
 export const MAX_THREAD_MESSAGES = 8;
@@ -46,6 +47,7 @@ export interface InboundTriageState {
 		envelopeRecipient: string | null;
 		subject: string | null;
 		bodyText: string;
+		verificationCodeCandidates: VerificationCodeCandidate[];
 		hasAttachments: boolean;
 	};
 	thread: {
@@ -79,6 +81,7 @@ export interface TriageFeatures {
 		confidence: number;
 		probabilities: Record<string, number>;
 	};
+	verificationCodeCandidateId?: string | null;
 }
 
 export interface InboundTriageResult {
@@ -167,6 +170,22 @@ export const TRIAGE_QUESTIONS = {
 	},
 } as const;
 
+/** Add the current email's deterministic choices without asking Jev for a code value. */
+export function buildTriageQuestions(candidates: readonly VerificationCodeCandidate[] = []) {
+	const criteria = Object.fromEntries([
+		...candidates.map(({ id }) => [id, `Select only if this ID's exact value in the candidate list is the verification code.`]),
+		["none", "None of the listed candidates is a verification code."],
+	]);
+	return {
+		...TRIAGE_QUESTIONS,
+		verification_code_candidate: {
+			type: "choice",
+			instructions: "Based on the email context, select the ID of the verification-code candidate or none. Never return or invent a code value.",
+			criteria,
+		},
+	};
+}
+
 function nullable(value: string | null | undefined): string | null {
 	return value && value.trim() ? value : null;
 }
@@ -207,13 +226,16 @@ export function buildInboundTriageState(
 			bodyText: bodyText(email, MAX_THREAD_MESSAGE_CHARS),
 		}));
 
+	const subject = nullable(currentEmail.subject);
+	const currentBodyText = bodyText(currentEmail, MAX_CURRENT_BODY_CHARS);
 	return {
 		email: {
 			sender: nullable(currentEmail.sender),
 			recipient: nullable(currentEmail.recipient),
 			envelopeRecipient: nullable(currentEmail.envelope_recipient),
-			subject: nullable(currentEmail.subject),
-			bodyText: bodyText(currentEmail, MAX_CURRENT_BODY_CHARS),
+			subject,
+			bodyText: currentBodyText,
+			verificationCodeCandidates: extractVerificationCodeCandidates(subject, currentBodyText),
 			hasAttachments: (currentEmail.attachments?.length ?? 0) > 0,
 		},
 		thread: {
@@ -241,6 +263,12 @@ const scoreAnswerSchema = z.object({
 	confidence: confidenceSchema,
 	probabilities: probabilitySchema,
 });
+const verificationCodeAnswerSchema = z.object({
+	type: z.literal("choice"),
+	choice: z.string().min(1),
+	confidence: confidenceSchema,
+	probabilities: probabilitySchema,
+});
 export const TriageFeaturesSchema = z.object({
 	category: z.object({
 		choice: z.enum(TRIAGE_CATEGORIES),
@@ -260,6 +288,7 @@ export const TriageFeaturesSchema = z.object({
 		confidence: confidenceSchema,
 		probabilities: probabilitySchema,
 	}),
+	verificationCodeCandidateId: z.string().regex(/^candidate_\d+$/).nullable().optional(),
 }) satisfies z.ZodType<TriageFeatures>;
 const responseSchema = z.object({
 	model: z.string().min(1),
@@ -282,7 +311,10 @@ function parseAnswer<T>(schema: z.ZodType<T>, answer: unknown, name: string): T 
 }
 
 /** Validate and normalize the raw Jev response; model versions remain data. */
-export function parseJevResponse(raw: unknown): InboundTriageResult {
+export function parseJevResponse(
+	raw: unknown,
+	validVerificationCodeCandidateIds: readonly string[] = [],
+): InboundTriageResult {
 	const response = responseSchema.safeParse(raw);
 	if (!response.success) {
 		throw new Error(`Invalid Jev response: ${response.error.message}`);
@@ -291,6 +323,14 @@ export function parseJevResponse(raw: unknown): InboundTriageResult {
 	const answers = response.data.answers;
 	const category = parseAnswer(choiceAnswerSchema, requiredAnswer(answers, "category"), "category");
 	const urgency = parseAnswer(scoreAnswerSchema, requiredAnswer(answers, "urgency"), "urgency");
+	const verificationCode = parseAnswer(
+		verificationCodeAnswerSchema,
+		requiredAnswer(answers, "verification_code_candidate"),
+		"verification_code_candidate",
+	);
+	if (verificationCode.choice !== "none" && !validVerificationCodeCandidateIds.includes(verificationCode.choice)) {
+		throw new Error(`Invalid Jev answer "verification_code_candidate": unknown candidate ID`);
+	}
 	const features: TriageFeatures = {
 		category: {
 			choice: category.choice,
@@ -310,6 +350,7 @@ export function parseJevResponse(raw: unknown): InboundTriageResult {
 			confidence: urgency.confidence,
 			probabilities: urgency.probabilities,
 		},
+		verificationCodeCandidateId: verificationCode.choice === "none" ? null : verificationCode.choice,
 	};
 
 	return { model: response.data.model, features };
@@ -320,8 +361,9 @@ export async function analyzeInboundEmail(
 	provider: JevProvider,
 	state: InboundTriageState,
 ): Promise<InboundTriageResult> {
-	const response = await provider.evaluate(state, TRIAGE_QUESTIONS);
-	return parseJevResponse(response);
+	const candidates = state.email.verificationCodeCandidates;
+	const response = await provider.evaluate(state, buildTriageQuestions(candidates));
+	return parseJevResponse(response, candidates.map(({ id }) => id));
 }
 
 /** Deterministic disposition policy; this never moves or deletes mail. */
