@@ -10,15 +10,17 @@ export interface VerificationCodeCandidate {
 }
 
 const CODE_PATTERN = /(?<!\d)\d{4,8}(?!\d)/g;
+const HTML_TAG_PATTERN = /<\/?[a-z][a-z\d:-]*(?:\s[^<>]*?)?\s*\/?>/gi;
 
 /** Normalize HTML and entities before searching email text for digit candidates. */
 export function normalizeVerificationCodeText(value: string): string {
-	return decodeHTML(value)
+	const withoutHtmlTags = value
 		.replace(/<!--[^]*?-->/g, " ")
 		.replace(/<style[^>]*>[^]*?<\/style>/gi, " ")
 		.replace(/<script[^>]*>[^]*?<\/script>/gi, " ")
 		.replace(/<br\s*\/?>/gi, " ")
-		.replace(/<[^>]*>/g, " ")
+		.replace(HTML_TAG_PATTERN, " ");
+	return decodeHTML(withoutHtmlTags)
 		.replace(/\s+/g, " ")
 		.trim();
 }

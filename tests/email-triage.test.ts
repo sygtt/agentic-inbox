@@ -612,6 +612,19 @@ test("persists the exact worker candidate value when HTML contributes image alt 
 	assert.equal(selected.features.verificationCodeCandidateValue, "1111");
 });
 
+test("preserves verification codes enclosed in literal angle brackets", () => {
+	const state = buildInboundTriageState({
+		id: "angle-bracket-candidates",
+		subject: "Verification code <123456>",
+		body: "<p>Your verification code is &lt;654321&gt;.</p>",
+	});
+	assert.deepEqual(state.email.verificationCodeCandidates, [
+		{ id: "candidate_1", value: "123456" },
+		{ id: "candidate_2", value: "654321" },
+	]);
+	assert.equal(state.email.verificationCodeCandidateSetComplete, true);
+});
+
 test("keeps the full-body fallback available when the Jev body limit truncates candidates", () => {
 	const state = buildInboundTriageState({
 		id: "truncated-body",
