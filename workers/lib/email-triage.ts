@@ -53,6 +53,7 @@ export interface InboundTriageState {
 		subject: string | null;
 		bodyText: string;
 		verificationCodeCandidates: VerificationCodeCandidate[];
+		verificationCodeCandidateSetComplete: boolean;
 		hasAttachments: boolean;
 	};
 	thread: {
@@ -88,6 +89,7 @@ export interface TriageFeatures {
 	};
 	verificationCodeCandidateId?: string | null;
 	verificationCodeCandidateValue?: string | null;
+	verificationCodeCandidateSetComplete?: boolean;
 }
 
 export interface InboundTriageResult {
@@ -200,6 +202,14 @@ function truncate(text: string, limit: number): string {
 	return Array.from(text).slice(0, limit).join("");
 }
 
+function truncateWithStatus(text: string, limit: number): { text: string; truncated: boolean } {
+	const characters = Array.from(text);
+	return {
+		text: characters.slice(0, limit).join(""),
+		truncated: characters.length > limit,
+	};
+}
+
 function bodyText(email: TriageEmailInput, limit: number): string {
 	return truncate(stripHtmlToText(email.body ?? ""), limit);
 }
@@ -233,7 +243,12 @@ export function buildInboundTriageState(
 		}));
 
 	const subject = nullable(currentEmail.subject);
-	const currentBodyText = bodyText(currentEmail, MAX_CURRENT_BODY_CHARS);
+	const currentBody = truncateWithStatus(
+		stripHtmlToText(currentEmail.body ?? ""),
+		MAX_CURRENT_BODY_CHARS,
+	);
+	const currentBodyText = currentBody.text;
+	const verificationCodeCandidates = extractVerificationCodeCandidates(subject, currentBodyText);
 	return {
 		email: {
 			sender: nullable(currentEmail.sender),
@@ -241,7 +256,9 @@ export function buildInboundTriageState(
 			envelopeRecipient: nullable(currentEmail.envelope_recipient),
 			subject,
 			bodyText: currentBodyText,
-			verificationCodeCandidates: extractVerificationCodeCandidates(subject, currentBodyText),
+			verificationCodeCandidates,
+			verificationCodeCandidateSetComplete:
+				!currentBody.truncated && verificationCodeCandidates.length < MAX_VERIFICATION_CODE_CANDIDATES,
 			hasAttachments: (currentEmail.attachments?.length ?? 0) > 0,
 		},
 		thread: {
@@ -296,6 +313,7 @@ export const TriageFeaturesSchema = z.object({
 	}),
 	verificationCodeCandidateId: z.string().regex(/^candidate_\d+$/).nullable().optional(),
 	verificationCodeCandidateValue: z.string().regex(/^\d{4,8}$/).nullable().optional(),
+	verificationCodeCandidateSetComplete: z.boolean().optional(),
 }) satisfies z.ZodType<TriageFeatures>;
 const responseSchema = z.object({
 	model: z.string().min(1),
@@ -321,6 +339,7 @@ function parseAnswer<T>(schema: z.ZodType<T>, answer: unknown, name: string): T 
 export function parseJevResponse(
 	raw: unknown,
 	validVerificationCodeCandidates: readonly VerificationCodeCandidate[] = [],
+	verificationCodeCandidateSetComplete = true,
 ): InboundTriageResult {
 	const response = responseSchema.safeParse(raw);
 	if (!response.success) {
@@ -362,6 +381,7 @@ export function parseJevResponse(
 		},
 		verificationCodeCandidateId: selectedVerificationCodeCandidate?.id ?? null,
 		verificationCodeCandidateValue: selectedVerificationCodeCandidate?.value ?? null,
+		verificationCodeCandidateSetComplete,
 	};
 
 	return { model: response.data.model, features };
@@ -374,7 +394,7 @@ export async function analyzeInboundEmail(
 ): Promise<InboundTriageResult> {
 	const candidates = state.email.verificationCodeCandidates;
 	const response = await provider.evaluate(state, buildTriageQuestions(candidates));
-	return parseJevResponse(response, candidates);
+	return parseJevResponse(response, candidates, state.email.verificationCodeCandidateSetComplete);
 }
 
 /** Deterministic disposition policy; this never moves or deletes mail. */

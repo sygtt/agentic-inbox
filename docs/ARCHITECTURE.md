@@ -386,14 +386,17 @@ The agent builds bounded plain-text current-email and recent-thread state,
 deterministically extracts up to 20 4–8 digit candidates from the current email, and
 includes those IDs and values in the existing Jev request. A structured choice
 asks Jev to select one candidate ID or `none`; response validation rejects any
-ID outside the deterministic candidate list. The selected ID and its exact
-server-derived candidate value, never a model-generated code value, are stored
-in `email_triage_analysis.features_json` under triage schema version 2. The
+ID outside the deterministic candidate list. The selected ID, its exact
+server-derived candidate value, never a model-generated code value, and whether
+the bounded candidate set covers the full message are stored in
+`email_triage_analysis.features_json` under triage schema version 2. The
 email detail OTP action uses that mapping to display and copy the exact selected
 value, even when HTML normalization differs in the UI. Until a result is
 available, after a failed request, or for a legacy analysis without the new
-fields, the existing contextual regex detector remains the fallback. A valid
-`none` selection suppresses the OTP action. This additional question uses the
+fields, the existing contextual regex detector remains the fallback. A `none`
+selection suppresses the OTP action when the bounded candidate set is complete;
+when body or candidate limits make that set incomplete, the contextual detector
+continues to check the full message. This additional question uses the
 same inbound Jev request and does not affect disposition policy. Jev is called
 through the provider boundary in `workers/lib/jev-provider.ts`; the validated
 result is stored in `email_triage_analysis`. The active provider calls

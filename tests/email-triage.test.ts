@@ -612,10 +612,29 @@ test("persists the exact worker candidate value when HTML contributes image alt 
 	assert.equal(selected.features.verificationCodeCandidateValue, "1111");
 });
 
+test("keeps the full-body fallback available when the Jev body limit truncates candidates", () => {
+	const state = buildInboundTriageState({
+		id: "truncated-body",
+		subject: "Verification code",
+		body: `${"x".repeat(MAX_CURRENT_BODY_CHARS)} Your verification code is 654321.`,
+	});
+	assert.equal(state.email.bodyText.length, MAX_CURRENT_BODY_CHARS);
+	assert.deepEqual(state.email.verificationCodeCandidates, []);
+	assert.equal(state.email.verificationCodeCandidateSetComplete, false);
+
+	const none = parseJevResponse(
+		validResponse("none"),
+		state.email.verificationCodeCandidates,
+		state.email.verificationCodeCandidateSetComplete,
+	);
+	assert.equal(none.features.verificationCodeCandidateSetComplete, false);
+});
+
 test("caps verification-code candidate options before building Jev questions", () => {
 	const subject = Array.from({ length: 30 }, (_, index) => `Reference ${String(100000 + index)}`).join(" ");
 	const state = buildInboundTriageState({ id: "many-candidates", subject, body: "" });
 	assert.equal(state.email.verificationCodeCandidates.length, MAX_VERIFICATION_CODE_CANDIDATES);
+	assert.equal(state.email.verificationCodeCandidateSetComplete, false);
 	assert.equal(state.email.verificationCodeCandidates.at(-1)?.id, `candidate_${MAX_VERIFICATION_CODE_CANDIDATES}`);
 	assert.equal(
 		Object.keys(buildTriageQuestions(state.email.verificationCodeCandidates).verification_code_candidate.criteria).length,

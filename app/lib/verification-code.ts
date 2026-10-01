@@ -63,9 +63,16 @@ export function extractVerificationCode(
 export function resolveVerificationCode(
 	subject?: string | null,
 	body?: string | null,
-	selection?: { candidateId?: string | null; candidateValue?: string | null },
+	selection?: {
+		candidateId?: string | null;
+		candidateValue?: string | null;
+		candidateSetComplete?: boolean;
+	},
 ): string | null {
-	if (selection?.candidateId === null) return null;
+	if (selection?.candidateId === null) {
+		if (selection.candidateSetComplete !== false) return null;
+		return extractVerificationCode(subject, body);
+	}
 	if (selection?.candidateId) {
 		if (selection.candidateValue && /^\d{4,8}$/.test(selection.candidateValue)) {
 			return selection.candidateValue;

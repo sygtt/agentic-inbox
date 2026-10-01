@@ -67,6 +67,21 @@ test("uses only a valid Jev candidate selection and preserves deterministic fall
 	const body = "Use 482913 to verify. Order 617204 is ready.";
 	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_2", candidateValue: "617204" }), "617204");
 	assert.equal(resolveVerificationCode(subject, body, { candidateId: null }), null);
+	assert.equal(
+		resolveVerificationCode(subject, body, {
+			candidateId: null,
+			candidateValue: null,
+			candidateSetComplete: false,
+		}),
+		"482913",
+	);
+	assert.equal(
+		resolveVerificationCode(subject, `${"x".repeat(12_000)} Your verification code is 654321.`, {
+			candidateId: null,
+			candidateSetComplete: false,
+		}),
+		"654321",
+	);
 	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_99" }), "482913");
 	assert.equal(resolveVerificationCode(subject, body), "482913");
 });

@@ -26,6 +26,7 @@ export default function VerificationCodeAction({
 		? {
 			candidateId: features.verificationCodeCandidateId,
 			candidateValue: features.verificationCodeCandidateValue,
+			candidateSetComplete: features.verificationCodeCandidateSetComplete,
 		}
 		: undefined;
 	const code = resolveVerificationCode(subject, body, selection);
