@@ -202,11 +202,15 @@ function truncate(text: string, limit: number): string {
 	return Array.from(text).slice(0, limit).join("");
 }
 
-function truncateWithStatus(text: string, limit: number): { text: string; truncated: boolean } {
+function truncateWithStatus(
+	text: string,
+	limit: number,
+): { text: string; truncated: boolean; nextCharacter: string | undefined } {
 	const characters = Array.from(text);
 	return {
 		text: characters.slice(0, limit).join(""),
 		truncated: characters.length > limit,
+		nextCharacter: characters[limit],
 	};
 }
 
@@ -248,7 +252,12 @@ export function buildInboundTriageState(
 		MAX_CURRENT_BODY_CHARS,
 	);
 	const currentBodyText = currentBody.text;
-	const verificationCodeCandidates = extractVerificationCodeCandidates(subject, currentBodyText);
+	const candidateBodyText = currentBody.truncated
+		&& /\d$/.test(currentBodyText)
+		&& /^\d/.test(currentBody.nextCharacter ?? "")
+		? currentBodyText.replace(/\d+$/, "")
+		: currentBodyText;
+	const verificationCodeCandidates = extractVerificationCodeCandidates(subject, candidateBodyText);
 	return {
 		email: {
 			sender: nullable(currentEmail.sender),

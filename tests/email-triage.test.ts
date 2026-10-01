@@ -643,6 +643,17 @@ test("keeps the full-body fallback available when the Jev body limit truncates c
 	assert.equal(none.features.verificationCodeCandidateSetComplete, false);
 });
 
+test("does not offer a digit sequence cut by the Jev body limit", () => {
+	const context = "Your verification code is ";
+	const body = `${"x".repeat(MAX_CURRENT_BODY_CHARS - context.length - 4)}${context}123456`;
+	const state = buildInboundTriageState({ id: "split-code", subject: "", body });
+	assert.equal(state.email.bodyText.length, MAX_CURRENT_BODY_CHARS);
+	assert.equal(state.email.bodyText.endsWith("1234"), true);
+	assert.deepEqual(state.email.verificationCodeCandidates, []);
+	assert.deepEqual(Object.keys(buildTriageQuestions(state.email.verificationCodeCandidates).verification_code_candidate.criteria), ["none"]);
+	assert.equal(state.email.verificationCodeCandidateSetComplete, false);
+});
+
 test("caps verification-code candidate options before building Jev questions", () => {
 	const subject = Array.from({ length: 30 }, (_, index) => `Reference ${String(100000 + index)}`).join(" ");
 	const state = buildInboundTriageState({ id: "many-candidates", subject, body: "" });
