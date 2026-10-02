@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+name: PR branch policy
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions: {}
+
+jobs:
+  main-target:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require canonical integration branch
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$PR_BASE" != main ]; then
+            echo "::error::Implementation PRs must target main. develop is retired; retarget this PR and read origin/main/AGENTS.md."
+            exit 1
+          fi

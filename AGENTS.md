@@ -171,6 +171,14 @@ Do not deploy automatically after implementation.
 
 # 3. Branch Strategy
 
+Before editing, fetch `origin`, verify the current branch and PR base, and read
+`AGENTS.md` from current `origin/main` when working in an older checkout. Stale
+branch-local instructions do not override the canonical main-first policy.
+Existing PRs created before the migration must also be retargeted to `main`
+and rebased or merged with current `origin/main` before further implementation.
+When opening a PR, set its base explicitly to `main` and verify the returned
+PR metadata; do not infer the base from the current checkout or an old PR.
+
 `main` is the canonical integration branch for this fork. It carries local
 functionality and is the source for explicitly authorized production releases.
 It is not a passive mirror of upstream.

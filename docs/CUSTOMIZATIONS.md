@@ -148,7 +148,7 @@ without introducing a separate mobile client or new persistence.
 
 ### Behavior
 
-- Contextual 4–8 digit verification codes are shown in a medium-sized mobile action with a Clipboard API copy action.
+- Full email detail deterministically extracts up to 20 4–8 digit candidates and uses the existing inbound Jev result to select a candidate ID or `none`. The worker stores the selected ID with its exact server-derived value and whether the bounded candidate set covers the full message; the UI uses that mapping for display and copy, including when its HTML normalization differs from the worker's. Pending, unavailable, failed, malformed, or legacy analysis falls back to the contextual regex detector. A `none` result hides the action only when the candidate set is complete; if body or candidate limits make it incomplete, the detector checks the full message. Mobile list rows continue to use the existing snippet-only contextual fallback.
 - Plain-text `http`/`https` URLs are converted to links after escaping the input.
 - Existing HTML mail continues through the sandboxed DOMPurify iframe path.
 - Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
@@ -348,19 +348,19 @@ May be simplified if upstream later provides equivalent AI-agent guidance, but f
 
 ## Fork branch model
 
-**Status:** Migration in progress under issue #53; the main-first policy takes effect when its migration PR is merged.
+**Status:** Code-history migration completed through PR #60 on 2026-10-01 (JST; 2026-09-30 UTC). Main-first is active; external Cloudflare build settings remain unverified.
 
 ### Why
 
 The previous workflow used `main` to follow upstream and `develop` for fork
 work, even though GitHub already used `main` as the default branch. This split
 made pull request targets, issue closure, and deployment assumptions harder to
-reason about. The fork now intends to keep its complete history on canonical
+reason about. The fork now keeps its complete history on canonical
 `main`, while reviewing upstream changes through separate sync branches.
 
 ### Behavior
 
-After the migration PR is merged, the workflow is:
+The active workflow is:
 
 ```text
 upstream/main --reviewed sync branch/PR--> main
@@ -699,6 +699,7 @@ actions under operator control.
 - A rejected asynchronous EmailAgent invocation or non-2xx response is also marked by the inbound handler, covering failures before the agent triage handler can write the marker.
 - Existing or newly assigned user tags named `triage:error` remain ordinary editable tags and are preserved by the failure-state migration. Only the synthetic tag with `system` provenance indicates an automatic triage failure. Threaded list rows show an accessible thread-level error when any conversation message has the failure record, while detail views retain each message's own tags and badge.
 - The email detail panel has a collapsed AI判定詳細 section backed by a read-only endpoint. It shows Jev's prediction separately from the current disposition tag, plus the model, schema/policy versions, analysis time, and extracted features. Open detail views and each displayed thread message refresh tags every three seconds for up to twenty query attempts total. Tag refresh continues after a failure marker appears; when a previously observed marker clears, the detail view reloads analysis once so a successful retry replaces any earlier result. Email lists already refresh every thirty seconds.
+- The existing inbound Jev request includes up to 20 deterministic 4–8 digit verification-code candidates and one structured ID-or-`none` choice. Unknown candidate IDs or malformed answers fail validation; Jev never supplies the displayed/copied value, and this feature does not affect disposition policy. The email detail action reads the persisted ID, server-derived value, and candidate-set completeness through the existing triage endpoint. A pending/failed/unavailable result and legacy rows use the contextual regex fallback. A `none` selection suppresses the action only when the bounded set is complete; when body or candidate limits truncate that set, the detector checks the full message.
 - If the current-disposition tag query fails, the detail panel reports that state and offers a retry instead of claiming there is no disposition.
 - The unattended path does not create summaries in Agent chat history, drafts, sends, trashes, or deletes messages. Its only automatic mailbox action is archiving a newly triaged email after an agent-provenance `disposition:auto-file` tag is persisted.
 - Jev failures retain the inbound email and leave disposition tags unchanged.
@@ -710,6 +711,9 @@ actions under operator control.
 - `workers/agent/triage-failure.ts`
 - `workers/index.ts`
 - `workers/lib/email-triage.ts`
+- `shared/verification-code.ts`
+- `app/lib/verification-code.ts`
+- `app/components/VerificationCodeAction.tsx`
 - `workers/lib/email-triage-api.ts`
 - `workers/lib/jev-provider.ts`
 - `workers/db/schema.ts`
@@ -741,6 +745,12 @@ latest available triage versions. Migration `15_add_email_triage_failures`
 creates separate failure state with an email foreign key; existing
 `triage:error` user tags and their provenance remain untouched. All triage rows
 cascade when their email is deleted.
+
+Triage schema version 2 adds the optional verification-code candidate ID and
+its server-derived value to `features_json`; no SQL migration is needed.
+Existing schema version 1 rows remain readable and have no selection keys, so
+the detail action uses the contextual regex fallback until a new Jev analysis
+is stored.
 
 ### Upstream synchronization risk
 
