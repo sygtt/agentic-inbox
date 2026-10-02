@@ -20,11 +20,11 @@ push feature work directly to `main`.
 origin/main <--- feature/fix/docs branches
 ```
 
-The repository's GitHub default branch is already `main`; the code and commit
-history move to the main-first model only when the owner merges the migration
-PR. Until that PR is merged, continue following the current branch workflow.
-See [the migration runbook](MAIN-FIRST-MIGRATION.md) for the transition and
-verification steps.
+The migration completed through PR #60 on 2026-10-01 (JST; 2026-09-30 UTC). `main` is now the
+active integration branch. `develop` is retained only as a legacy recovery
+reference; its old branch-local instructions must not be used for new work.
+See [the migration runbook](MAIN-FIRST-MIGRATION.md) for historical cutover
+steps and the separately unverified external deployment settings.
 
 For documentation-only work, use a `docs/*` branch.
 
@@ -489,7 +489,11 @@ Do not mix broad refactoring with a behavior change unless the refactor is stric
 
 ## Pull requests
 
-Target normal fork development PRs at `main`.
+Target normal fork development PRs at `main`, explicitly setting the PR base.
+Verify the created PR's base in GitHub. The `PR branch policy` workflow fails
+for other targets; this is a detection check, not a required merge protection
+unless the owner configures it as such in GitHub. Existing pre-migration work
+must first incorporate current `origin/main` and use its agent instructions.
 
 A useful PR description should state:
 

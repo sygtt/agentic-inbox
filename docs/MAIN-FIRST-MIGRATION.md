@@ -2,10 +2,22 @@
 
 # Main-first branch migration
 
-This runbook covers issue #53. GitHub's default branch is already `main`, but
-that alone does not move this fork's code history or deployment configuration.
-The migration is incomplete until the owner merges the migration PR and checks
-the external Cloudflare build/deployment branch settings.
+This runbook records issue #53 and the historical cutover steps. PR #60 merged
+on 2026-10-01 (JST; 2026-09-30 UTC) as `8e0007277d9b30b30a22b923943396c37f2df6fb`.
+The pre-migration fork tip is an ancestor of `main`; main-first is active now.
+The merge does not establish the external Cloudflare build/deployment settings,
+which remain unverified. The preparation and approval instructions below apply
+to that historical migration, not to choosing the base for new work.
+
+## Recovery from a PR merged into develop
+
+PR #61 was created from the pre-migration fork tip and merged into `develop`.
+Recover its changes on a focused branch from current `origin/main`, retaining
+the new main-first documentation. Review and validate the recovery PR against
+`main`; do not reset shared refs or merge the entire legacy branch blindly.
+A revert branch alone does not revert `develop`: check the actual branch tip.
+Before resuming any older work, read the current `origin/main` agent rules and
+verify that the PR base is explicitly `main`.
 
 ## Preparation snapshot (2026-09-30)
 
