@@ -3,10 +3,6 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { extractVerificationCodeCandidates } from "../../shared/verification-code.ts";
-
-export { extractVerificationCodeCandidates };
-
 const CODE_PATTERN = /(?<!\d)\d{4,8}(?!\d)/g;
 const CONTEXT_PATTERNS = [
 	/\botp\b\s*(?:is|:|-|=)?\s*__CODE__/i,
@@ -57,27 +53,4 @@ export function extractVerificationCode(
 		if (code) return code;
 	}
 	return null;
-}
-
-/** Use a validated Jev selection when available; otherwise keep the legacy detector. */
-export function resolveVerificationCode(
-	subject?: string | null,
-	body?: string | null,
-	selection?: {
-		candidateId?: string | null;
-		candidateValue?: string | null;
-		candidateSetComplete?: boolean;
-	},
-): string | null {
-	if (selection?.candidateId === null) {
-		if (selection.candidateSetComplete !== false) return null;
-		return extractVerificationCode(subject, body);
-	}
-	if (selection?.candidateId) {
-		if (selection.candidateValue && /^\d{4,8}$/.test(selection.candidateValue)) {
-			return selection.candidateValue;
-		}
-	}
-
-	return extractVerificationCode(subject, body);
 }

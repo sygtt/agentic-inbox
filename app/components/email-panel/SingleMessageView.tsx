@@ -49,7 +49,6 @@ export default function SingleMessageView({
 
 			<VerificationCodeAction
 				messageId={email.id}
-				mailboxId={mailboxId}
 				subject={email.subject}
 				body={email.body}
 			/>

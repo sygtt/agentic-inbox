@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-	extractVerificationCode,
-	extractVerificationCodeCandidates,
-	resolveVerificationCode,
-} from "../app/lib/verification-code.ts";
+import { extractVerificationCode } from "../app/lib/verification-code.ts";
 
 test("extracts a contextual 4–8 digit verification code", () => {
 	assert.equal(
@@ -46,53 +42,4 @@ test("chooses the code closest to its verification context", () => {
 
 test("rejects numbers outside the supported code length", () => {
 	assert.equal(extractVerificationCode("Verification code", "Use 123456789 to verify."), null);
-});
-
-test("extracts stable candidates from subject and body without relying on English context", () => {
-	assert.deepEqual(
-		extractVerificationCodeCandidates("Your code expires in 2026", "Su código de verificación es 006543."),
-		[
-			{ id: "candidate_1", value: "2026" },
-			{ id: "candidate_2", value: "006543" },
-		],
-	);
-	assert.deepEqual(
-		extractVerificationCodeCandidates("", "<p>Use <strong>482913</strong></p> <p>Ref 482913</p>"),
-		[{ id: "candidate_1", value: "482913" }],
-	);
-});
-
-test("uses only a valid Jev candidate selection and preserves deterministic fallback", () => {
-	const subject = "Your verification code";
-	const body = "Use 482913 to verify. Order 617204 is ready.";
-	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_2", candidateValue: "617204" }), "617204");
-	assert.equal(resolveVerificationCode(subject, body, { candidateId: null }), null);
-	assert.equal(
-		resolveVerificationCode(subject, body, {
-			candidateId: null,
-			candidateValue: null,
-			candidateSetComplete: false,
-		}),
-		"482913",
-	);
-	assert.equal(
-		resolveVerificationCode(subject, `${"x".repeat(12_000)} Your verification code is 654321.`, {
-			candidateId: null,
-			candidateSetComplete: false,
-		}),
-		"654321",
-	);
-	assert.equal(resolveVerificationCode(subject, body, { candidateId: "candidate_99" }), "482913");
-	assert.equal(resolveVerificationCode(subject, body), "482913");
-});
-
-test("uses the server-derived candidate mapping when HTML normalization differs", () => {
-	const body = '<p><img alt="1111"> ... 2222</p>';
-	assert.equal(
-		resolveVerificationCode("Security alert", body, {
-			candidateId: "candidate_1",
-			candidateValue: "1111",
-		}),
-		"1111",
-	);
 });

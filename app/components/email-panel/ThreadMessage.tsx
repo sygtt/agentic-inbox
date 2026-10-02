@@ -178,7 +178,6 @@ export default function ThreadMessage({
 				<div className="md:ml-[42px]">
 					<VerificationCodeAction
 						messageId={email.id}
-						mailboxId={mailboxId}
 						subject={email.subject}
 						body={email.body}
 					/>
