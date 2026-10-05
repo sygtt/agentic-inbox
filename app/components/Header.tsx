@@ -5,7 +5,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Button, Input, Tooltip } from "@cloudflare/kumo";
-import { GearSixIcon, ListIcon, MagnifyingGlassIcon, RobotIcon, XIcon } from "@phosphor-icons/react";
+import { ListIcon, MagnifyingGlassIcon, RobotIcon, XIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useUIStore } from "~/hooks/useUIStore";
@@ -73,8 +73,6 @@ export default function Header() {
 			}
 		}
 	};
-
-	const isSettingsActive = location.pathname.includes("/settings");
 
 	return (
 		<header className="hidden md:flex items-center gap-2 px-3 py-2.5 bg-kumo-base border-b border-kumo-line sticky top-0 z-10 md:px-5 md:gap-4">
@@ -149,21 +147,6 @@ export default function Header() {
 						onClick={toggleAgentPanel}
 						aria-label="Toggle agent panel"
 						className="hidden lg:inline-flex"
-					/>
-				</Tooltip>
-				<Tooltip content="Settings" side="bottom" asChild>
-					<Button
-						variant={isSettingsActive ? "secondary" : "ghost"}
-						shape="square"
-						icon={<GearSixIcon size={20} />}
-						onClick={() =>
-							navigate(
-								isSettingsActive
-									? `/mailbox/${mailboxId}/emails/inbox`
-									: `/mailbox/${mailboxId}/settings`,
-							)
-						}
-						aria-label="Settings"
 					/>
 				</Tooltip>
 			</div>
