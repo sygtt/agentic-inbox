@@ -8,6 +8,8 @@ import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/ku
 import {
 	ArchiveIcon,
 	ArrowsClockwiseIcon,
+	CaretLeftIcon,
+	CaretRightIcon,
 	EnvelopeSimpleIcon,
 	FileIcon,
 	PaperPlaneTiltIcon,
@@ -48,7 +50,7 @@ import {
 } from "~/lib/mobile-email-navigation";
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
-import { buildEmailListParams } from "~/lib/email-tag-filter";
+import { buildEmailListParams, getListPageRange } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -258,10 +260,12 @@ export default function EmailListRoute() {
 		data: emailData,
 		isFetching: isRefreshing,
 		isError,
+		refetch,
 	} = useEmails(mailboxId, params, { refetchInterval: 30_000 });
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
+	const { start: pageStart, end: pageEnd } = getListPageRange(page, PAGE_SIZE, totalCount);
 	const { data: needsReplyData } = useEmails(
 		mailboxId,
 		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
@@ -549,17 +553,17 @@ export default function EmailListRoute() {
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				{/* Folder header */}
-				<div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-					<div className="flex min-w-0 flex-wrap items-center gap-3">
-						<h1 className="text-lg font-semibold text-kumo-default">{folderName}</h1>
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kumo-line bg-kumo-base px-4 py-2.5 shrink-0 md:px-5">
+					<h1 className="truncate text-base font-semibold text-kumo-default">{folderName}</h1>
+					{totalCount > 0 && (
+						<span className="text-xs text-kumo-subtle">
+							{folders.find((item) => item.id === folder)?.unreadCount ?? 0} unread · {totalCount} conversations
+						</span>
+					)}
+					<div className="min-w-0">
 						<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
 					</div>
-					<div className="flex items-center gap-1">
-						{totalCount > 0 && (
-							<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
-								{totalCount} conversation{totalCount !== 1 ? "s" : ""}
-							</span>
-						)}
+					<div className="ml-auto flex shrink-0 items-center gap-1">
 						<Tooltip
 							content={isRefreshing ? "Refreshing..." : "Refresh"}
 							side="bottom"
@@ -580,15 +584,46 @@ export default function EmailListRoute() {
 								aria-label="Refresh"
 							/>
 						</Tooltip>
+						{totalCount > PAGE_SIZE && (
+							<>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<CaretLeftIcon size={18} />}
+									disabled={page <= 1}
+									aria-label="Previous page"
+									onClick={() => setPage((current) => current - 1)}
+								/>
+								<span className="whitespace-nowrap text-xs text-kumo-subtle tabular-nums">
+									{pageStart}–{pageEnd} of {totalCount}
+								</span>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<CaretRightIcon size={18} />}
+									disabled={pageEnd >= totalCount}
+									aria-label="Next page"
+									onClick={() => setPage((current) => current + 1)}
+								/>
+							</>
+						)}
 					</div>
 				</div>
 
 				{/* Email rows */}
-				<div className="flex-1 overflow-y-auto">
+				<div className="flex-1 overflow-y-auto" aria-busy={isRefreshing}>
+					{isRefreshing && <span className="sr-only" role="status">Loading emails</span>}
 					{isRefreshing && emails.length === 0 ? (
 						<EmailListSkeleton />
 					) : isError ? (
-						<p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p>
+						<div className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">
+							<p>Could not load this folder.</p>
+							<Button variant="secondary" size="sm" className="mt-2" onClick={() => void refetch()} disabled={isRefreshing}>
+								Retry
+							</Button>
+						</div>
 					) : emails.length > 0 ? (
 						<div>
 							{emails.map((email) => (
@@ -610,18 +645,6 @@ export default function EmailListRoute() {
 						selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />
 					)}
 				</div>
-
-				{/* Pagination */}
-				{totalCount > PAGE_SIZE && (
-					<div className="flex justify-center py-3 border-t border-kumo-line shrink-0">
-						<Pagination
-							page={page}
-							setPage={setPage}
-							perPage={PAGE_SIZE}
-							totalCount={totalCount}
-						/>
-					</div>
-				)}
 				</div>
 				<MobileQuickActions
 					open={quickActionEmail !== null}

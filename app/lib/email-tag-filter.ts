@@ -10,6 +10,13 @@ export interface EmailTagFilterOption {
 	label: string;
 }
 
+export function getListPageRange(page: number, perPage: number, totalCount: number) {
+	return {
+		start: totalCount === 0 ? 0 : (page - 1) * perPage + 1,
+		end: Math.min(page * perPage, totalCount),
+	};
+}
+
 export function getEmailTagFilterOptions(
 	availableTags: readonly string[],
 ): EmailTagFilterOption[] {
