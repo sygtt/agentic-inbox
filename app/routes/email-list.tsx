@@ -393,8 +393,10 @@ export default function EmailListRoute() {
 				await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId });
 			}
 			toastManager.add({ title: folderId === Folders.ARCHIVE ? "Email archived" : "Email moved" });
+			return true;
 		} catch {
 			toastManager.add({ title: "Failed to move email", variant: "error" });
+			return false;
 		}
 	};
 
@@ -636,7 +638,10 @@ export default function EmailListRoute() {
 									onOpen={handleRowClick}
 									onToggleStar={toggleStar}
 									onToggleRead={handleToggleRead}
-									onArchive={handleArchive}
+									onArchive={async (archivedEmail) => {
+										const moved = await handleArchive(archivedEmail);
+										if (moved && useUIStore.getState().selectedEmailId === archivedEmail.id) closeEmailPanel();
+									}}
 									onDelete={handleDelete}
 								/>
 							))}
