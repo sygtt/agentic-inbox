@@ -46,3 +46,54 @@ test("uses a thread-level error and keeps manually entered triage:error as a raw
 		{ kind: "tag", tag: "triage:error", label: "triage:error" },
 	]);
 });
+
+test("defaults to showing two badges plus overflow when there are four badges", () => {
+	assert.deepEqual(
+		getMobileEmailTagBadges([
+			tag("project:one"),
+			tag("project:two"),
+			tag("project:three"),
+			tag("project:four"),
+		]),
+		[
+			{ kind: "tag", tag: "project:one", label: "project:one" },
+			{ kind: "tag", tag: "project:two", label: "project:two" },
+			{ kind: "overflow", count: 2 },
+		],
+	);
+});
+
+test("respects a two-badge limit by showing one badge and overflow", () => {
+	assert.deepEqual(
+		getMobileEmailTagBadges(
+			[tag("project:one"), tag("project:two"), tag("project:three")],
+			false,
+			2,
+		),
+		[
+			{ kind: "tag", tag: "project:one", label: "project:one" },
+			{ kind: "overflow", count: 2 },
+		],
+	);
+});
+
+test("does not add overflow when badges fit the configured limit", () => {
+	assert.deepEqual(
+		getMobileEmailTagBadges([tag("project:one"), tag("project:two")], false, 2),
+		[
+			{ kind: "tag", tag: "project:one", label: "project:one" },
+			{ kind: "tag", tag: "project:two", label: "project:two" },
+		],
+	);
+});
+
+test("keeps triage errors ahead of dispositions when applying a two-badge limit", () => {
+	assert.deepEqual(
+		getMobileEmailTagBadges(
+			[tag("disposition:action-required"), tag("disposition:review")],
+			true,
+			2,
+		),
+		[{ kind: "triage-error" }, { kind: "overflow", count: 2 }],
+	);
+});
