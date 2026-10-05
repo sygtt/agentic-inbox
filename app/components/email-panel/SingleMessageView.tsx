@@ -32,7 +32,7 @@ export default function SingleMessageView({
 							{email.sender.charAt(0).toUpperCase()}
 						</div>
 						<div className="min-w-0">
-							<div className="text-sm font-medium text-kumo-default truncate">
+							<div className="truncate text-sm font-semibold text-kumo-default">
 								{email.sender}
 							</div>
 							<div className="text-xs text-kumo-subtle">To: {email.recipient}</div>
@@ -41,7 +41,7 @@ export default function SingleMessageView({
 							)}
 						</div>
 					</div>
-					<span className="text-xs text-kumo-subtle shrink-0">
+					<span className="shrink-0 text-xs text-kumo-subtle">
 						{formatDetailDate(email.date)}
 					</span>
 				</div>
