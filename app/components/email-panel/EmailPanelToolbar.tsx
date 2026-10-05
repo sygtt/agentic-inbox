@@ -7,6 +7,7 @@
 import { Button, Tooltip } from "@cloudflare/kumo";
 import { useEffect, useRef, useState } from "react";
 import {
+	ArchiveIcon,
 	ArrowBendUpLeftIcon,
 	ArrowBendUpRightIcon,
 	ArrowLeftIcon,
@@ -40,6 +41,7 @@ interface EmailPanelToolbarProps {
 	onReply: () => void;
 	onReplyAll: () => void;
 	onForward: () => void;
+	onArchive?: () => void;
 	onToggleStar: () => void;
 	onToggleRead: () => void;
 	onMove: (folderId: string) => void;
@@ -63,6 +65,7 @@ export default function EmailPanelToolbar({
 	onReply,
 	onReplyAll,
 	onForward,
+	onArchive,
 	onToggleStar,
 	onToggleRead,
 	onMove,
@@ -80,7 +83,7 @@ export default function EmailPanelToolbar({
 				icon={<ArrowLeftIcon size={18} />}
 				onClick={onBack}
 				aria-label="Back to list"
-				className="md:hidden shrink-0"
+				className="xl:hidden shrink-0"
 			/>
 
 			{isDraftFolder ? (
@@ -145,6 +148,20 @@ export default function EmailPanelToolbar({
 
 			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
 
+			{onArchive && (
+				<Tooltip content="Archive" side="bottom" asChild>
+					<Button
+						variant="ghost"
+						shape="square"
+						size="sm"
+						icon={<ArchiveIcon size={18} />}
+						onClick={onArchive}
+						disabled={threadActionsDisabled}
+						aria-label="Archive"
+					/>
+				</Tooltip>
+			)}
+
 			<Tooltip content={email.starred ? "Unstar" : "Star"} side="bottom" asChild>
 				<Button
 					variant="ghost"
@@ -206,7 +223,7 @@ export default function EmailPanelToolbar({
 						icon={<XIcon size={18} />}
 						onClick={onBack}
 						aria-label="Close"
-						className="hidden md:inline-flex"
+						className="hidden xl:inline-flex"
 					/>
 				</Tooltip>
 			</div>

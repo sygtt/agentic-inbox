@@ -6,7 +6,7 @@
 
 import { useKumoToastManager } from "@cloudflare/kumo";
 import { useIsMutating } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
 import EmailPanelDialogs from "~/components/email-panel/EmailPanelDialogs";
@@ -98,7 +98,21 @@ export default function EmailPanel({
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
 	const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 	const [previewImage, setPreviewImage] = useState<{ url: string; filename: string } | null>(null);
+	const desktopPanelRef = useRef<HTMLDivElement>(null);
 	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
+
+	useEffect(() => {
+		if (sourceViewEmail || previewImage) return;
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || event.defaultPrevented) return;
+			if (!desktopPanelRef.current?.getClientRects().length) return;
+			if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+			event.preventDefault();
+			onClose();
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [onClose, sourceViewEmail, previewImage]);
 
 	const threadReplies = useMemo(() => {
 		if (!threadRepliesRaw || !email) return [];
@@ -290,7 +304,7 @@ export default function EmailPanel({
 					onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 				/>
 			</div>
-			<div className="hidden h-full flex-col md:flex">
+			<div ref={desktopPanelRef} className="hidden h-full flex-col md:flex">
 				<EmailPanelToolbar
 					email={email}
 					mailboxId={mailboxId}
@@ -314,6 +328,7 @@ export default function EmailPanel({
 						})
 					}
 					onForward={() => startCompose({ mode: "forward", originalEmail: email })}
+					onArchive={handleArchive}
 					onToggleStar={toggleStar}
 					onToggleRead={handleToggleRead}
 					onMove={handleMove}
