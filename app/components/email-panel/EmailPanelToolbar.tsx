@@ -29,6 +29,7 @@ interface EmailPanelToolbarProps {
 	mailboxId?: string;
 	isDraftFolder: boolean;
 	isTrash?: boolean;
+	isArchive?: boolean;
 	isSending: boolean;
 	isDeleting: boolean;
 	threadActionsDisabled: boolean;
@@ -54,6 +55,7 @@ export default function EmailPanelToolbar({
 	mailboxId,
 	isDraftFolder,
 	isTrash = false,
+	isArchive = false,
 	isSending,
 	isDeleting,
 	threadActionsDisabled,
@@ -74,6 +76,7 @@ export default function EmailPanelToolbar({
 }: EmailPanelToolbarProps) {
 	const unread = hasUnread ?? !email.read;
 	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
+	const archiveLabel = isArchive ? "Move to Inbox" : "Archive";
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
 			<Button
@@ -149,7 +152,7 @@ export default function EmailPanelToolbar({
 			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
 
 			{onArchive && (
-				<Tooltip content="Archive" side="bottom" asChild>
+				<Tooltip content={archiveLabel} side="bottom" asChild>
 					<Button
 						variant="ghost"
 						shape="square"
@@ -157,7 +160,7 @@ export default function EmailPanelToolbar({
 						icon={<ArchiveIcon size={18} />}
 						onClick={onArchive}
 						disabled={threadActionsDisabled}
-						aria-label="Archive"
+						aria-label={archiveLabel}
 					/>
 				</Tooltip>
 			)}

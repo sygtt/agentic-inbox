@@ -310,6 +310,7 @@ export default function EmailPanel({
 					mailboxId={mailboxId}
 					isDraftFolder={isDraftFolder}
 					isTrash={folder === Folders.TRASH || email.folder_id === Folders.TRASH}
+					isArchive={folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE}
 					isSending={isSending}
 					isDeleting={isDeletionBlocked}
 					threadActionsDisabled={threadActionsDisabled}
