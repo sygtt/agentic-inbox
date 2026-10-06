@@ -163,6 +163,9 @@ export default function EmailPanel({
 		return <EmailPanelSkeleton />;
 	}
 
+	const isTrashFolder = folder === Folders.TRASH || email.folder_id === Folders.TRASH;
+	const isArchiveFolder = folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE;
+
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleToggleRead = () => {
 		if (!mailboxId || threadActionsDisabled) return;
@@ -194,7 +197,7 @@ export default function EmailPanel({
 	const handleArchive = async () => {
 		const nextEmailId = mobileEmailNavigation.nextEmailId;
 		const moved = await handleMove(
-			email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE,
+			isArchiveFolder || isTrashFolder ? Folders.INBOX : Folders.ARCHIVE,
 			false,
 		);
 		if (moved) mobileEmailNavigation.onArchiveSuccess(email.id, nextEmailId);
@@ -309,8 +312,8 @@ export default function EmailPanel({
 					email={email}
 					mailboxId={mailboxId}
 					isDraftFolder={isDraftFolder}
-					isTrash={folder === Folders.TRASH || email.folder_id === Folders.TRASH}
-					isArchive={folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE}
+					isTrash={isTrashFolder}
+					isArchive={isArchiveFolder}
 					isSending={isSending}
 					isDeleting={isDeletionBlocked}
 					threadActionsDisabled={threadActionsDisabled}

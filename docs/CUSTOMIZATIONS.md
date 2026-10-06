@@ -464,7 +464,7 @@ Issue #52。「設定画面付き Web アプリ」感を減らし PC で scan �
 - 並置は `xl`（1280px）以上で、`md`〜`lg` は single-pane（detail が list を置換し、toolbar に Back）。list 幅は `xl` で 448px、`2xl` で 480px。
 - agent panel は layout 幅を消費しない右 overlay で、初期 closed。
 - 一覧行は 2 行・実測 45px。sender のみ truncate し、tag chip は最大 2 + `+N`。hover/focus で Archive/Read/Delete を overlay 表示する。行からの Archive 成功時、アーカイブ対象メールが完了時点でも選択中なら detail も閉じる。
-- pagination は上部 compact pager に集約（desktop 下部バー削除、mobile は維持）。detail toolbar に Archive を配線し、Escape で close。
+- pagination は上部 compact pager に集約（desktop 下部バー削除、mobile は維持）。detail toolbar に Archive を配線し、Escape で close。detail toolbar の Archive は一覧行と同じ規則で folder 依存（Archive/Trash では Inbox へ戻す）。
 - 新規 store・route・URL param・依存関係は追加していない。
 
 ### Main affected areas

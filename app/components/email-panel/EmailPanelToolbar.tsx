@@ -76,7 +76,7 @@ export default function EmailPanelToolbar({
 }: EmailPanelToolbarProps) {
 	const unread = hasUnread ?? !email.read;
 	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
-	const archiveLabel = isArchive ? "Move to Inbox" : "Archive";
+	const archiveLabel = isArchive || isTrash ? "Move to Inbox" : "Archive";
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
 			<Button
