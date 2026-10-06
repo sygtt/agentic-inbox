@@ -15,6 +15,7 @@ import EmailPanelToolbar from "~/components/email-panel/EmailPanelToolbar";
 import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import { isEmailStillSelected } from "~/lib/mobile-email-navigation";
+import { EDITABLE_ESCAPE_TARGET_SELECTOR, shouldCloseEmailPanelOnEscape } from "~/lib/email-panel-navigation";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
 import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
@@ -86,6 +87,7 @@ export default function EmailPanel({
 	};
 	const {
 		startCompose,
+		isComposing,
 		isSendingEmail: isDraftSending,
 		setSendingEmail,
 	} = useUIStore();
@@ -102,17 +104,22 @@ export default function EmailPanel({
 	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
 
 	useEffect(() => {
-		if (sourceViewEmail || previewImage) return;
 		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key !== "Escape" || event.defaultPrevented) return;
-			if (!desktopPanelRef.current?.getClientRects().length) return;
-			if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+			if (!shouldCloseEmailPanelOnEscape({
+				key: event.key,
+				defaultPrevented: event.defaultPrevented,
+				isPanelVisible: Boolean(desktopPanelRef.current?.getClientRects().length),
+				isOverlayOpen: Boolean(sourceViewEmail || previewImage),
+				isComposing,
+				isEditableTarget: event.target instanceof HTMLElement
+					&& Boolean(event.target.closest(EDITABLE_ESCAPE_TARGET_SELECTOR)),
+			})) return;
 			event.preventDefault();
 			onClose();
 		};
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [onClose, sourceViewEmail, previewImage]);
+	}, [onClose, sourceViewEmail, previewImage, isComposing]);
 
 	const threadReplies = useMemo(() => {
 		if (!threadRepliesRaw || !email) return [];
