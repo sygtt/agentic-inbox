@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { shouldCloseEmailPanelOnEscape } from "../app/lib/email-panel-navigation.ts";
+import { isEmailIframeEscapeMessage, shouldCloseEmailPanelOnEscape } from "../app/lib/email-panel-navigation.ts";
 const base = {
 	key: "Escape",
 	defaultPrevented: false,
@@ -28,4 +28,12 @@ test("escape is ignored when the desktop panel is hidden or the key was consumed
 });
 test("keys other than escape never close the panel", () => {
 	assert.equal(shouldCloseEmailPanelOnEscape({ ...base, key: "Enter" }), false);
+});
+test("only the iframe escape report is treated as an escape message", () => {
+	assert.equal(isEmailIframeEscapeMessage({ __emailIframeEscape: true }), true);
+	assert.equal(isEmailIframeEscapeMessage({ __emailIframeEscape: true, defaultPrevented: false }), true);
+	assert.equal(isEmailIframeEscapeMessage({ __emailIframeEscape: "yes" }), false);
+	assert.equal(isEmailIframeEscapeMessage({ __emailIframeHeight: true, height: 120 }), false);
+	assert.equal(isEmailIframeEscapeMessage(null), false);
+	assert.equal(isEmailIframeEscapeMessage("Escape"), false);
 });

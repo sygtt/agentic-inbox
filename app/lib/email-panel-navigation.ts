@@ -19,3 +19,14 @@ export function shouldCloseEmailPanelOnEscape(state: EmailPanelEscapeState): boo
 	if (state.isOverlayOpen || state.isComposing) return false;
 	return state.isPanelVisible && !state.isEditableTarget;
 }
+
+/**
+ * Shape check for the Escape report posted by the sandboxed email iframe.
+ * The iframe runs in an opaque origin, so the `event.source` comparison in
+ * EmailIframe is the real trust boundary; this keeps the payload contract
+ * explicit and testable without a DOM.
+ */
+export function isEmailIframeEscapeMessage(data: unknown): boolean {
+	if (!data || typeof data !== "object") return false;
+	return (data as { __emailIframeEscape?: unknown }).__emailIframeEscape === true;
+}
