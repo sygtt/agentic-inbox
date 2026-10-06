@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-export const EDITABLE_ESCAPE_TARGET_SELECTOR =
+/**
+ * Elements where the reader is typing, so global shortcuts must stand down.
+ * Shared by the parent window listeners and the sandboxed iframe bridge.
+ */
+export const EDITABLE_SHORTCUT_TARGET_SELECTOR =
 	'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 export interface EmailPanelEscapeState {
 	key: string;
@@ -21,12 +25,20 @@ export function shouldCloseEmailPanelOnEscape(state: EmailPanelEscapeState): boo
 }
 
 /**
- * Shape check for the Escape report posted by the sandboxed email iframe.
- * The iframe runs in an opaque origin, so the `event.source` comparison in
- * EmailIframe is the real trust boundary; this keeps the payload contract
- * explicit and testable without a DOM.
+ * The shortcut the sandboxed email iframe bridge is allowed to replay on the
+ * parent DOM, or null.
+ *
+ * Focus inside the iframe's nested browsing context keeps key events away from
+ * the parent window listeners, so the injected bridge script reports which
+ * allowlisted shortcut fired and the parent reconstructs it. This union is the
+ * whole contract: `event.source` in EmailIframe remains the real trust boundary,
+ * but no key text crosses it, so a hostile message body cannot invent a shortcut
+ * or replay a key this function does not name.
  */
-export function isEmailIframeEscapeMessage(data: unknown): boolean {
-	if (!data || typeof data !== "object") return false;
-	return (data as { __emailIframeEscape?: unknown }).__emailIframeEscape === true;
+export function forwardedIframeShortcutKey(data: unknown): "Escape" | "/" | null {
+	if (!data || typeof data !== "object") return null;
+	const message = data as { __emailIframeEscape?: unknown; __emailIframeSearchShortcut?: unknown };
+	if (message.__emailIframeEscape === true) return "Escape";
+	if (message.__emailIframeSearchShortcut === true) return "/";
+	return null;
 }

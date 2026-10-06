@@ -460,7 +460,7 @@ Issue #52。「設定画面付き Web アプリ」感を減らし PC で scan �
 
 ### Behavior
 
-- 全幅 top bar（search が主役、`/` で focus、gear 無し）と、Settings を常設して active 表示する左 nav rail を使う。
+- 全幅 top bar（search が主役、`/` で focus、gear 無し）と、Settings を常設して active 表示する左 nav rail を使う。`/` は detail の sandboxed iframe 内に focus がある場合も bridge 経由で伝播する（無修飾 `/` のみ、編集中フィールドは対象外）。
 - 並置は `xl`（1280px）以上で、`md`〜`lg` は single-pane（detail が list を置換し、toolbar に Back）。list 幅は `xl` で 448px、`2xl` で 480px。
 - agent panel は layout 幅を消費しない右 overlay で、初期 closed。
 - 一覧行は 2 行・実測 45px。sender のみ truncate し、tag chip は最大 2 + `+N`。hover/focus で Archive/Read/Delete を overlay 表示する。行からの Archive 成功時、アーカイブ対象メールが完了時点でも選択中なら detail も閉じる。
@@ -471,8 +471,10 @@ Issue #52。「設定画面付き Web アプリ」感を減らし PC で scan �
 
 - `app/routes/{mailbox,email-list,search-results}.tsx`
 - `app/components/{Header,Sidebar,MailboxSplitView,EmailListRow,EmailPanel}.tsx`
+- `app/components/EmailIframe.tsx`
 - `app/components/email-panel/{EmailPanelToolbar,EmailPanelHeader,SingleMessageView}.tsx`
 - `app/hooks/useUIStore.ts`
+- `app/lib/email-panel-navigation.ts`
 - `app/lib/mobile-email-tags.ts`
 
 ### Configuration involved
