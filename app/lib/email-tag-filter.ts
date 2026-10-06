@@ -21,6 +21,16 @@ export function getListPageCount(totalCount: number, perPage: number) {
 	return Math.max(1, Math.ceil(totalCount / perPage));
 }
 
+export function getDesktopListCountLabel(
+	totalCount: number,
+	unreadCount: number,
+	selectedTag?: string,
+): string {
+	return selectedTag
+		? `${totalCount} matching conversations`
+		: `${unreadCount} unread · ${totalCount} conversations`;
+}
+
 export function getEmailTagFilterOptions(
 	availableTags: readonly string[],
 ): EmailTagFilterOption[] {

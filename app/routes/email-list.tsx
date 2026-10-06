@@ -50,7 +50,7 @@ import {
 } from "~/lib/mobile-email-navigation";
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
-import { buildEmailListParams, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
+import { buildEmailListParams, getDesktopListCountLabel, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -568,7 +568,7 @@ export default function EmailListRoute() {
 					<h1 className="truncate text-base font-semibold text-kumo-default">{folderName}</h1>
 					{totalCount > 0 && (
 						<span className="text-xs text-kumo-subtle">
-							{folders.find((item) => item.id === folder)?.unreadCount ?? 0} unread · {totalCount} conversations
+							{getDesktopListCountLabel(totalCount, folders.find((item) => item.id === folder)?.unreadCount ?? 0, selectedTag)}
 						</span>
 					)}
 					<div className="min-w-0">

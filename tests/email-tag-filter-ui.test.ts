@@ -1,7 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildEmailListParams, getEmailTagFilterOptions, getListPageCount, getListPageRange } from "../app/lib/email-tag-filter.ts";
+import { buildEmailListParams, getDesktopListCountLabel, getEmailTagFilterOptions, getListPageCount, getListPageRange } from "../app/lib/email-tag-filter.ts";
+
+test("desktop list count label shows unread and total counts without a tag filter", () => {
+	assert.equal(getDesktopListCountLabel(12, 4), "4 unread · 12 conversations");
+});
+
+test("desktop list count label shows zero unread without a tag filter", () => {
+	assert.equal(getDesktopListCountLabel(12, 0), "0 unread · 12 conversations");
+});
+
+test("desktop list count label shows matching conversation count with a tag filter", () => {
+	assert.equal(getDesktopListCountLabel(3, 4, "service:github"), "3 matching conversations");
+});
+
+test("desktop list count label shows zero matches with a tag filter", () => {
+	assert.equal(getDesktopListCountLabel(0, 4, "service:github"), "0 matching conversations");
+});
+
+test("desktop list count label returns to folder counts when the tag filter is cleared", () => {
+	assert.equal(getDesktopListCountLabel(12, 4, undefined), "4 unread · 12 conversations");
+});
 
 test("tag filter options include dispositions and arbitrary tags but not hold", () => {
 	assert.deepEqual(getEmailTagFilterOptions([
