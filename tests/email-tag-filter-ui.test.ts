@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildEmailListParams, getEmailTagFilterOptions, getListPageRange } from "../app/lib/email-tag-filter.ts";
+import { buildEmailListParams, getEmailTagFilterOptions, getListPageCount, getListPageRange } from "../app/lib/email-tag-filter.ts";
 
 test("tag filter options include dispositions and arbitrary tags but not hold", () => {
 	assert.deepEqual(getEmailTagFilterOptions([
@@ -48,4 +48,11 @@ test("list page range caps a partial final page at totalCount", () => {
 
 test("list page range starts at one on the first of multiple pages", () => {
 	assert.deepEqual(getListPageRange(1, 25, 63), { start: 1, end: 25 });
+});
+
+test("list page count clamps to at least one page", () => {
+	assert.equal(getListPageCount(0, 25), 1);
+	assert.equal(getListPageCount(25, 25), 1);
+	assert.equal(getListPageCount(26, 25), 2);
+	assert.equal(getListPageCount(63, 25), 3);
 });

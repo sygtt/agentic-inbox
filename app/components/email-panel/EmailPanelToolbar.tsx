@@ -243,8 +243,20 @@ function MoveToFolderMenu({ folders, onMove, disabled }: { folders: Folder[]; on
 		const handler = (e: MouseEvent) => {
 			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
 		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			e.preventDefault();
+			e.stopPropagation();
+			setOpen(false);
+			// Return focus to the trigger so the panel shortcut keeps working predictably.
+			ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+		};
 		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
+		window.addEventListener("keydown", onKeyDown, true);
+		return () => {
+			document.removeEventListener("mousedown", handler);
+			window.removeEventListener("keydown", onKeyDown, true);
+		};
 	}, [open]);
 
 	return (

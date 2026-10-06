@@ -17,6 +17,10 @@ export function getListPageRange(page: number, perPage: number, totalCount: numb
 	};
 }
 
+export function getListPageCount(totalCount: number, perPage: number) {
+	return Math.max(1, Math.ceil(totalCount / perPage));
+}
+
 export function getEmailTagFilterOptions(
 	availableTags: readonly string[],
 ): EmailTagFilterOption[] {

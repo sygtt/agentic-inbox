@@ -50,7 +50,7 @@ import {
 } from "~/lib/mobile-email-navigation";
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
-import { buildEmailListParams, getListPageRange } from "~/lib/email-tag-filter";
+import { buildEmailListParams, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -265,7 +265,8 @@ export default function EmailListRoute() {
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
-	const { start: pageStart, end: pageEnd } = getListPageRange(page, PAGE_SIZE, totalCount);
+	const pageCount = getListPageCount(totalCount, PAGE_SIZE);
+	const { start: pageStart, end: pageEnd } = getListPageRange(Math.min(page, pageCount), PAGE_SIZE, totalCount);
 	const { data: needsReplyData } = useEmails(
 		mailboxId,
 		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
@@ -334,6 +335,14 @@ export default function EmailListRoute() {
 			setPage(1);
 		}
 	}, [mailboxId, folder, isComposing, closeEmailPanel, urlSelectedEmailId]);
+
+	// Archive/delete/refetch can shrink totalCount below the current page; the server
+	// then returns an empty page and the folder wrongly renders its empty state.
+	useEffect(() => {
+		if (!emailData) return;
+		const lastPage = getListPageCount(emailData.totalCount, PAGE_SIZE);
+		setPage((current) => (current > lastPage ? lastPage : current));
+	}, [emailData]);
 
 	const toggleStar = (e: React.MouseEvent, email: Email) => {
 		e.preventDefault();
