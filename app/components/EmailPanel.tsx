@@ -212,16 +212,39 @@ export default function EmailPanel({
 	const handleDelete = async () => {
 		if (!mailboxId || isDeletionBlocked) return;
 		const permanent = isDraftFolder || folder === Folders.TRASH || email.folder_id === Folders.TRASH;
-		if (!window.confirm(permanent
-			? "Permanently delete this email? This cannot be undone."
-			: "Move this email to Trash?")) return;
+		if (permanent && !window.confirm("Permanently delete this email? This cannot be undone.")) return;
 		try {
 			if (permanent) {
 				await deleteEmailMut.mutateAsync({ mailboxId, id: email.id });
 				toastManager.add({ title: "Email permanently deleted" });
 			} else {
+				const sourceFolderId = folder || email.folder_id || Folders.INBOX;
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
-				toastManager.add({ title: "Email moved to Trash" });
+				let toastId = "";
+				toastId = toastManager.add({
+					title: "Email moved to Trash",
+					actions: [{
+						children: "キャンセル",
+						variant: "secondary",
+						onClick: async () => {
+							try {
+								await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: sourceFolderId });
+								toastManager.update(toastId, {
+									title: "Email restored",
+									variant: "success",
+									actions: [],
+									timeout: 2000,
+								});
+							} catch {
+								toastManager.update(toastId, {
+									title: "Failed to restore email",
+									variant: "error",
+									actions: [],
+								});
+							}
+						},
+					}],
+				});
 			}
 			closeIfStillSelected();
 		} catch {
