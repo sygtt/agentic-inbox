@@ -51,6 +51,7 @@ import {
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
 import { buildEmailListParams, getDesktopListCountLabel, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
+import { getRestoreTargetFolder } from "~/lib/trash-undo";
 
 const PAGE_SIZE = 25;
 
@@ -359,17 +360,39 @@ export default function EmailListRoute() {
 		if (isDeleting || moveEmail.isPending || isSavingDraft || isSendingEmail) return;
 		if (mailboxId) {
 			const permanent = folder === Folders.TRASH || folder === Folders.DRAFT;
-			const confirmed = window.confirm(permanent
-				? "Permanently delete this email? This cannot be undone."
-				: "Move this email to Trash?");
-			if (!confirmed) return;
+			if (permanent && !window.confirm("Permanently delete this email? This cannot be undone.")) return;
 			try {
 				if (permanent) {
 					await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 					toastManager.add({ title: "Email permanently deleted" });
 				} else {
+					// Prefer the row's own folder: the route folder can be a stale view.
+					const sourceFolderId = getRestoreTargetFolder(emails.find((email) => email.id === emailId)?.folder_id, folder) || Folders.INBOX;
 					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
-					toastManager.add({ title: "Email moved to Trash" });
+					let toastId = "";
+					toastId = toastManager.add({
+						title: "Email moved to Trash",
+						actions: [{
+							children: "キャンセル",
+							variant: "secondary",
+							onClick: async () => {
+								try {
+									await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: sourceFolderId });
+									toastManager.update(toastId, {
+										title: "Email restored",
+										actions: [],
+										timeout: 2000,
+									});
+								} catch {
+									toastManager.update(toastId, {
+										title: "Failed to restore email",
+										variant: "error",
+										actions: [],
+									});
+								}
+							},
+						}],
+					});
 				}
 				if (!isEmailStillSelected(useUIStore.getState().selectedEmailId, emailId)) {
 					clearEmailSelection(emailId);
