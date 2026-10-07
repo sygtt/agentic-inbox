@@ -12,10 +12,11 @@ export type MobileEmailTagBadge =
 	| { kind: "disposition" | "tag"; tag: string; label: string }
 	| { kind: "overflow"; count: number };
 
-/** Build the prioritized, compact tag badges shown on mobile email rows. */
+/** Build prioritized tag badges for email rows, independent of viewport. */
 export function getMobileEmailTagBadges(
 	tags: readonly EmailTag[] | undefined,
 	threadHasTriageError = false,
+	maxBadges = 3,
 ): MobileEmailTagBadge[] {
 	const allTags = tags ?? [];
 	const hasSystemTriageError = allTags.some(
@@ -37,9 +38,9 @@ export function getMobileEmailTagBadges(
 		badges.push({ kind: "tag", tag: tag.tag, label: tag.tag });
 	}
 
-	if (badges.length <= 3) return badges;
+	if (badges.length <= maxBadges) return badges;
 	return [
-		...badges.slice(0, 2),
-		{ kind: "overflow", count: badges.length - 2 },
+		...badges.slice(0, maxBadges - 1),
+		{ kind: "overflow", count: badges.length - (maxBadges - 1) },
 	];
 }

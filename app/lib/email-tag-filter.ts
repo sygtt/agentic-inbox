@@ -10,6 +10,27 @@ export interface EmailTagFilterOption {
 	label: string;
 }
 
+export function getListPageRange(page: number, perPage: number, totalCount: number) {
+	return {
+		start: totalCount === 0 ? 0 : (page - 1) * perPage + 1,
+		end: Math.min(page * perPage, totalCount),
+	};
+}
+
+export function getListPageCount(totalCount: number, perPage: number) {
+	return Math.max(1, Math.ceil(totalCount / perPage));
+}
+
+export function getDesktopListCountLabel(
+	totalCount: number,
+	unreadCount: number,
+	selectedTag?: string,
+): string {
+	return selectedTag
+		? `${totalCount} matching conversations`
+		: `${unreadCount} unread · ${totalCount} conversations`;
+}
+
 export function getEmailTagFilterOptions(
 	availableTags: readonly string[],
 ): EmailTagFilterOption[] {

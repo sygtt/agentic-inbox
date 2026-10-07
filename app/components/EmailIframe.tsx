@@ -7,6 +7,7 @@
 import DOMPurify from "dompurify";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prepareEmailBody } from "~/lib/email-body";
+import { EDITABLE_SHORTCUT_TARGET_SELECTOR, forwardedIframeShortcutKey } from "~/lib/email-panel-navigation";
 
 interface EmailIframeProps {
 	body: string;
@@ -27,6 +28,11 @@ interface EmailIframeProps {
  *   script that posts its body height to the parent via `postMessage`.
  *   The `allow-scripts` flag is required for this, but scripts inside
  *   the opaque-origin sandbox cannot access anything useful.
+ * - The same bridge forwards Escape and the unmodified `/` search shortcut out
+ *   of the iframe: key events in a nested browsing context never reach the
+ *   parent window, so the injected script reports which allowlisted shortcut
+ *   fired and the parent replays it. The sandbox flags are unchanged and no key
+ *   text crosses the boundary.
  * - A strict CSP meta tag blocks external resource loads inside the
  *   iframe as a defense-in-depth layer.
  */
@@ -34,12 +40,22 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [height, setHeight] = useState(autoSize ? 100 : 0);
 
-	// Listen for height reports from the sandboxed iframe
+	// Listen for height and shortcut reports from the sandboxed iframe
 	const handleMessage = useCallback(
 		(event: MessageEvent) => {
-			if (!autoSize) return;
 			// Only accept messages from our own iframe
 			if (event.source !== iframeRef.current?.contentWindow) return;
+			const forwardedKey = forwardedIframeShortcutKey(event.data);
+			if (forwardedKey) {
+				// Focus inside the sandboxed body keeps key events in that
+				// browsing context, so replay the key on the parent DOM and
+				// let the existing listeners decide who owns it.
+				const replayed = new KeyboardEvent("keydown", { key: forwardedKey, bubbles: true, cancelable: true });
+				if ((event.data as { defaultPrevented?: unknown }).defaultPrevented === true) replayed.preventDefault();
+				document.body.dispatchEvent(replayed);
+				return;
+			}
+			if (!autoSize) return;
 			if (
 				event.data &&
 				typeof event.data === "object" &&
@@ -77,21 +93,38 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 
 		const padding = autoSize ? "0" : "24px";
 
-		// Height-reporting script: sends body.scrollHeight to the parent.
-		// Runs inside the opaque-origin sandbox so it has zero access to
-		// the parent page — it can only postMessage.
-		const heightScript = autoSize
-			? `<script>
-				function reportHeight() {
+		// Bridge script: reports body height (autoSize only) and forwards the
+		// allowlisted parent shortcuts (Escape, "/"), which otherwise die inside
+		// the nested browsing context. Runs inside the opaque-origin sandbox so it
+		// has zero access to the parent page — it can only postMessage.
+		const heightBridge = autoSize
+			? `function reportHeight() {
 					var h = document.body.scrollHeight;
 					if (h > 0) parent.postMessage({ __emailIframeHeight: true, height: h }, "*");
 				}
 				reportHeight();
 				setTimeout(reportHeight, 50);
 				setTimeout(reportHeight, 150);
-				setTimeout(reportHeight, 400);
-			<\/script>`
+				setTimeout(reportHeight, 400);`
 			: "";
+		const bridgeScript = `<script>
+			${heightBridge}
+			document.addEventListener("keydown", function (event) {
+				// Escape closes the detail panel; "/" focuses search in the parent
+				// Header. Drop modified variants so the browser keeps them, matching
+				// Header's meta/ctrl/alt guard.
+				var channel = event.key === "Escape" ? "__emailIframeEscape"
+					: (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) ? "__emailIframeSearchShortcut"
+					: null;
+				if (!channel) return;
+				var target = event.target;
+				// Leave the key to a field the reader is editing inside the body.
+				if (target && target.closest && target.closest(${JSON.stringify(EDITABLE_SHORTCUT_TARGET_SELECTOR)})) return;
+				var message = { defaultPrevented: event.defaultPrevented };
+				message[channel] = true;
+				parent.postMessage(message, "*");
+			});
+		<\/script>`;
 
 		// Use srcdoc so the iframe is truly sandboxed (no same-origin access).
 		// We can't use doc.write() because that requires allow-same-origin.
@@ -144,7 +177,7 @@ h1, h2, h3 { margin: 8px 0 4px; }
 ul, ol { padding-left: 20px; margin: 4px 0; }
 </style>
 </head>
-<body>${cleanBody}${heightScript}</body>
+<body>${cleanBody}${bridgeScript}</body>
 </html>`;
 	}, [body, autoSize]);
 

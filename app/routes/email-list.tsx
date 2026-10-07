@@ -7,14 +7,13 @@
 import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
-	ArrowBendUpLeftIcon,
 	ArrowsClockwiseIcon,
-	EnvelopeOpenIcon,
+	CaretLeftIcon,
+	CaretRightIcon,
 	EnvelopeSimpleIcon,
 	FileIcon,
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
-	StarIcon,
 	TrashIcon,
 	TrayIcon,
 } from "@phosphor-icons/react";
@@ -22,9 +21,8 @@ import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { Folders } from "shared/folders";
-import { formatListDate } from "shared/dates";
 import MailboxSplitView from "~/components/MailboxSplitView";
-import { getSnippetText } from "~/lib/utils";
+import EmailListRow from "~/components/EmailListRow";
 import {
 	useDeleteEmail,
 	useEmails,
@@ -40,7 +38,6 @@ import type { Email } from "~/types";
 import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
-import TriageErrorBadge from "~/components/triage/TriageErrorBadge";
 import {
 	getMobileArchiveSuccessAction,
 	getMobileEmailNeighborIds,
@@ -53,7 +50,7 @@ import {
 } from "~/lib/mobile-email-navigation";
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
-import { buildEmailListParams } from "~/lib/email-tag-filter";
+import { buildEmailListParams, getDesktopListCountLabel, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
 
 const PAGE_SIZE = 25;
 
@@ -263,10 +260,13 @@ export default function EmailListRoute() {
 		data: emailData,
 		isFetching: isRefreshing,
 		isError,
+		refetch,
 	} = useEmails(mailboxId, params, { refetchInterval: 30_000 });
 
 	const emails = emailData?.emails ?? [];
 	const totalCount = emailData?.totalCount ?? 0;
+	const pageCount = getListPageCount(totalCount, PAGE_SIZE);
+	const { start: pageStart, end: pageEnd } = getListPageRange(Math.min(page, pageCount), PAGE_SIZE, totalCount);
 	const { data: needsReplyData } = useEmails(
 		mailboxId,
 		{ folder: folder || "", page: "1", limit: "1", needs_reply: "true" },
@@ -288,7 +288,6 @@ export default function EmailListRoute() {
 		return folder ? folder.charAt(0).toUpperCase() + folder.slice(1) : "Inbox";
 	}, [folders, folder]);
 
-	const isPanelOpen = selectedEmailId !== null || isComposing;
 	const mobileEmailNeighbors = useMemo(
 		() => getMobileEmailNeighborIds(emails, selectedEmailId),
 		[emails, selectedEmailId],
@@ -336,6 +335,14 @@ export default function EmailListRoute() {
 			setPage(1);
 		}
 	}, [mailboxId, folder, isComposing, closeEmailPanel, urlSelectedEmailId]);
+
+	// Archive/delete/refetch can shrink totalCount below the current page; the server
+	// then returns an empty page and the folder wrongly renders its empty state.
+	useEffect(() => {
+		if (!emailData) return;
+		const lastPage = getListPageCount(emailData.totalCount, PAGE_SIZE);
+		setPage((current) => (current > lastPage ? lastPage : current));
+	}, [emailData]);
 
 	const toggleStar = (e: React.MouseEvent, email: Email) => {
 		e.preventDefault();
@@ -395,8 +402,10 @@ export default function EmailListRoute() {
 				await moveEmail.mutateAsync({ mailboxId, id: email.id, folderId });
 			}
 			toastManager.add({ title: folderId === Folders.ARCHIVE ? "Email archived" : "Email moved" });
+			return true;
 		} catch {
 			toastManager.add({ title: "Failed to move email", variant: "error" });
+			return false;
 		}
 	};
 
@@ -505,18 +514,6 @@ export default function EmailListRoute() {
 		updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } });
 	};
 
-	const formatParticipants = (email: Email): string => {
-		if (email.participants) {
-			const names = email.participants
-				.split(",")
-				.map((p) => p.trim().split("@")[0])
-				.filter((name, idx, arr) => arr.indexOf(name) === idx);
-			if (names.length <= 3) return names.join(", ");
-			return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-		}
-		return email.sender.split("@")[0];
-	};
-
 	const needsReplyCount = needsReplyData?.totalCount ?? 0;
 	const allFolderCount = allFolderData?.totalCount ?? totalCount;
 	const mobileEmails = emails;
@@ -567,17 +564,17 @@ export default function EmailListRoute() {
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				{/* Folder header */}
-				<div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-					<div className="flex min-w-0 flex-wrap items-center gap-3">
-						<h1 className="text-lg font-semibold text-kumo-default">{folderName}</h1>
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kumo-line bg-kumo-base px-4 py-2.5 shrink-0 md:px-5">
+					<h1 className="truncate text-base font-semibold text-kumo-default">{folderName}</h1>
+					{totalCount > 0 && (
+						<span className="text-xs text-kumo-subtle">
+							{getDesktopListCountLabel(totalCount, folders.find((item) => item.id === folder)?.unreadCount ?? 0, selectedTag)}
+						</span>
+					)}
+					<div className="min-w-0">
 						<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
 					</div>
-					<div className="flex items-center gap-1">
-						{totalCount > 0 && (
-							<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
-								{totalCount} conversation{totalCount !== 1 ? "s" : ""}
-							</span>
-						)}
+					<div className="ml-auto flex shrink-0 items-center gap-1">
 						<Tooltip
 							content={isRefreshing ? "Refreshing..." : "Refresh"}
 							side="bottom"
@@ -598,163 +595,70 @@ export default function EmailListRoute() {
 								aria-label="Refresh"
 							/>
 						</Tooltip>
+						{totalCount > PAGE_SIZE && (
+							<>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<CaretLeftIcon size={18} />}
+									disabled={page <= 1}
+									aria-label="Previous page"
+									onClick={() => setPage((current) => current - 1)}
+								/>
+								<span className="whitespace-nowrap text-xs text-kumo-subtle tabular-nums">
+									{pageStart}–{pageEnd} of {totalCount}
+								</span>
+								<Button
+									variant="ghost"
+									shape="square"
+									size="sm"
+									icon={<CaretRightIcon size={18} />}
+									disabled={pageEnd >= totalCount}
+									aria-label="Next page"
+									onClick={() => setPage((current) => current + 1)}
+								/>
+							</>
+						)}
 					</div>
 				</div>
 
 				{/* Email rows */}
-				<div className="flex-1 overflow-y-auto">
+				<div className="flex-1 overflow-y-auto" aria-busy={isRefreshing}>
+					{isRefreshing && <span className="sr-only" role="status">Loading emails</span>}
 					{isRefreshing && emails.length === 0 ? (
 						<EmailListSkeleton />
 					) : isError ? (
-						<p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p>
+						<div className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">
+							<p>Could not load this folder.</p>
+							<Button variant="secondary" size="sm" className="mt-2" onClick={() => void refetch()} disabled={isRefreshing}>
+								Retry
+							</Button>
+						</div>
 					) : emails.length > 0 ? (
 						<div>
-							{emails.map((email) => {
-								const isSelected = selectedEmailId === email.id;
-								const snippet = getSnippetText(email.snippet);
-								return (
-									<div
-										key={email.id}
-										role="button"
-										tabIndex={0}
-										onClick={() => handleRowClick(email)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												handleRowClick(email);
-											}
-										}}
-										className={`group flex items-center gap-3 w-full text-left cursor-pointer transition-colors border-b border-kumo-line px-4 py-2.5 md:px-6 md:py-3 ${
-											isPanelOpen ? "md:px-4 md:py-2.5" : ""
-										} ${isSelected ? "bg-kumo-tint" : "hover:bg-kumo-tint"}`}
-									>
-										{/* Unread dot */}
-										<div className="w-2.5 shrink-0 flex justify-center">
-											{hasUnread(email) && (
-												<div className="h-2 w-2 rounded-full bg-kumo-brand" />
-											)}
-										</div>
-
-										{/* Star */}
-										<button
-											type="button"
-											className="shrink-0 p-0.5 bg-transparent border-0 cursor-pointer"
-											onClick={(e) => {
-												e.stopPropagation();
-												toggleStar(e, email);
-											}}
-										>
-											<StarIcon
-												size={16}
-												weight={email.starred ? "fill" : "regular"}
-												className={
-													email.starred
-														? "text-kumo-warning"
-														: "text-kumo-subtle hover:text-kumo-warning"
-												}
-											/>
-										</button>
-
-										{/* Content */}
-										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-2">
-												<span
-													className={`truncate text-sm ${hasUnread(email) ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}
-												>
-													{formatParticipants(email)}
-												</span>
-												{(email.thread_count ?? 1) > 1 && (
-													<span className="shrink-0 text-xs text-kumo-subtle bg-kumo-fill rounded-full px-1.5 py-0.5 font-medium">
-														{email.thread_count}
-													</span>
-												)}
-												{email.has_draft && (
-													<span className="shrink-0 text-xs text-kumo-destructive font-medium">
-														Draft
-													</span>
-												)}
-												{email.needs_reply && !email.has_draft && (
-													<Tooltip content="Needs reply" asChild>
-														<span className="shrink-0 text-kumo-warning">
-															<ArrowBendUpLeftIcon size={14} weight="bold" />
-														</span>
-													</Tooltip>
-												)}
-												<span className="text-sm text-kumo-subtle shrink-0 ml-auto">
-													{formatListDate(email.date)}
-												</span>
-											</div>
-							<TriageErrorBadge
-								tags={email.tags}
-								threadHasTriageError={email.thread_has_triage_error}
-								className="mt-1"
-							/>
-											<div className="truncate text-sm mt-0.5">
-												<span
-													className={hasUnread(email) ? "font-medium text-kumo-default" : "text-kumo-subtle"}
-												>
-													{email.subject}
-												</span>
-											{snippet && (
-												<span className="text-kumo-subtle font-normal">
-													{" "}&mdash; {snippet}
-												</span>
-											)}
-										</div>
-									</div>
-
-										{/* Hover actions */}
-										<div className="flex md:hidden md:group-hover:flex items-center shrink-0">
-											<Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
-												<Button
-													variant="ghost"
-													shape="square"
-													size="sm"
-													icon={email.read ? <EnvelopeSimpleIcon size={14} /> : <EnvelopeOpenIcon size={14} />}
-													onClick={(e) => {
-														e.stopPropagation();
-														if (mailboxId)
-															updateEmail.mutate({
-																mailboxId,
-																id: email.id,
-																data: { read: !email.read },
-															});
-													}}
-													aria-label={email.read ? "Mark unread" : "Mark read"}
-												/>
-											</Tooltip>
-											<Tooltip content={folder === Folders.TRASH ? "Delete permanently" : "Delete"} asChild>
-												<Button
-													variant="ghost"
-													shape="square"
-													size="sm"
-															icon={<TrashIcon size={14} />}
-															onClick={(e) => handleDelete(e, email.id)}
-															disabled={isDeleting || isSavingDraft || isSendingEmail}
-													aria-label={folder === Folders.TRASH ? "Delete permanently" : "Delete"}
-												/>
-											</Tooltip>
-										</div>
-									</div>
-								);
-							})}
+							{emails.map((email) => (
+								<EmailListRow
+									key={email.id}
+									email={email}
+									isSelected={selectedEmailId === email.id}
+									folder={folder}
+									isBusy={isDeleting || isSavingDraft || isSendingEmail}
+									onOpen={handleRowClick}
+									onToggleStar={toggleStar}
+									onToggleRead={handleToggleRead}
+									onArchive={async (archivedEmail) => {
+										const moved = await handleArchive(archivedEmail);
+										if (moved && useUIStore.getState().selectedEmailId === archivedEmail.id) closeEmailPanel();
+									}}
+									onDelete={handleDelete}
+								/>
+							))}
 						</div>
 					) : (
 						selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />
 					)}
 				</div>
-
-				{/* Pagination */}
-				{totalCount > PAGE_SIZE && (
-					<div className="flex justify-center py-3 border-t border-kumo-line shrink-0">
-						<Pagination
-							page={page}
-							setPage={setPage}
-							perPage={PAGE_SIZE}
-							totalCount={totalCount}
-						/>
-					</div>
-				)}
 				</div>
 				<MobileQuickActions
 					open={quickActionEmail !== null}

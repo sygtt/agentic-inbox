@@ -7,6 +7,7 @@
 import { Button, Tooltip } from "@cloudflare/kumo";
 import { useEffect, useRef, useState } from "react";
 import {
+	ArchiveIcon,
 	ArrowBendUpLeftIcon,
 	ArrowBendUpRightIcon,
 	ArrowLeftIcon,
@@ -28,6 +29,7 @@ interface EmailPanelToolbarProps {
 	mailboxId?: string;
 	isDraftFolder: boolean;
 	isTrash?: boolean;
+	isArchive?: boolean;
 	isSending: boolean;
 	isDeleting: boolean;
 	threadActionsDisabled: boolean;
@@ -40,6 +42,7 @@ interface EmailPanelToolbarProps {
 	onReply: () => void;
 	onReplyAll: () => void;
 	onForward: () => void;
+	onArchive?: () => void;
 	onToggleStar: () => void;
 	onToggleRead: () => void;
 	onMove: (folderId: string) => void;
@@ -52,6 +55,7 @@ export default function EmailPanelToolbar({
 	mailboxId,
 	isDraftFolder,
 	isTrash = false,
+	isArchive = false,
 	isSending,
 	isDeleting,
 	threadActionsDisabled,
@@ -63,6 +67,7 @@ export default function EmailPanelToolbar({
 	onReply,
 	onReplyAll,
 	onForward,
+	onArchive,
 	onToggleStar,
 	onToggleRead,
 	onMove,
@@ -71,6 +76,7 @@ export default function EmailPanelToolbar({
 }: EmailPanelToolbarProps) {
 	const unread = hasUnread ?? !email.read;
 	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
+	const archiveLabel = isArchive || isTrash ? "Move to Inbox" : "Archive";
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
 			<Button
@@ -80,7 +86,7 @@ export default function EmailPanelToolbar({
 				icon={<ArrowLeftIcon size={18} />}
 				onClick={onBack}
 				aria-label="Back to list"
-				className="md:hidden shrink-0"
+				className="xl:hidden shrink-0"
 			/>
 
 			{isDraftFolder ? (
@@ -145,6 +151,20 @@ export default function EmailPanelToolbar({
 
 			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
 
+			{onArchive && (
+				<Tooltip content={archiveLabel} side="bottom" asChild>
+					<Button
+						variant="ghost"
+						shape="square"
+						size="sm"
+						icon={<ArchiveIcon size={18} />}
+						onClick={onArchive}
+						disabled={threadActionsDisabled}
+						aria-label={archiveLabel}
+					/>
+				</Tooltip>
+			)}
+
 			<Tooltip content={email.starred ? "Unstar" : "Star"} side="bottom" asChild>
 				<Button
 					variant="ghost"
@@ -206,7 +226,7 @@ export default function EmailPanelToolbar({
 						icon={<XIcon size={18} />}
 						onClick={onBack}
 						aria-label="Close"
-						className="hidden md:inline-flex"
+						className="hidden xl:inline-flex"
 					/>
 				</Tooltip>
 			</div>
@@ -223,8 +243,20 @@ function MoveToFolderMenu({ folders, onMove, disabled }: { folders: Folder[]; on
 		const handler = (e: MouseEvent) => {
 			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
 		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			e.preventDefault();
+			e.stopPropagation();
+			setOpen(false);
+			// Return focus to the trigger so the panel shortcut keeps working predictably.
+			ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+		};
 		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
+		window.addEventListener("keydown", onKeyDown, true);
+		return () => {
+			document.removeEventListener("mousedown", handler);
+			window.removeEventListener("keydown", onKeyDown, true);
+		};
 	}, [open]);
 
 	return (

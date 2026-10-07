@@ -154,7 +154,7 @@ without introducing a separate mobile client or new persistence.
 - Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
 - The web app declares a Japanese standalone manifest with raster install icons derived from the repository's favicon.
 - No service worker or offline mailbox support is added.
-- At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar and split view at `md` and above.
+- At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar at `md` and above; the split view starts at `xl` (1280px) and above, with a single-pane layout at `md`–`lg`.
 - Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
 - Mobile detail reuses the existing thread, body, attachment, reply, move, star, delete, and structured tag/disposition flows; it does not add mock summaries, Snoozed, Mute, or Pin state.
 - Opening a message records its ID in the URL so browser Back returns to the same loaded list and preserves its local filters and scroll position. Previous/next controls follow the loaded list order without adding history entries; opening another message marks it read and resets detail scrolling to the top. Opening or refreshing a URL-selected unread message marks it read after its email and thread data load, using the thread-aware read mutation. A successful archive advances only when the archived message is still selected at completion: the current viewport determines whether mobile advances to the next lower message or desktop closes the detail. A failed archive leaves the detail open. Async moves, deletions, and draft sends close detail only while their original email remains selected.
@@ -449,6 +449,49 @@ Low but recurring. Upstream changes to `wrangler.jsonc` may conflict with the lo
 Prefer moving production-specific configuration out of committed reusable source when a clean Cloudflare deployment mechanism is chosen.
 
 Do **not** perform that cleanup incidentally during unrelated feature work because it can affect the deployed application configuration.
+
+## Desktop mail-client layout (Gmail-informed information design)
+
+**Status:** Active
+
+### Why
+
+Issue #52。「設定画面付き Web アプリ」感を減らし PC で scan → triage → read を短くする。Gmail の情報設計・密度・導線を参考にし、ロゴ/固有アイコン/ブランド表現は模倣しない。mobile は #46 の領域なので触らない。
+
+### Behavior
+
+- 全幅 top bar（search が主役、`/` で focus、gear 無し）と、Settings を常設して active 表示する左 nav rail を使う。`/` は detail の sandboxed iframe 内に focus がある場合も bridge 経由で伝播する（無修飾 `/` のみ、編集中フィールドは対象外）。
+- 並置は `xl`（1280px）以上で、`md`〜`lg` は single-pane（detail が list を置換し、toolbar に Back）。list 幅は `xl` で 448px、`2xl` で 480px。
+- agent panel は layout 幅を消費しない右 overlay で、初期 closed。
+- 一覧行は 2 行・実測 45px。sender のみ truncate し、tag chip は最大 2 + `+N`。hover/focus で Archive/Read/Delete を overlay 表示する。行からの Archive 成功時、アーカイブ対象メールが完了時点でも選択中なら detail も閉じる。
+- pagination は上部 compact pager に集約（desktop 下部バー削除、mobile は維持）。detail toolbar に Archive を配線し、Escape で close。detail toolbar の Archive は一覧行と同じ規則で folder 依存（Archive/Trash では Inbox へ戻す）。
+- 新規 store・route・URL param・依存関係は追加していない。
+
+### Main affected areas
+
+- `app/routes/{mailbox,email-list,search-results}.tsx`
+- `app/components/{Header,Sidebar,MailboxSplitView,EmailListRow,EmailPanel}.tsx`
+- `app/components/EmailIframe.tsx`
+- `app/components/email-panel/{EmailPanelToolbar,EmailPanelHeader,SingleMessageView}.tsx`
+- `app/hooks/useUIStore.ts`
+- `app/lib/email-panel-navigation.ts`
+- `app/lib/mobile-email-tags.ts`
+
+### Configuration involved
+
+None.
+
+### Persistence / migration implications
+
+None（表示層のみ。schema・migration・API 不変）。
+
+### Upstream synchronization risk
+
+**High**。upstream が desktop shell / list row / detail toolbar を変えると同じ行で衝突。`EmailListRow.tsx` は fork-created で残るが `email-list.tsx` の desktop 分岐は共有。sync 時の既定方針 = 「mobile tree と backend は upstream に合わせ、desktop の密度・breakpoint・overlay 挙動は fork を維持」。
+
+### Removal / replacement condition
+
+upstream が同等の desktop 情報設計（全幅 search / xl reading pane / 行 hover action）を提供したら本 entry を縮小または Retired にし、`EmailListRow.tsx` の upstream 行への統合を検討する。
 
 ---
 

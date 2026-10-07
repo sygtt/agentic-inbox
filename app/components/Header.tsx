@@ -5,14 +5,15 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Button, Input, Tooltip } from "@cloudflare/kumo";
-import { GearSixIcon, ListIcon, MagnifyingGlassIcon, RobotIcon, XIcon } from "@phosphor-icons/react";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { ListIcon, MagnifyingGlassIcon, RobotIcon, XIcon } from "@phosphor-icons/react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useUIStore } from "~/hooks/useUIStore";
 
 export default function Header() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+	const searchInputRef = useRef<HTMLInputElement>(null);
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -26,6 +27,24 @@ export default function Header() {
 			setSearchQuery(urlQuery);
 		}
 	}, [urlQuery, location.pathname]);
+
+	useEffect(() => {
+		const handleSearchShortcut = (e: globalThis.KeyboardEvent) => {
+			if (e.key !== "/" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) {
+				return;
+			}
+			if (e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) {
+				return;
+			}
+			const input = searchInputRef.current;
+			// The desktop Header is display:none below md; leave mobile keys alone.
+			if (!input || input.getClientRects().length === 0) return;
+			e.preventDefault();
+			input.focus();
+		};
+		window.addEventListener("keydown", handleSearchShortcut);
+		return () => window.removeEventListener("keydown", handleSearchShortcut);
+	}, []);
 
 	const performSearch = () => {
 		if (mailboxId && searchQuery.trim()) {
@@ -55,8 +74,6 @@ export default function Header() {
 		}
 	};
 
-	const isSettingsActive = location.pathname.includes("/settings");
-
 	return (
 		<header className="hidden md:flex items-center gap-2 px-3 py-2.5 bg-kumo-base border-b border-kumo-line sticky top-0 z-10 md:px-5 md:gap-4">
 			{/* Hamburger menu - mobile only */}
@@ -72,15 +89,16 @@ export default function Header() {
 
 			{/* Search - full on desktop, collapsible on mobile */}
 			<div
-				className={`flex-1 max-w-lg transition-all flex items-center gap-1 ${
+				className={`flex-1 max-w-2xl transition-all flex items-center gap-1 ${
 					isSearchExpanded ? "flex" : "hidden md:flex"
 				}`}
 			>
 				<div className="flex-1 relative flex items-center">
 					<Input
+						ref={searchInputRef}
 						className="w-full"
 						aria-label="Search emails"
-						placeholder="Search emails... (try from:name, is:unread, has:attachment)"
+						placeholder="Search mail — try from:name, is:unread, has:attachment"
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -129,21 +147,6 @@ export default function Header() {
 						onClick={toggleAgentPanel}
 						aria-label="Toggle agent panel"
 						className="hidden lg:inline-flex"
-					/>
-				</Tooltip>
-				<Tooltip content="Settings" side="bottom" asChild>
-					<Button
-						variant={isSettingsActive ? "secondary" : "ghost"}
-						shape="square"
-						icon={<GearSixIcon size={20} />}
-						onClick={() =>
-							navigate(
-								isSettingsActive
-									? `/mailbox/${mailboxId}/emails/inbox`
-									: `/mailbox/${mailboxId}/settings`,
-							)
-						}
-						aria-label="Settings"
 					/>
 				</Tooltip>
 			</div>

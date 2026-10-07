@@ -6,7 +6,7 @@
 
 import { useKumoToastManager } from "@cloudflare/kumo";
 import { useIsMutating } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
 import EmailPanelDialogs from "~/components/email-panel/EmailPanelDialogs";
@@ -15,6 +15,7 @@ import EmailPanelToolbar from "~/components/email-panel/EmailPanelToolbar";
 import SingleMessageView from "~/components/email-panel/SingleMessageView";
 import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import { isEmailStillSelected } from "~/lib/mobile-email-navigation";
+import { EDITABLE_SHORTCUT_TARGET_SELECTOR, shouldCloseEmailPanelOnEscape } from "~/lib/email-panel-navigation";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
 import api from "~/services/api";
 import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
@@ -86,6 +87,7 @@ export default function EmailPanel({
 	};
 	const {
 		startCompose,
+		isComposing,
 		isSendingEmail: isDraftSending,
 		setSendingEmail,
 	} = useUIStore();
@@ -98,7 +100,26 @@ export default function EmailPanel({
 	const [sourceViewEmail, setSourceViewEmail] = useState<Email | null>(null);
 	const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 	const [previewImage, setPreviewImage] = useState<{ url: string; filename: string } | null>(null);
+	const desktopPanelRef = useRef<HTMLDivElement>(null);
 	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
+
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!shouldCloseEmailPanelOnEscape({
+				key: event.key,
+				defaultPrevented: event.defaultPrevented,
+				isPanelVisible: Boolean(desktopPanelRef.current?.getClientRects().length),
+				isOverlayOpen: Boolean(sourceViewEmail || previewImage),
+				isComposing,
+				isEditableTarget: event.target instanceof HTMLElement
+					&& Boolean(event.target.closest(EDITABLE_SHORTCUT_TARGET_SELECTOR)),
+			})) return;
+			event.preventDefault();
+			onClose();
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [onClose, sourceViewEmail, previewImage, isComposing]);
 
 	const threadReplies = useMemo(() => {
 		if (!threadRepliesRaw || !email) return [];
@@ -149,6 +170,9 @@ export default function EmailPanel({
 		return <EmailPanelSkeleton />;
 	}
 
+	const isTrashFolder = folder === Folders.TRASH || email.folder_id === Folders.TRASH;
+	const isArchiveFolder = folder === Folders.ARCHIVE || email.folder_id === Folders.ARCHIVE;
+
 	const toggleStar = () => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { starred: !email.starred } }); };
 	const handleToggleRead = () => {
 		if (!mailboxId || threadActionsDisabled) return;
@@ -180,7 +204,7 @@ export default function EmailPanel({
 	const handleArchive = async () => {
 		const nextEmailId = mobileEmailNavigation.nextEmailId;
 		const moved = await handleMove(
-			email.folder_id === Folders.ARCHIVE || folder === Folders.ARCHIVE ? Folders.INBOX : Folders.ARCHIVE,
+			isArchiveFolder || isTrashFolder ? Folders.INBOX : Folders.ARCHIVE,
 			false,
 		);
 		if (moved) mobileEmailNavigation.onArchiveSuccess(email.id, nextEmailId);
@@ -290,12 +314,13 @@ export default function EmailPanel({
 					onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 				/>
 			</div>
-			<div className="hidden h-full flex-col md:flex">
+			<div ref={desktopPanelRef} className="hidden h-full flex-col md:flex">
 				<EmailPanelToolbar
 					email={email}
 					mailboxId={mailboxId}
 					isDraftFolder={isDraftFolder}
-					isTrash={folder === Folders.TRASH || email.folder_id === Folders.TRASH}
+					isTrash={isTrashFolder}
+					isArchive={isArchiveFolder}
 					isSending={isSending}
 					isDeleting={isDeletionBlocked}
 					threadActionsDisabled={threadActionsDisabled}
@@ -314,6 +339,7 @@ export default function EmailPanel({
 						})
 					}
 					onForward={() => startCompose({ mode: "forward", originalEmail: email })}
+					onArchive={handleArchive}
 					onToggleStar={toggleStar}
 					onToggleRead={handleToggleRead}
 					onMove={handleMove}

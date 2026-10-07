@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -8,6 +10,7 @@ import {
 	CaretLeftIcon,
 	FileIcon,
 	FolderIcon,
+	GearSixIcon,
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
 	PlusIcon,
@@ -221,6 +224,21 @@ export default function Sidebar() {
 						</div>
 					</div>
 				)}
+
+				<NavLink
+					to={`/mailbox/${mailboxId}/settings`}
+					onClick={handleNavClick}
+					className={({ isActive }) =>
+						`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${
+							isActive
+								? "bg-kumo-fill font-semibold text-kumo-default"
+								: "text-kumo-strong hover:bg-kumo-tint"
+						}`
+					}
+				>
+					<span className="shrink-0"><GearSixIcon size={18} /></span>
+					<span className="truncate flex-1">Settings</span>
+				</NavLink>
 			</nav>
 
 			{/* Create folder dialog */}
