@@ -151,7 +151,7 @@ without introducing a separate mobile client or new persistence.
 - Full email detail deterministically extracts up to 20 4–8 digit candidates and uses the existing inbound Jev result to select a candidate ID or `none`. The worker stores the selected ID with its exact server-derived value and whether the bounded candidate set covers the full message; the UI uses that mapping for display and copy, including when its HTML normalization differs from the worker's. Pending, unavailable, failed, malformed, or legacy analysis falls back to the contextual regex detector. A `none` result hides the action only when the candidate set is complete; if body or candidate limits make it incomplete, the detector checks the full message. Mobile list rows continue to use the existing snippet-only contextual fallback.
 - Plain-text `http`/`https` URLs are converted to links after escaping the input.
 - Existing HTML mail continues through the sandboxed DOMPurify iframe path.
-- Email deletion is available as a touch-friendly list action and uses the existing confirmation/API flow.
+- Email deletion is available as a touch-friendly list action and uses the shared undoable Trash behavior: regular messages skip the pre-delete confirmation and the success toast offers `キャンセル` to move the message back to its own folder, while permanent Trash deletion keeps its confirmation.
 - The web app declares a Japanese standalone manifest with raster install icons derived from the repository's favicon.
 - No service worker or offline mailbox support is added.
 - At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar at `md` and above; the split view starts at `xl` (1280px) and above, with a single-pane layout at `md`–`lg`.
@@ -244,7 +244,8 @@ storage model and attachment provenance.
 ### Behavior
 
 - UI deletion moves regular messages to Trash and retains SQLite metadata and R2 attachments.
-- Permanent deletion is guarded to Trash; draft discard remains permanent.
+- Regular UI deletion skips the pre-delete confirmation and adds a `キャンセル` action to the success toast; selecting it moves the message from Trash back to its original folder.
+- Permanent deletion is guarded to Trash and still requires confirmation; draft discard remains permanent and keeps its confirmation because neither action is recoverable.
 - `emails.trashed_at` records the first move into Trash, is cleared on restore, and is not reset by a redundant Trash move.
 - A daily Cron Trigger purges current Trash messages after 30 days and removes their R2 attachment objects.
 - MCP and Agent workflows expose `trash_email`; permanent deletion is explicit and guarded.
