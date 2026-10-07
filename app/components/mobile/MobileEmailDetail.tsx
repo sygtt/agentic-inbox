@@ -105,52 +105,54 @@ export default function MobileEmailDetail({
 	const hasThread = allMessages.length > 1;
 
 	return (
-		<div className="flex h-full flex-col bg-kumo-base">
-			<div className="flex shrink-0 items-center gap-1 border-b border-kumo-line px-3 py-2">
-				<Button variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={19} />} onClick={onBack} aria-label="Back to list" />
-				<Button variant="ghost" shape="square" size="sm" icon={<ArrowUpIcon size={18} />} onClick={() => previousEmailId && onNavigate(previousEmailId)} disabled={!previousEmailId} aria-label="Email above" />
-				<Button variant="ghost" shape="square" size="sm" icon={<ArrowDownIcon size={18} />} onClick={() => nextEmailId && onNavigate(nextEmailId)} disabled={!nextEmailId} aria-label="Email below" />
+		<div className="mobile-detail flex h-full flex-col bg-kumo-base">
+			<div className="mobile-detail-toolbar flex shrink-0 items-center gap-1 border-b border-kumo-line px-3 py-2">
+				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={24} />} onClick={onBack} aria-label="Back to list" />
+				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowUpIcon size={24} />} onClick={() => previousEmailId && onNavigate(previousEmailId)} disabled={!previousEmailId} aria-label="Email above" />
+				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowDownIcon size={24} />} onClick={() => nextEmailId && onNavigate(nextEmailId)} disabled={!nextEmailId} aria-label="Email below" />
 				<div className="min-w-0 flex-1" />
-				<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={18} />} onClick={isTrash ? () => onMove(Folders.INBOX) : onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isTrash ? "Restore to Inbox" : isArchived ? "Move to inbox" : "Archive"} />
-				<Button variant="ghost" shape="square" size="sm" icon={<DotsThreeIcon size={21} />} onClick={() => setQuickActionsOpen(true)} aria-label="More actions" />
+				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={24} />} onClick={isTrash ? () => onMove(Folders.INBOX) : onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isTrash ? "Restore to Inbox" : isArchived ? "Move to inbox" : "Archive"} />
+				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<DotsThreeIcon size={24} />} onClick={() => setQuickActionsOpen(true)} aria-label="More actions" />
 			</div>
 
-			<div className="shrink-0 border-b border-kumo-line px-4 py-4">
+			<div key={email.id} className="mobile-detail-scroll min-h-0 flex-1 overflow-y-auto pb-20">
+			<div className="mobile-detail-header shrink-0 border-b border-kumo-line px-4 py-4">
 				<h1 className="text-lg font-semibold leading-snug text-kumo-default">{email.subject || "(no subject)"}</h1>
-				<div className="mt-3 flex items-center gap-2.5">
-					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-kumo-fill text-xs font-bold text-kumo-default">{email.sender.charAt(0).toUpperCase()}</div>
+				<div className="mobile-detail-sender mt-3 flex items-center gap-2.5">
+					<div className="mobile-avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-kumo-fill text-xs font-bold text-kumo-default">{email.sender.charAt(0).toUpperCase()}</div>
 					<div className="min-w-0 flex-1">
 						<div className="truncate text-sm font-medium text-kumo-default">{email.sender}</div>
 						<div className="truncate text-xs text-kumo-subtle">To: {email.recipient}</div>
 						{email.envelope_recipient && email.envelope_recipient !== email.recipient && <div className="truncate text-xs text-kumo-subtle">Delivered to: {email.envelope_recipient}</div>}
 					</div>
-					<div className="shrink-0 text-right text-[11px] text-kumo-subtle">
+					<div className="mobile-supporting shrink-0 text-right text-[11px] text-kumo-subtle">
 						<div>{formatDetailDate(email.date)}</div>
 						{hasThread && <div>{allMessages.length} messages</div>}
 					</div>
 				</div>
-				<div className="mt-3 flex flex-wrap items-center gap-1.5">
-					{email.needs_reply && <span className="rounded-full bg-kumo-brand/10 px-2 py-0.5 text-[11px] font-medium text-kumo-brand">Needs reply</span>}
-					{email.has_draft && <span className="rounded-full bg-kumo-warning/10 px-2 py-0.5 text-[11px] font-medium text-kumo-warning">Draft</span>}
-					<TriageErrorBadge tags={tags} />
+				<div className="mobile-signals mt-3 flex flex-wrap items-center gap-1.5">
+					{email.needs_reply && <span className="mobile-badge-tonal rounded-full bg-kumo-brand/10 px-2 py-0.5 text-[11px] font-medium text-kumo-brand">Needs reply</span>}
+					{email.has_draft && <span className="mobile-badge-tonal rounded-full bg-kumo-warning/10 px-2 py-0.5 text-[11px] font-medium text-kumo-warning">Draft</span>}
+					<TriageErrorBadge className="mobile-badge-error" tags={tags} />
 					{tags.filter((tag) => tag.provenance !== "system").slice(0, 4).map((tag) => <span key={`${tag.tag}:${tag.provenance}`} className="rounded-full bg-kumo-fill px-2 py-0.5 text-[11px] text-kumo-subtle">{tag.tag}</span>)}
-					<button type="button" onClick={() => setTagsOpen(true)} className="inline-flex items-center gap-1 rounded-full border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-tint"><TagIcon size={12} /> Edit tags</button>
+					<button type="button" onClick={() => setTagsOpen(true)} className="mobile-chip inline-flex items-center gap-1 rounded-full border border-kumo-line px-2 py-0.5 text-[11px] text-kumo-subtle hover:bg-kumo-tint"><TagIcon size={18} /> Edit tags</button>
 				</div>
 			</div>
 
-			<div key={email.id} className="min-h-0 flex-1 overflow-y-auto pb-20">
 				<div className="px-4 pt-3">
 					<TriageAnalysisDetails mailboxId={mailboxId} emailId={email.id} />
 				</div>
+				<div className="mobile-detail-body">
 				{hasThread ? allMessages.map((message, index) => {
 					const isDraft = message.folder_id === Folders.DRAFT || (isDraftFolder && message.id === email.id);
 					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} showTriageErrorBadge={message.id !== email.id} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
 				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} />}
+				</div>
 			</div>
 
-			<div className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t border-kumo-line bg-kumo-base/95 px-4 pb-2 pt-2 backdrop-blur md:hidden">
-				{isDraftFolder ? <Button variant="primary" className="flex-1" icon={<PencilSimpleIcon size={16} />} onClick={() => onEditDraft(email)} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="flex-1" icon={<ArrowBendUpLeftIcon size={16} />} onClick={onReply} disabled={isDeleting}>Reply</Button>}
-				<Button variant="ghost" shape="square" icon={<StarIcon size={19} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-label={email.starred ? "Unstar" : "Star"} />
+			<div className="mobile-detail-actions mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t border-kumo-line bg-kumo-base/95 px-4 pb-2 pt-2 backdrop-blur md:hidden">
+				{isDraftFolder ? <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<PencilSimpleIcon size={20} />} onClick={() => onEditDraft(email)} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<ArrowBendUpLeftIcon size={20} />} onClick={onReply} disabled={isDeleting}>Reply</Button>}
+				<Button className="mobile-icon-button" variant="ghost" shape="square" icon={<StarIcon size={24} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-pressed={email.starred} aria-label={email.starred ? "Unstar" : "Star"} />
 			</div>
 
 			<MobileQuickActions open={isQuickActionsOpen} email={email} unread={allMessages.some((message) => !message.read)} isArchived={isArchived} isTrash={isTrash} threadActionsDisabled={threadActionsDisabled} onClose={() => setQuickActionsOpen(false)} onArchive={() => { setQuickActionsOpen(false); onArchive(); }} onMoveToInbox={() => onMove(Folders.INBOX)} onToggleRead={onToggleRead} onToggleStar={onToggleStar} onOpenTags={() => { setQuickActionsOpen(false); setTagsOpen(true); }} onDelete={onDelete} />

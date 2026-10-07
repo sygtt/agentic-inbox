@@ -196,6 +196,42 @@ when synchronizing upstream.
 
 Remove local helpers if upstream provides equivalent safe mobile behavior.
 
+## Mobile Material 3 visual layer (#46)
+
+**Status:** Active
+
+### Why
+
+Give existing mobile email workflows a consistent, touch-friendly Material 3
+visual treatment without replacing their behavior.
+
+### Behavior
+
+- Applies only at viewport widths `<= 767px`.
+- Uses shared Material 3 tokens in `app/index.css` and restyles existing screens
+  with the existing Kumo components/styles, Phosphor icons, and Tailwind, using
+  a fixed light color scheme; no dark-mode feature is added.
+- Existing mailbox routes and action handlers are preserved. The `EmailIframe`
+  component and sandboxed email rendering are unchanged; the surrounding mobile
+  email container height is controlled by CSS.
+- No configuration, persistence, or migration changes.
+
+### Files modified in this branch
+
+- `app/index.css`
+- `app/components/mobile/{MobileBottomNav,MobileBottomSheet,MobileEmailDetail,MobileEmailRow,MobileQuickActions,MobileTagSheet}.tsx`
+- `app/routes/{email-list,mailbox,search-results}.tsx`
+
+### Upstream synchronization risk
+
+Medium. Shared routes and the global stylesheet can conflict; keep the visual
+rules scoped to the mobile breakpoint.
+
+### Removal / replacement condition
+
+Reduce or remove this layer if upstream provides an equivalent mobile visual
+treatment while preserving these routes and actions.
+
 ## Trash-first deletion and 30-day retention
 
 **Status:** Active

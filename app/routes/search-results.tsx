@@ -87,22 +87,22 @@ export default function SearchResultsRoute() {
 			isComposing={isComposing}
 		>
 			<>
-				<div className="flex h-full flex-col bg-kumo-recessed md:hidden">
-					<div className="shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
-						<h1 className="text-xl font-semibold text-kumo-default">Search</h1>
-						<form onSubmit={submitMobileSearch} className="mt-3 flex items-center gap-2 rounded-xl border border-kumo-line bg-kumo-recessed px-3 py-2">
+				<div className="mobile-list flex h-full flex-col bg-kumo-recessed md:hidden">
+					<div className="mobile-list-header shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
+						<h1 className="mobile-title text-xl font-semibold text-kumo-default">Search</h1>
+						<form onSubmit={submitMobileSearch} className="mobile-search-field mt-3 flex items-center gap-2 rounded-xl border border-kumo-line bg-kumo-recessed px-3 py-2">
 							<MagnifyingGlassIcon size={18} className="shrink-0 text-kumo-subtle" />
 							<input value={mobileQuery} onChange={(event) => setMobileQuery(event.target.value)} placeholder="Search mail" aria-label="Search emails" className="min-w-0 flex-1 bg-transparent text-sm text-kumo-default outline-none placeholder:text-kumo-subtle" />
-							{mobileQuery && <button type="button" onClick={() => setMobileQuery("")} className="text-xs text-kumo-subtle" aria-label="Clear search">Clear</button>}
+							{mobileQuery && <button type="button" onClick={() => setMobileQuery("")} className="mobile-icon-button text-xs text-kumo-subtle" aria-label="Clear search">Clear</button>}
 						</form>
-						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-							{[["is:unread", "Unread"], ["is:starred", "Starred"], ["has:attachment", "Attachments"]].map(([operator, label]) => <button key={operator} type="button" onClick={() => addMobileOperator(operator)} className="shrink-0 rounded-full bg-kumo-fill px-3 py-1.5 text-xs text-kumo-subtle">{label}</button>)}
+						<div className="mobile-filters mt-3 flex gap-2 overflow-x-auto pb-1">
+							{[["is:unread", "Unread"], ["is:starred", "Starred"], ["has:attachment", "Attachments"]].map(([operator, label]) => <button key={operator} type="button" onClick={() => addMobileOperator(operator)} className="mobile-chip">{label}</button>)}
 						</div>
 					</div>
-					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+					<div className="mobile-scroll min-h-0 flex-1 overflow-y-auto pb-20" aria-busy={isLoading}>
 						{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? <div className="px-6 py-20 text-center"><MagnifyingGlassIcon size={42} weight="thin" className="text-kumo-subtle" /><p className="mt-3 text-sm font-medium text-kumo-default">No results found</p><p className="mt-1 text-xs text-kumo-subtle">{urlQuery ? `Nothing matched "${urlQuery}".` : "Enter a search term to find emails."}</p></div> : results.map((email) => <MobileEmailRow key={email.id} email={email} swipeable={false} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onToggleRead={() => { if (mailboxId) updateEmail.mutate({ mailboxId, id: email.id, data: { read: !email.read } }); }} />)}
 					</div>
-					{totalCount > SEARCH_PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
+					{totalCount > SEARCH_PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				<div className="flex items-center gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">

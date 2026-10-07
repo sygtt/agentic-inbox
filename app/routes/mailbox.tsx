@@ -5,6 +5,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useEffect, useRef } from "react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { Link, Outlet, useNavigate, useParams } from "react-router";
 import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
@@ -50,7 +51,7 @@ export default function MailboxRoute() {
 	}, [mailboxId, closeComposeModal, closePanel, closeSidebar]);
 
 	return (
-		<div className="flex h-[100dvh] flex-col overflow-hidden">
+		<div className="mobile-shell flex h-[100dvh] flex-col overflow-hidden">
 			<Header />
 			<div className="relative flex flex-1 min-h-0 overflow-hidden">
 				{/* Mobile sidebar overlay backdrop */}
@@ -76,9 +77,9 @@ export default function MailboxRoute() {
 
 				{/* Main content */}
 				<div className="flex-1 flex flex-col min-w-0 bg-kumo-base">
-					<div className="mobile-safe-top flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-4 py-3 md:hidden">
-						<Link to="/" className="text-sm text-kumo-subtle" aria-label="Back to mailboxes">
-							←
+					<div className="mobile-account-bar mobile-safe-top flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-4 py-3 md:hidden">
+						<Link to="/" className="mobile-icon-button text-sm text-kumo-subtle" aria-label="Back to mailboxes">
+							<ArrowLeftIcon size={24} />
 						</Link>
 						<div className="min-w-0">
 							<div className="truncate text-sm font-semibold text-kumo-default">
@@ -89,7 +90,7 @@ export default function MailboxRoute() {
 							</div>
 						</div>
 					</div>
-					<main className="flex-1 min-h-0 overflow-hidden">
+					<main className={`flex-1 min-h-0 overflow-hidden ${!selectedEmailId && !isComposing ? "mobile-main-nav" : ""}`}>
 						<Outlet />
 					</main>
 					<MobileBottomNav
