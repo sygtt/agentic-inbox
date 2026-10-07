@@ -776,7 +776,7 @@ actions under operator control.
 The direct provider requires a `TYPESAFE_API_KEY` Worker secret. The key is not
 stored in source control. No TypeSafe SDK is added; the adapter uses `fetch`
 against the documented System One endpoint. Interactive EmailAgent chat
-continues to use its existing GLM-4.7-Flash path through Workers AI.
+uses Gemma 4 26B A4B through Workers AI.
 
 ### Persistence / migration implications
 
