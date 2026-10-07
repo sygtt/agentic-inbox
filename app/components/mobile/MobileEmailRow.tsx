@@ -57,6 +57,8 @@ export default function MobileEmailRow({
 	};
 
 	const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		// Embedded controls own their tap; row capture would redirect their click.
+		if ((event.target as Element).closest("button")) return;
 		if (!swipeable || (event.pointerType === "mouse" && event.button !== 0)) return;
 		start.current = { x: event.clientX, y: event.clientY };
 		horizontal.current = false;
@@ -119,14 +121,16 @@ export default function MobileEmailRow({
 	};
 
 	return (
-		<div className="relative overflow-hidden border-b border-kumo-line">
+		<div className="mobile-row-container relative overflow-hidden border-b border-kumo-line">
 			<div className={`absolute inset-y-0 flex w-24 items-center justify-center text-xs font-semibold ${offset < 0 ? "right-0 bg-kumo-warning/15 text-kumo-warning" : "left-0 bg-kumo-brand/15 text-kumo-brand"}`}>
 				{offset < 0 ? "Archive" : unread ? "Mark read" : "Mark unread"}
 			</div>
 			<div
 				role="button"
 				tabIndex={0}
-				aria-label={`${email.subject} from ${participants}`}
+				aria-label={`${unread ? "Unread: " : ""}${email.subject} from ${participants}${email.starred ? ", starred" : ""}`}
+				aria-current={selected ? "true" : undefined}
+				data-unread={unread}
 				onClick={() => {
 					if (suppressClick.current) {
 						suppressClick.current = false;
@@ -149,39 +153,39 @@ export default function MobileEmailRow({
 					onLongPress?.();
 				}}
 				style={{ transform: `translateX(${offset}px)`, touchAction: swipeable ? "pan-y" : "auto" }}
-				className={`mobile-motion relative flex gap-3 bg-kumo-base px-4 py-3 text-left ${selected ? "bg-kumo-tint" : ""}`}
+				className={`mobile-row mobile-motion relative flex gap-3 bg-kumo-base px-4 py-3 text-left ${selected ? "bg-kumo-tint" : ""}`}
 			>
-				<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${unread ? "bg-kumo-brand/15 text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>
+				<div className={`mobile-avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${unread ? "bg-kumo-brand/15 text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>
 					{email.sender.charAt(0).toUpperCase()}
 				</div>
 				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-1.5">
-						<span className={`min-w-0 flex-1 truncate text-sm ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{participants}</span>
+					<div className="mobile-row-heading flex items-center gap-1.5">
+						<span className={`mobile-row-sender min-w-0 flex-1 truncate text-sm ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{participants}</span>
 						{(email.thread_count ?? 1) > 1 && <span className="rounded-full bg-kumo-fill px-1.5 text-[11px] text-kumo-subtle">{email.thread_count}</span>}
 						{(email.attachments?.length || email.has_attachment) && <PaperclipIcon size={14} className="shrink-0 text-kumo-subtle" />}
-						{onToggleStar && <button type="button" onClick={(event) => { event.stopPropagation(); onToggleStar(); }} className="shrink-0 rounded p-1 text-kumo-subtle" aria-label={email.starred ? "Unstar" : "Star"}><StarIcon size={16} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-kumo-warning" : ""} /></button>}
-						<span className="shrink-0 text-[11px] text-kumo-subtle">{formatListDate(email.date)}</span>
+						{onToggleStar ? <button type="button" onClick={(event) => { event.stopPropagation(); onToggleStar(); }} className="mobile-icon-button mobile-row-star shrink-0 rounded p-1 text-kumo-subtle" aria-pressed={email.starred} aria-label={email.starred ? "Unstar" : "Star"}><StarIcon size={22} weight={email.starred ? "fill" : "regular"} /></button> : email.starred && <StarIcon size={18} weight="fill" aria-label="Starred" className="shrink-0" />}
+						<span className="mobile-row-time shrink-0 text-[11px] text-kumo-subtle">{formatListDate(email.date)}</span>
 					</div>
-					<div className={`mt-1 truncate text-sm ${unread ? "font-medium text-kumo-default" : "text-kumo-strong"}`}>{email.subject || "(no subject)"}</div>
-					{snippet && <div className="mt-0.5 line-clamp-2 text-xs text-kumo-subtle">{snippet}</div>}
-					<div className="mt-1 flex flex-wrap items-center gap-1.5">
-						{email.has_draft && <span className="rounded bg-kumo-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-warning">Draft</span>}
-						{email.needs_reply && <span className="rounded bg-kumo-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-brand">Needs reply</span>}
+					<div className={`mobile-row-subject mt-1 truncate text-sm ${unread ? "font-medium text-kumo-default" : "text-kumo-strong"}`}>{email.subject || "(no subject)"}</div>
+					{snippet && <div className="mobile-row-snippet mt-0.5 line-clamp-2 text-xs text-kumo-subtle">{snippet}</div>}
+					<div className="mobile-signals mt-1 flex flex-wrap items-center gap-1.5">
+						{email.has_draft && <span className="mobile-badge-tonal rounded bg-kumo-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-warning">Draft</span>}
+						{email.needs_reply && <span className="mobile-badge-tonal rounded bg-kumo-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-kumo-brand">Needs reply</span>}
 						{tagBadges.map((badge, index) => {
 							if (badge.kind === "triage-error") {
-								return <TriageErrorBadge key="triage-error" tags={email.tags} threadHasTriageError={email.thread_has_triage_error} />;
+								return <TriageErrorBadge key="triage-error" className="mobile-badge-error" tags={email.tags} threadHasTriageError={email.thread_has_triage_error} />;
 							}
 							if (badge.kind === "overflow") {
 								return <span key="tag-overflow" aria-label={`${badge.count} more tags`} title={`${badge.count} more tags`} className="rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] font-medium text-kumo-subtle">+{badge.count}</span>;
 							}
 							const disposition = badge.kind === "disposition";
-							return <span key={`${badge.tag}:${index}`} className={`rounded px-1.5 py-0.5 text-[10px] ${disposition ? "bg-kumo-brand/10 font-medium text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>{badge.label}</span>;
+							return <span key={`${badge.tag}:${index}`} className={`rounded px-1.5 py-0.5 text-[10px] ${disposition ? "mobile-badge-tonal bg-kumo-brand/10 font-medium text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>{badge.label}</span>;
 						})}
 						{code && (
 							<button
 								type="button"
 								onClick={copyCode}
-								className="inline-flex min-h-12 max-w-full min-w-0 flex-wrap items-center gap-2 rounded-xl border border-kumo-brand/20 bg-kumo-brand/10 px-3 py-2 text-kumo-brand"
+								className="mobile-button mobile-code-button inline-flex min-h-12 max-w-full min-w-0 flex-wrap items-center gap-2 rounded-xl border border-kumo-brand/20 bg-kumo-brand/10 px-3 py-2 text-kumo-brand"
 								aria-label={`Copy verification code ${code}`}
 							>
 								<code className="min-w-0 max-w-full break-all text-2xl font-bold leading-none tracking-[0.18em]">

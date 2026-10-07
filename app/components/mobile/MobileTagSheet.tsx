@@ -77,23 +77,23 @@ export default function MobileTagSheet({
 						<div className="mb-2 text-xs font-semibold uppercase tracking-wide text-kumo-subtle">Current tags</div>
 						{(emailSubject || emailSender) && <p className="mb-2 break-words text-xs text-kumo-subtle">{emailSubject || "(no subject)"}{emailSender ? ` · ${emailSender}` : ""}</p>}
 						{tags.length === 0 ? <p className="text-sm text-kumo-subtle">No tags assigned.</p> : <div className="flex flex-wrap gap-2">
-							{tags.map((tag) => <span key={`${tag.tag}:${tag.provenance}`} className="inline-flex flex-wrap items-center gap-1 rounded-full bg-kumo-fill px-2.5 py-1 text-xs text-kumo-default">
+							{tags.map((tag) => <span key={`${tag.tag}:${tag.provenance}`} className="mobile-tag-assignment mobile-badge inline-flex flex-wrap items-center gap-1 rounded-full bg-kumo-fill px-2.5 py-1 text-xs text-kumo-default">
 								{tag.tag === TRIAGE_ERROR_TAG && tag.provenance === "system" ? <><TriageErrorBadge tags={[tag]} /><span className="basis-full text-[10px] text-kumo-destructive">Jevによる自動分類に失敗しました</span></> : tag.tag}
 								<span className="text-[10px] text-kumo-subtle">({tag.provenance})</span>
-								{!isDispositionTag(tag.tag) && tag.provenance !== "system" && <button type="button" onClick={() => run(() => removeTag.mutateAsync({ mailboxId: mailboxId!, emailId, tag: tag.tag }))} className="rounded-full text-kumo-subtle hover:text-kumo-default" aria-label={`Remove ${tag.tag}`}><XIcon size={13} /></button>}
+								{!isDispositionTag(tag.tag) && tag.provenance !== "system" && <button type="button" onClick={() => run(() => removeTag.mutateAsync({ mailboxId: mailboxId!, emailId, tag: tag.tag }))} className="mobile-icon-button rounded-full text-kumo-subtle hover:text-kumo-default" aria-label={`Remove ${tag.tag}`}><XIcon size={18} /></button>}
 							</span>)}
 						</div>}
 					</div>
 					<div>
 						<div className="mb-2 text-xs font-semibold uppercase tracking-wide text-kumo-subtle">Disposition</div>
 						<div className="grid grid-cols-2 gap-2">
-							{DISPOSITION_VALUES.map((value) => <button key={value} type="button" onClick={() => run(() => setDisposition.mutateAsync({ mailboxId: mailboxId!, emailId, value }))} className={`rounded-lg border px-2 py-2 text-xs ${disposition === value ? "border-kumo-brand bg-kumo-brand/10 font-semibold text-kumo-brand" : "border-kumo-line text-kumo-subtle hover:bg-kumo-tint"}`}>{value}</button>)}
+							{DISPOSITION_VALUES.map((value) => <button key={value} type="button" onClick={() => run(() => setDisposition.mutateAsync({ mailboxId: mailboxId!, emailId, value }))} aria-pressed={disposition === value} className="mobile-chip">{value}</button>)}
 						</div>
 						<p className="mt-2 text-[11px] text-kumo-subtle">Selecting a disposition replaces the previous disposition.</p>
 					</div>
 					<form onSubmit={handleAdd} className="flex items-end gap-2 border-t border-kumo-line pt-4">
 						<div className="min-w-0 flex-1"><Input label="Add manual tag" placeholder="project:inbox" value={newTag} onChange={(event) => setNewTag(event.target.value)} /></div>
-						<Button type="submit" variant="secondary" disabled={!newTag.trim() || addTag.isPending}>Add</Button>
+						<Button className="mobile-button" type="submit" variant="secondary" disabled={!newTag.trim() || addTag.isPending}>Add</Button>
 					</form>
 					{error && <p role="alert" className="text-sm text-kumo-destructive">{error}</p>}
 				</div>

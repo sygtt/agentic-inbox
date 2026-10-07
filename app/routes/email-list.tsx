@@ -540,27 +540,27 @@ export default function EmailListRoute() {
 			}}
 		>
 			<>
-				<div className="flex h-full flex-col bg-kumo-recessed md:hidden">
-					<div className="shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
+				<div className="mobile-list flex h-full flex-col bg-kumo-recessed md:hidden">
+					<div className="mobile-list-header shrink-0 border-b border-kumo-line bg-kumo-base px-4 pb-3 pt-4">
 						<div className="flex items-center justify-between gap-3">
-							<div>
-								<h1 className="text-xl font-semibold text-kumo-default">{folderName}</h1>
-								<p className="mt-0.5 text-xs text-kumo-subtle">
+							<div className="min-w-0">
+								<h1 className="mobile-title text-xl font-semibold text-kumo-default">{folderName}</h1>
+								<p className="mobile-supporting mt-0.5 text-xs text-kumo-subtle">
 									{totalCount} conversations · {folders.find((item) => item.id === folder)?.unreadCount ?? 0} unread
 								</p>
 							</div>
-							<Button variant="ghost" shape="square" size="sm" icon={<ArrowsClockwiseIcon size={18} className={isRefreshing ? "animate-spin" : ""} />} onClick={handleRefresh} disabled={isRefreshing} aria-label="Refresh" />
+							<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowsClockwiseIcon size={24} className={isRefreshing ? "animate-spin" : ""} />} onClick={handleRefresh} disabled={isRefreshing} aria-label="Refresh" />
 						</div>
-						<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-							<button type="button" onClick={() => setMobileFilter("all")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "all" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>All {allFolderCount}</button>
-							{needsReplyCount > 0 && <button type="button" onClick={() => setMobileFilter("needs")} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${mobileFilter === "needs" ? "bg-kumo-brand text-kumo-inverse" : "bg-kumo-fill text-kumo-subtle"}`}>Needs you {needsReplyCount}</button>}
+						<div className="mobile-filters mt-3 flex gap-2 overflow-x-auto pb-1">
+							<button type="button" onClick={() => setMobileFilter("all")} aria-pressed={mobileFilter === "all"} className="mobile-chip">All {allFolderCount}</button>
+							{needsReplyCount > 0 && <button type="button" onClick={() => setMobileFilter("needs")} aria-pressed={mobileFilter === "needs"} className="mobile-chip">Needs you {needsReplyCount}</button>}
 							<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
 						</div>
 					</div>
-					<div className="min-h-0 flex-1 overflow-y-auto pb-20">
+					<div className="mobile-scroll min-h-0 flex-1 overflow-y-auto pb-20" aria-busy={isRefreshing}>
 						{isRefreshing && emails.length === 0 ? <EmailListSkeleton /> : isError ? <p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p> : mobileEmails.length > 0 ? mobileEmails.map((email) => <MobileEmailRow key={email.id} email={email} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onArchive={() => handleArchive(email)} onToggleRead={() => handleToggleRead(email)} onToggleStar={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { starred: !email.starred } })} onLongPress={() => setQuickActionEmail(email)} />) : selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />}
 					</div>
-					{totalCount > PAGE_SIZE && <div className="mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
+					{totalCount > PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 				<div className="hidden h-full flex-col md:flex">
 				{/* Folder header */}

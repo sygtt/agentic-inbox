@@ -35,29 +35,31 @@ export default function MobileBottomNav({
 	];
 
 	return (
-		<nav className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden" aria-label="Mailbox navigation">
+		<nav className="mobile-bottom-nav mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden" aria-label="Mailbox navigation">
 			{links.map(({ to, label, icon: Icon, end }) => (
 				<NavLink
 					key={to}
 					to={to}
 					end={end}
-					className={({ isActive }) => `relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] transition-colors ${isActive ? "font-semibold text-kumo-brand" : "text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default"}`}
+					className={({ isActive }) => `mobile-nav-item relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] transition-colors ${isActive ? "font-semibold text-kumo-brand" : "text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default"}`}
 				>
-					<Icon size={21} weight="regular" />
-					<span>{label}</span>
+					<span className="mobile-nav-indicator">
+					<Icon size={24} weight="regular" />
 					{label === "Inbox" && inboxUnread > 0 && (
-						<span className="absolute right-5 top-0 min-w-4 rounded-full bg-kumo-brand px-1 text-center text-[10px] font-semibold text-kumo-inverse">
+						<span className="mobile-unread-badge absolute right-5 top-0 min-w-4 rounded-full bg-kumo-brand px-1 text-center text-[10px] font-semibold text-kumo-inverse" aria-label={`${inboxUnread} unread emails`}>
 							{inboxUnread > 99 ? "99+" : inboxUnread}
 						</span>
 					)}
+					</span>
+					<span>{label}</span>
 				</NavLink>
 			))}
 			<button
 				type="button"
 				onClick={onCompose}
-				className="relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
+				className="mobile-nav-item mobile-nav-compose relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
 			>
-				<PencilSimpleIcon size={21} weight="regular" />
+				<span className="mobile-nav-indicator"><PencilSimpleIcon size={24} weight="regular" /></span>
 				<span>Compose</span>
 			</button>
 		</nav>

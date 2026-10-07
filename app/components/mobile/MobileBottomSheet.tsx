@@ -87,10 +87,10 @@ export default function MobileBottomSheet({
 				aria-labelledby="mobile-sheet-title"
 				onClick={(event) => event.stopPropagation()}
 				style={{ transform: `translateY(${offset}px)` }}
-				className="mobile-safe-bottom mobile-motion max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl border-t border-kumo-line bg-kumo-base px-4 pb-4 pt-3 shadow-2xl"
+				className="mobile-sheet mobile-safe-bottom mobile-motion max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl border-t border-kumo-line bg-kumo-base px-4 pb-4 pt-3 shadow-2xl"
 			>
 				<div
-					className="mx-auto mb-3 h-5 w-12 touch-none rounded-full bg-kumo-fill"
+					className="mobile-sheet-handle mx-auto mb-3 h-5 w-12 touch-none rounded-full bg-kumo-fill"
 					onPointerDown={(event) => {
 						startY.current = event.clientY;
 						event.currentTarget.setPointerCapture(event.pointerId);
@@ -109,7 +109,7 @@ export default function MobileBottomSheet({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-md px-2 py-1 text-sm text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default"
+						className="mobile-button rounded-md px-2 py-1 text-sm text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default"
 					>
 						Close
 					</button>

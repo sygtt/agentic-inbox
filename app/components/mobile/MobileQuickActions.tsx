@@ -32,7 +32,7 @@ function ActionButton({
 			type="button"
 			onClick={onClick}
 			disabled={disabled}
-			className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-kumo-tint disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "text-kumo-destructive" : "text-kumo-default"}`}
+			className={`mobile-sheet-action flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-kumo-tint disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "mobile-sheet-action-danger text-kumo-destructive" : "text-kumo-default"}`}
 		>
 			{icon}
 			{label}
