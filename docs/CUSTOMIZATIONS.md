@@ -208,7 +208,8 @@ storage model and attachment provenance.
 ### Behavior
 
 - UI deletion moves regular messages to Trash and retains SQLite metadata and R2 attachments.
-- Permanent deletion is guarded to Trash; draft discard remains permanent.
+- Regular UI deletion skips the pre-delete confirmation and adds a `キャンセル` action to the success toast; selecting it moves the message from Trash back to its original folder.
+- Permanent deletion is guarded to Trash and still requires confirmation; draft discard remains permanent and keeps its confirmation because neither action is recoverable.
 - `emails.trashed_at` records the first move into Trash, is cleared on restore, and is not reset by a redundant Trash move.
 - A daily Cron Trigger purges current Trash messages after 30 days and removes their R2 attachment objects.
 - MCP and Agent workflows expose `trash_email`; permanent deletion is explicit and guarded.
