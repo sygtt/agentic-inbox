@@ -17,6 +17,7 @@ import ThreadMessage from "~/components/email-panel/ThreadMessage";
 import { isEmailStillSelected } from "~/lib/mobile-email-navigation";
 import { EDITABLE_SHORTCUT_TARGET_SELECTOR, shouldCloseEmailPanelOnEscape } from "~/lib/email-panel-navigation";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
+import { getRestoreTargetFolder } from "~/lib/trash-undo";
 import api from "~/services/api";
 import { useDeleteEmail, useEmail, useMarkThreadRead, useMoveEmail, useMoveThread, useReplyToEmail, useSendEmail, useThreadReplies, useUpdateEmail } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
@@ -218,7 +219,8 @@ export default function EmailPanel({
 				await deleteEmailMut.mutateAsync({ mailboxId, id: email.id });
 				toastManager.add({ title: "Email permanently deleted" });
 			} else {
-				const sourceFolderId = folder || email.folder_id || Folders.INBOX;
+				// Prefer the email's own folder: the route folder can be a stale `?email=` view.
+				const sourceFolderId = getRestoreTargetFolder(email.folder_id, folder) || Folders.INBOX;
 				await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: Folders.TRASH });
 				let toastId = "";
 				toastId = toastManager.add({
@@ -231,7 +233,6 @@ export default function EmailPanel({
 								await moveEmailMut.mutateAsync({ mailboxId, id: email.id, folderId: sourceFolderId });
 								toastManager.update(toastId, {
 									title: "Email restored",
-									variant: "success",
 									actions: [],
 									timeout: 2000,
 								});

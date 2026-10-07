@@ -51,6 +51,7 @@ import {
 import EmailTagFilter from "~/components/EmailTagFilter";
 import { useAvailableEmailTags } from "~/queries/email-tags";
 import { buildEmailListParams, getDesktopListCountLabel, getListPageCount, getListPageRange } from "~/lib/email-tag-filter";
+import { getRestoreTargetFolder } from "~/lib/trash-undo";
 
 const PAGE_SIZE = 25;
 
@@ -365,7 +366,8 @@ export default function EmailListRoute() {
 					await deleteEmail.mutateAsync({ mailboxId, id: emailId });
 					toastManager.add({ title: "Email permanently deleted" });
 				} else {
-					const sourceFolderId = folder || emails.find((email) => email.id === emailId)?.folder_id || Folders.INBOX;
+					// Prefer the row's own folder: the route folder can be a stale view.
+					const sourceFolderId = getRestoreTargetFolder(emails.find((email) => email.id === emailId)?.folder_id, folder) || Folders.INBOX;
 					await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: Folders.TRASH });
 					let toastId = "";
 					toastId = toastManager.add({
@@ -378,7 +380,6 @@ export default function EmailListRoute() {
 									await moveEmail.mutateAsync({ mailboxId, id: emailId, folderId: sourceFolderId });
 									toastManager.update(toastId, {
 										title: "Email restored",
-										variant: "success",
 										actions: [],
 										timeout: 2000,
 									});
