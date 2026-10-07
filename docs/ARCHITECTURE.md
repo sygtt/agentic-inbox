@@ -376,7 +376,7 @@ The agent has tools for operations including:
 - moving messages
 - discarding drafts
 
-The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat continues to use GLM-4.7-Flash. The separate inbound trigger extracts triage metadata and conditionally moves a newly received message from Inbox to Archive when the persisted agent disposition is still `auto-file`. It does not create drafts, send, or delete messages.
+The interactive agent policy is draft-oriented. The agent does not receive a direct send tool in its normal tool set; sending remains an explicit operator/UI action. Interactive chat uses Gemma 4 26B A4B through Workers AI. The separate inbound trigger extracts triage metadata and conditionally moves a newly received message from Inbox to Archive when the persisted agent disposition is still `auto-file`. It does not create drafts, send, or delete messages.
 
 ### Inbound triage flow
 
