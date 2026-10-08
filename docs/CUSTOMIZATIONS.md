@@ -534,7 +534,7 @@ upstream が同等の desktop 情報設計（全幅 search / tablet reading pane
 
 ## Desktop Material 3 visual layer (#65)
 
-**Status:** Implemented; visual QA pending.
+**Status:** Implemented; browser visual QA completed with synthetic mail and mocked APIs.
 
 ### Why
 
@@ -562,7 +562,9 @@ High for shared shell/detail styles. Preserve the user-directed 768px split thre
 
 ### Verification boundary
 
-See [Issue #65 QA notes](qa/issue-65/README.md). Browser screenshots and viewport/state interaction checks remain pending; build and static review do not substitute for visual QA.
+See [Issue #65 QA notes](qa/issue-65/README.md) for screenshots, measured pane widths, and completed viewport/state interaction checks. Chromium verification used actual application components and production CSS with synthetic mail and mocked APIs, covering the 768–1536px split view and 767px/390px single-pane layouts.
+
+Real sending, draft persistence, Worker/MCP/Agent integration, browser-history navigation, compose preservation through live resize, and physical iPad Safari/touch/safe-area behavior remain untested. The recorded browser QA does not establish production integration or real-device compatibility.
 
 ---
 
