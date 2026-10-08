@@ -4,7 +4,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Loader, Pagination, Tooltip } from "@cloudflare/kumo";
+import { Button, Loader, Pagination, Tooltip } from "@cloudflare/kumo";
 import { ArrowLeftIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -104,12 +104,12 @@ export default function SearchResultsRoute() {
 					</div>
 					{totalCount > SEARCH_PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
-				<div className="hidden h-full flex-col md:flex">
-				<div className="flex items-center gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+				<div className="desktop-list desktop-search-list hidden h-full min-w-0 flex-col md:flex">
+				<div className="desktop-list-toolbar desktop-search-toolbar flex flex-wrap items-center gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
 					<Tooltip content="Back to inbox" side="bottom" asChild><Button variant="ghost" shape="square" size="sm" icon={<ArrowLeftIcon size={18} />} onClick={() => navigate(`/mailbox/${mailboxId}/emails/inbox`)} aria-label="Back to inbox" /></Tooltip>
-					<div className="min-w-0 flex-1"><h1 className="text-lg font-semibold text-kumo-default truncate">Search Results</h1>{!isLoading && <span className="text-sm text-kumo-subtle">{totalCount} result{totalCount !== 1 ? "s" : ""}{urlQuery ? ` for "${urlQuery}"` : ""}</span>}</div>
+					<div className="min-w-0 flex-1"><h1 className="desktop-list-title text-lg font-semibold text-kumo-default truncate">Search Results</h1>{!isLoading && <span className="desktop-list-count break-words text-sm text-kumo-subtle">{totalCount} result{totalCount !== 1 ? "s" : ""}{urlQuery ? ` for "${urlQuery}"` : ""}</span>}</div>
 				</div>
-				<div className="flex-1 overflow-y-auto">
+				<div className="desktop-list-scroll min-h-0 flex-1 overflow-y-auto" aria-busy={isLoading}>
 					{isLoading ? <div className="flex justify-center py-16"><Loader size="lg" /></div> : isError ? <SearchError onRetry={() => void refetch()} /> : results.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-24 px-6 text-center">
 							<div className="mb-4"><MagnifyingGlassIcon size={48} weight="thin" className="text-kumo-subtle" /></div>
@@ -123,19 +123,38 @@ export default function SearchResultsRoute() {
 							const snippet = getSnippetText(email.snippet, 120);
 							const folderName = (email as Email & { folder_name?: string }).folder_name;
 							return (
-								<div key={email.id} role="button" tabIndex={0} onClick={() => handleRowClick(email)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); handleRowClick(email); } }} className={`group relative flex w-full cursor-pointer items-center gap-2 border-b border-kumo-line border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kumo-brand ${isSelected ? "border-l-kumo-brand bg-kumo-tint" : "border-l-transparent hover:bg-kumo-tint"}`}>
-									<div className="w-2.5 shrink-0 flex justify-center">{!email.read && <div className="h-2 w-2 rounded-full bg-kumo-brand" />}</div>
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2"><span className={`truncate text-sm ${!email.read ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{highlightTerms(email.sender.split("@")[0], urlQuery)}</span>{folderName && <Badge variant="outline">{folderDisplayName(folderName)}</Badge>}<span className="text-sm text-kumo-subtle shrink-0 ml-auto">{formatListDate(email.date)}</span></div>
-										<div className={`truncate text-sm mt-0.5 ${!email.read ? "font-medium text-kumo-default" : "text-kumo-subtle"}`}>{highlightTerms(email.subject, urlQuery)}</div>
-										{snippet && <div className="truncate text-xs text-kumo-subtle mt-0.5">{highlightTerms(snippet, urlQuery)}</div>}
+								<div
+									key={email.id}
+									role="button"
+									tabIndex={0}
+									aria-label={`${!email.read ? "Unread" : "Read"}, ${email.subject || "(no subject)"}, from ${email.sender}, ${formatListDate(email.date)}`}
+									aria-current={isSelected ? "true" : undefined}
+									data-selected={isSelected}
+									data-unread={!email.read}
+									onClick={() => handleRowClick(email)}
+									onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); handleRowClick(email); } }}
+									className={`desktop-email-row group relative flex w-full cursor-pointer items-center gap-2 border-b border-kumo-line border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kumo-brand ${isSelected ? "border-l-kumo-brand bg-kumo-tint" : "border-l-transparent hover:bg-kumo-tint"}`}
+								>
+									<div className="desktop-row-unread flex w-2 shrink-0 justify-center">
+										{!email.read && <span className="desktop-row-unread-dot h-2 w-2 rounded-full bg-kumo-brand" aria-hidden="true" />}
+									</div>
+									<div className="desktop-row-content min-w-0 flex-1">
+										<div className="desktop-row-heading flex min-w-0 items-center gap-2 leading-none">
+											<span title={email.sender} className={`desktop-row-participants min-w-0 truncate text-sm leading-none ${!email.read ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{highlightTerms(email.sender.split("@")[0], urlQuery)}</span>
+											<span className="desktop-row-date ml-auto shrink-0 text-xs leading-none tabular-nums text-kumo-subtle">{formatListDate(email.date)}</span>
+										</div>
+										<div className="desktop-row-preview mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs leading-none">
+											<span title={email.subject || "(no subject)"} className={`desktop-row-subject max-w-[55%] shrink-0 truncate ${!email.read ? "font-medium text-kumo-default" : "text-kumo-strong"}`}>{highlightTerms(email.subject || "(no subject)", urlQuery)}</span>
+											{snippet && <span className="desktop-row-snippet min-w-0 flex-1 truncate text-xs leading-none text-kumo-subtle">— {highlightTerms(snippet, urlQuery)}</span>}
+										</div>
+										{folderName && <div className="desktop-row-tags mt-1 flex min-w-0 items-center gap-1"><span title={folderDisplayName(folderName)} className="desktop-row-chip max-w-[5rem] truncate rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] leading-none text-kumo-subtle">{folderDisplayName(folderName)}</span></div>}
 									</div>
 								</div>
 							);
 						})}</div>
 					)}
 				</div>
-				{totalCount > SEARCH_PAGE_SIZE && <div className="flex justify-center py-3 border-t border-kumo-line shrink-0"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
+				{totalCount > SEARCH_PAGE_SIZE && <div className="desktop-search-pager flex justify-center py-3 border-t border-kumo-line shrink-0"><Pagination page={currentPage} setPage={setPage} perPage={SEARCH_PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 			</>
 		</MailboxSplitView>

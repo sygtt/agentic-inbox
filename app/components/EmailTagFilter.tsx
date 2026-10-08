@@ -19,14 +19,14 @@ export default function EmailTagFilter({
 	const options = getEmailTagFilterOptions(availableTags);
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
-			<label className="flex items-center gap-2 text-xs text-kumo-subtle">
+		<div className="desktop-tag-filter flex flex-wrap items-center gap-2">
+			<label className="desktop-tag-filter-label flex items-center gap-2 text-xs text-kumo-subtle">
 				<span>Tag</span>
 				<select
 					aria-label="Filter emails by tag"
 					value={selectedTag ?? ""}
 					onChange={(event) => onSelect(event.target.value || undefined)}
-					className="max-w-[min(58vw,18rem)] rounded-lg border border-kumo-line bg-kumo-base px-2.5 py-1.5 text-xs text-kumo-default"
+					className="desktop-tag-filter-select max-w-[min(58vw,18rem)] rounded-lg border border-kumo-line bg-kumo-base px-2.5 py-1.5 text-xs text-kumo-default"
 				>
 					<option value="">All tags</option>
 					{options.map(({ tag, label }) => (

@@ -16,38 +16,73 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Issue #46: shared mobile-only Material 3 roles and presentational primitives.
-   These never enter the email iframe document or the desktop layout. */
+/* Shared Material 3 roles. Fixed light palette matches the established mobile UI;
+   presentation tokens are inherited by app chrome, never the email iframe. */
+:root {
+  --m3-surface: #faf8ff;
+  --m3-surface-container-low: #f5f2fa;
+  --m3-surface-container: #f0edf7;
+  --m3-surface-container-high: #e9e5f1;
+  --m3-on-surface: #1d1b24;
+  --m3-on-surface-variant: #494453;
+  --m3-primary: #59478b;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #e8ddff;
+  --m3-on-primary-container: #35235d;
+  --m3-outline: #797282;
+  --m3-outline-variant: #d9d2e1;
+  --m3-error: #a12830;
+  --m3-error-container: #ffdad6;
+  --m3-star: #755400;
+  --m3-space-1: 4px;
+  --m3-space-2: 8px;
+  --m3-space-3: 12px;
+  --m3-space-4: 16px;
+  --m3-space-6: 24px;
+  --m3-shape-small: 8px;
+  --m3-shape-medium: 16px;
+  --m3-shape-large: 28px;
+  --m3-shape-full: 999px;
+  --m3-type-title: 500 24px/1.3 system-ui, sans-serif;
+  --m3-type-body: 400 14px/1.5 system-ui, sans-serif;
+  --m3-type-label: 600 12px/1.4 system-ui, sans-serif;
+  --m3-state-hover: 8%;
+  --m3-state-pressed: 14%;
+  --m3-elevation-1: 0 1px 3px #00000018, 0 2px 6px #0000000c;
+  --m3-elevation-3: 0 4px 24px #00000026;
+}
+
+/* Issue #46: mobile aliases preserve the established presentation exactly. */
 @media (max-width: 767px) {
   .mobile-shell {
     color-scheme: light;
-    --mobile-surface: #faf8ff;
-    --mobile-container: #f0edf7;
-    --mobile-container-high: #e9e5f1;
-    --mobile-on-surface: #1d1b24;
-    --mobile-on-variant: #494453;
-    --mobile-primary: #59478b;
-    --mobile-on-primary: #ffffff;
-    --mobile-primary-container: #e8ddff;
-    --mobile-on-container: #35235d;
-    --mobile-outline: #797282;
-    --mobile-divider: #d9d2e1;
-    --mobile-error: #a12830;
-    --mobile-error-container: #ffdad6;
-    --mobile-star: #755400;
+    --mobile-surface: var(--m3-surface);
+    --mobile-container: var(--m3-surface-container);
+    --mobile-container-high: var(--m3-surface-container-high);
+    --mobile-on-surface: var(--m3-on-surface);
+    --mobile-on-variant: var(--m3-on-surface-variant);
+    --mobile-primary: var(--m3-primary);
+    --mobile-on-primary: var(--m3-on-primary);
+    --mobile-primary-container: var(--m3-primary-container);
+    --mobile-on-container: var(--m3-on-primary-container);
+    --mobile-outline: var(--m3-outline);
+    --mobile-divider: var(--m3-outline-variant);
+    --mobile-error: var(--m3-error);
+    --mobile-error-container: var(--m3-error-container);
+    --mobile-star: var(--m3-star);
     --mobile-space-1: 4px;
     --mobile-space-2: 8px;
     --mobile-space-3: 12px;
     --mobile-space-4: 16px;
     --mobile-space-6: 24px;
-    --mobile-shape-small: 8px;
-    --mobile-shape-medium: 16px;
-    --mobile-shape-large: 28px;
-    --mobile-shape-full: 999px;
-    --mobile-type-title: 500 24px/1.3 system-ui, sans-serif;
-    --mobile-type-body: 400 14px/1.5 system-ui, sans-serif;
-    --mobile-type-label: 600 12px/1.4 system-ui, sans-serif;
-    --mobile-elevation-1: 0 1px 3px #00000018, 0 2px 6px #0000000c;
+    --mobile-shape-small: var(--m3-shape-small);
+    --mobile-shape-medium: var(--m3-shape-medium);
+    --mobile-shape-large: var(--m3-shape-large);
+    --mobile-shape-full: var(--m3-shape-full);
+    --mobile-type-title: var(--m3-type-title);
+    --mobile-type-body: var(--m3-type-body);
+    --mobile-type-label: var(--m3-type-label);
+    --mobile-elevation-1: var(--m3-elevation-1);
     --mobile-elevation-3: 0 -4px 24px #00000026;
     --mobile-nav-height: 80px;
     --mobile-action-height: 72px;
@@ -185,4 +220,135 @@ body {
 .ProseMirror li {
   margin-top: 0.25em;
   margin-bottom: 0.25em;
+}
+
+/* Issue #65: desktop app chrome shares M3 roles with mobile. Specific hooks keep
+   layout/density rules outside the phone tree and the sandboxed email body. */
+@media (min-width: 768px) {
+  .desktop-shell, .desktop-dialog {
+    color-scheme: light;
+    --color-kumo-base: var(--m3-surface);
+    --color-kumo-recessed: var(--m3-surface-container-low);
+    --color-kumo-tint: var(--m3-surface-container);
+    --color-kumo-elevated: var(--m3-surface-container-high);
+    --color-kumo-overlay: var(--m3-surface-container-high);
+    --color-kumo-control: var(--m3-surface);
+    --color-kumo-fill: var(--m3-surface-container-high);
+    --color-kumo-fill-hover: var(--m3-primary-container);
+    --color-kumo-brand: var(--m3-primary);
+    --color-kumo-brand-hover: var(--m3-on-primary-container);
+    --color-kumo-line: var(--m3-outline-variant);
+    --color-kumo-ring: var(--m3-primary);
+    --text-color-kumo-default: var(--m3-on-surface);
+    --text-color-kumo-strong: var(--m3-on-surface);
+    --text-color-kumo-subtle: var(--m3-on-surface-variant);
+    --color-kumo-warning: var(--m3-star);
+    --text-color-kumo-brand: var(--m3-primary);
+    --text-color-kumo-link: var(--m3-primary);
+    --text-color-kumo-inverse: var(--m3-on-primary);
+    --text-color-kumo-warning: var(--m3-star);
+    --text-color-kumo-danger: var(--m3-error);
+    --color-kumo-danger: var(--m3-error);
+    --color-kumo-error: var(--m3-error);
+    --color-kumo-destructive: var(--m3-error);
+    background: var(--m3-surface);
+    color: var(--m3-on-surface);
+    font: var(--m3-type-body);
+  }
+  .desktop-shell :is(button, a, input, select, textarea, [role="button"]):focus-visible,
+  .desktop-dialog :is(button, input):focus-visible { outline: 2px solid var(--m3-primary); outline-offset: -2px; }
+  .desktop-shell :is(button, input, select, textarea):disabled { opacity: .38; cursor: not-allowed; }
+  .desktop-header { min-height: 64px; padding: 8px 20px; background: var(--m3-surface-container); border-color: var(--m3-outline-variant); }
+  .desktop-search { max-width: 720px; gap: 8px; }
+  .desktop-search-input { min-height: 44px; border: 0; border-radius: var(--m3-shape-full); background: var(--m3-surface-container-high); color: var(--m3-on-surface); box-shadow: none; font: var(--m3-type-body); padding-inline: 18px 32px; }
+  .desktop-search-input:focus { outline: 2px solid var(--m3-primary); }
+  .desktop-header button { border-radius: var(--m3-shape-full); color: var(--m3-on-surface-variant); }
+  .desktop-agent-toggle[aria-expanded="true"] { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
+  .desktop-navigation-wrapper { width: 232px; flex-shrink: 0; }
+  .desktop-navigation { width: 100%; background: var(--m3-surface-container-low); border-color: var(--m3-outline-variant); }
+  .desktop-navigation-identity { padding: 16px 16px 4px; }
+  .desktop-navigation-account { color: var(--m3-on-surface); }
+  .desktop-navigation-account > :first-child { font: var(--m3-type-label); font-size: 16px; }
+  .desktop-compose-wrapper { padding: 12px; }
+  .desktop-compose { height: 48px; border-radius: var(--m3-shape-medium); background: var(--m3-primary-container); border: 0; color: var(--m3-on-primary-container); box-shadow: var(--m3-elevation-1); font: var(--m3-type-label); font-size: 14px; }
+  .desktop-navigation-folders { padding: 0 12px 16px; }
+  .desktop-nav-item { position: relative; min-height: 40px; padding: 8px 12px; gap: 12px; border-radius: var(--m3-shape-full); color: var(--m3-on-surface-variant); font: var(--m3-type-body); }
+  .desktop-nav-item[aria-current="page"] { background: var(--m3-primary-container); color: var(--m3-on-primary-container); font-weight: 600; }
+  .desktop-nav-badge { border: 0; padding: 0 5px; font: var(--m3-type-label); background: transparent; color: inherit; }
+  .desktop-shell :is(.desktop-nav-item, .desktop-compose, .desktop-header button, .desktop-agent-tab, .desktop-row-star):not(:disabled):hover { box-shadow: inset 0 0 0 100px color-mix(in srgb, currentColor var(--m3-state-hover), transparent); }
+  .desktop-shell :is(.desktop-nav-item, .desktop-compose, .desktop-header button, .desktop-agent-tab, .desktop-row-star):not(:disabled):active { box-shadow: inset 0 0 0 100px color-mix(in srgb, currentColor var(--m3-state-pressed), transparent); }
+  .desktop-main, .desktop-list, .desktop-detail, .desktop-search-list { background: var(--m3-surface); }
+  .desktop-list-toolbar, .desktop-search-toolbar { background: var(--m3-surface-container-low); border-color: var(--m3-outline-variant); padding: 12px; }
+  .desktop-list-title { font: var(--m3-type-title); font-size: 20px; color: var(--m3-on-surface); }
+  .desktop-list-count { font: var(--m3-type-label); font-weight: 400; color: var(--m3-on-surface-variant); }
+  .desktop-list-actions { gap: 2px; }
+  .desktop-list-toolbar button, .desktop-detail-toolbar button, .desktop-row-actions button, .desktop-search-toolbar button, .desktop-search-pager button { border-radius: var(--m3-shape-full); color: var(--m3-on-surface-variant); }
+  .desktop-list-filter { flex-wrap: wrap; align-items: center; gap: 4px; }
+  .desktop-list-filter button, .desktop-tag-filter select { min-height: 28px; border: 1px solid var(--m3-outline-variant); border-radius: var(--m3-shape-full); background: transparent; padding: 3px 9px; color: var(--m3-on-surface-variant); font: var(--m3-type-label); }
+  .desktop-list-filter button[aria-pressed="true"] { background: var(--m3-primary-container); border-color: transparent; color: var(--m3-on-primary-container); }
+  .desktop-tag-filter { min-width: 0; max-width: 100%; }
+  .desktop-tag-filter select { min-width: 0; max-width: 180px; }
+  .desktop-email-row { min-height: 46px; padding: 7px 10px; gap: 6px; border-color: var(--m3-outline-variant); border-left: 3px solid transparent; background: var(--m3-surface); color: var(--m3-on-surface); }
+  .desktop-email-row[data-unread="true"] { background: color-mix(in srgb, var(--m3-primary-container) 20%, var(--m3-surface)); }
+  .desktop-email-row[data-selected="true"] { background: var(--m3-primary-container); border-left-color: var(--m3-primary); }
+  .desktop-email-row:hover { box-shadow: inset 0 0 0 500px color-mix(in srgb, var(--m3-primary) 8%, transparent); }
+  .desktop-row-unread-dot { background: var(--m3-primary); }
+  .desktop-row-star { border-radius: var(--m3-shape-full); min-width: 24px; min-height: 28px; }
+  .desktop-row-heading { min-height: 16px; gap: 5px; }
+  .desktop-row-participants { font: var(--m3-type-body); font-size: 13px; line-height: 16px; }
+  .desktop-email-row[data-unread="true"] :is(.desktop-row-participants, .desktop-row-subject) { font-weight: 600; }
+  .desktop-row-date { font: var(--m3-type-label); font-size: 11px; font-weight: 400; line-height: 16px; color: var(--m3-on-surface-variant); }
+  .desktop-row-preview { margin-top: 2px; gap: 5px; line-height: 16px; }
+  .desktop-row-subject { max-width: 65%; font: var(--m3-type-label); font-weight: 400; line-height: 16px; color: var(--m3-on-surface); }
+  .desktop-row-subject:only-child { max-width: 100%; }
+  .desktop-row-snippet { font: var(--m3-type-label); font-weight: 400; line-height: 16px; color: var(--m3-on-surface-variant); }
+  .desktop-row-tags { margin-top: 3px; max-width: 100%; gap: 4px; }
+  .desktop-row-chip, .desktop-row-tags .desktop-row-chip { max-width: 90px; min-height: 16px; border: 0; border-radius: var(--m3-shape-full); padding: 1px 6px; background: var(--m3-surface-container-high); color: var(--m3-on-surface-variant); font: 500 10px/14px system-ui, sans-serif; }
+  .desktop-row-chip[data-kind="disposition"] { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
+  .desktop-row-tag-error > span { border: 0; border-radius: var(--m3-shape-full); padding: 1px 6px; background: var(--m3-error-container); color: var(--m3-error); font: 500 10px/14px system-ui, sans-serif; }
+  .desktop-row-actions { border-radius: var(--m3-shape-full); background: var(--m3-surface-container-high); box-shadow: var(--m3-elevation-1); }
+  .desktop-detail-toolbar { gap: 2px; min-height: 48px; padding: 6px 8px; background: var(--m3-surface-container-low); border-color: var(--m3-outline-variant); scrollbar-width: thin; }
+  .desktop-detail-subject { color: var(--m3-on-surface); padding: var(--m3-space-4); }
+  .desktop-detail-subject h2 { font: var(--m3-type-title); font-size: 22px; }
+  .desktop-detail-chip { border-radius: var(--m3-shape-full); padding: 1px 6px; background: var(--m3-surface-container-high); color: var(--m3-on-surface-variant); font: 500 10px/14px system-ui, sans-serif; overflow-wrap: anywhere; }
+  .desktop-detail-chip[data-kind="disposition"] { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
+  .desktop-detail-content { background: var(--m3-surface); }
+  .desktop-detail-message-header { background: var(--m3-surface); border-color: var(--m3-outline-variant); padding: 16px; }
+  .desktop-detail-message-header > div { flex-wrap: wrap; }
+  .desktop-detail-message-header .text-xs { overflow-wrap: anywhere; }
+  .desktop-detail-message-body { padding: 12px 16px; background: var(--m3-surface); }
+  .desktop-detail-thread-summary { padding: 12px 16px; border-color: var(--m3-outline-variant); background: var(--m3-surface); }
+  .desktop-detail-thread-message { border-color: var(--m3-outline-variant); border-radius: var(--m3-shape-small); box-shadow: none; }
+  .desktop-detail-thread-header { background: var(--m3-surface-container-low); }
+  .desktop-detail-thread-body { background: var(--m3-surface); }
+  .desktop-agent-overlay { width: min(380px, calc(100% - 80px)); background: var(--m3-surface-container); border-color: var(--m3-outline-variant); box-shadow: var(--m3-elevation-3); }
+  .desktop-agent-tabs { min-height: 48px; background: var(--m3-surface-container-high); border-color: var(--m3-outline-variant); }
+  .desktop-agent-tab { color: var(--m3-on-surface-variant); border-radius: var(--m3-shape-small) var(--m3-shape-small) 0 0; }
+  .desktop-agent-tab[aria-pressed="true"] { color: var(--m3-primary); border-bottom-color: var(--m3-primary); }
+  .desktop-agent-chat-header { min-height: 40px; border-color: var(--m3-outline-variant); }
+  .desktop-agent-messages { background: var(--m3-surface); }
+  .desktop-agent-input { background: var(--m3-surface-container); border-color: var(--m3-outline-variant); }
+  .desktop-agent-input textarea { border-radius: var(--m3-shape-medium); border-color: var(--m3-outline); background: var(--m3-surface); font: var(--m3-type-body); }
+  .desktop-agent-input button { border-radius: var(--m3-shape-full); }
+  .desktop-mcp-panel { background: var(--m3-surface); }
+  .desktop-dialog { border-radius: var(--m3-shape-large); box-shadow: var(--m3-elevation-3); }
+}
+
+/* A compact navigation rail leaves room for list + reading pane on tablets. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .desktop-navigation-wrapper { width: 80px; }
+  .desktop-navigation-identity { padding: 12px; }
+  .desktop-navigation-back { justify-content: center; width: 100%; height: 32px; margin: 0; }
+  .desktop-navigation-back svg { width: 20px; height: 20px; }
+  .desktop-navigation-account, .desktop-nav-label, .desktop-compose-label { display: none; }
+  .desktop-compose-wrapper { padding: 12px 14px; }
+  .desktop-compose { width: 52px; padding: 0; }
+  .desktop-navigation-folders { padding: 0 12px 12px; }
+  .desktop-nav-item { width: 56px; min-height: 44px; padding: 10px; justify-content: center; }
+  .desktop-nav-badge { position: absolute; right: 0; top: 0; border-radius: var(--m3-shape-full); background: var(--m3-primary); color: var(--m3-on-primary); font-size: 9px; line-height: 14px; min-width: 16px; padding: 0 3px; }
+  .desktop-folder-heading { justify-content: center; padding: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-shell :is(button, a, [role="button"]) { transition: none !important; }
 }

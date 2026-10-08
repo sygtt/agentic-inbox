@@ -1,11 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Loader } from "@cloudflare/kumo";
-import { PlugsIcon, RobotIcon } from "@phosphor-icons/react";
+import { Button, Loader, Tooltip } from "@cloudflare/kumo";
+import { PlugsIcon, RobotIcon, XIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import MCPPanel from "./MCPPanel";
+import { useUIStore } from "~/hooks/useUIStore";
 
 function LazyAgentPanel() {
 	const [AgentChat, setAgentChat] = useState<React.ComponentType | null>(
@@ -41,16 +44,18 @@ function LazyAgentPanel() {
 }
 
 export default function AgentSidebar() {
+	const toggleAgentPanel = useUIStore((state) => state.toggleAgentPanel);
 	const [activeTab, setActiveTab] = useState<"agent" | "mcp">("agent");
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="desktop-agent-sidebar flex flex-col h-full">
 			{/* Tab bar */}
-			<div className="flex items-center border-b border-kumo-line shrink-0">
+			<div className="desktop-agent-tabs flex items-center border-b border-kumo-line shrink-0">
 				<button
 					type="button"
 					onClick={() => setActiveTab("agent")}
-					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
+					aria-pressed={activeTab === "agent"}
+					className={`desktop-agent-tab flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
 						activeTab === "agent"
 							? "border-kumo-brand text-kumo-default"
 							: "border-transparent text-kumo-subtle hover:text-kumo-default"
@@ -62,7 +67,8 @@ export default function AgentSidebar() {
 				<button
 					type="button"
 					onClick={() => setActiveTab("mcp")}
-					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
+					aria-pressed={activeTab === "mcp"}
+					className={`desktop-agent-tab flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
 						activeTab === "mcp"
 							? "border-kumo-brand text-kumo-default"
 							: "border-transparent text-kumo-subtle hover:text-kumo-default"
@@ -71,6 +77,9 @@ export default function AgentSidebar() {
 					<PlugsIcon size={14} weight={activeTab === "mcp" ? "fill" : "regular"} />
 					MCP
 				</button>
+				<Tooltip content="Close agent panel" asChild>
+					<Button variant="ghost" shape="square" size="sm" className="ml-auto mr-2" icon={<XIcon size={18} />} onClick={toggleAgentPanel} aria-label="Close agent panel" />
+				</Tooltip>
 			</div>
 
 			{/* Tab content — keep agent mounted so chat isn't lost */}

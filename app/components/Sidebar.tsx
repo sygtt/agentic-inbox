@@ -56,23 +56,26 @@ function FolderLink({
 	onClick,
 }: FolderLinkProps) {
 	return (
-		<NavLink
-			to={to}
-			onClick={onClick}
-			className={({ isActive }) =>
-				`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${
-					isActive
-						? "bg-kumo-fill font-semibold text-kumo-default"
-						: "text-kumo-strong hover:bg-kumo-tint"
-				}`
-			}
-		>
-			<span className="shrink-0">{icon}</span>
-			<span className="truncate flex-1">{label}</span>
-			{unreadCount != null && unreadCount > 0 && (
-				<Badge variant="secondary">{unreadCount}</Badge>
-			)}
-		</NavLink>
+		<Tooltip content={label} side="right" asChild>
+			<NavLink
+				to={to}
+				aria-label={unreadCount ? `${label}, ${unreadCount} unread` : label}
+				onClick={onClick}
+				className={({ isActive }) =>
+					`desktop-nav-item flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${
+						isActive
+							? "bg-kumo-fill font-semibold text-kumo-default"
+							: "text-kumo-strong hover:bg-kumo-tint"
+					}`
+				}
+			>
+				<span className="shrink-0">{icon}</span>
+				<span className="desktop-nav-label truncate flex-1">{label}</span>
+				{unreadCount != null && unreadCount > 0 && (
+					<Badge className="desktop-nav-badge" variant="secondary">{unreadCount}</Badge>
+				)}
+			</NavLink>
+		</Tooltip>
 	);
 }
 
@@ -124,21 +127,23 @@ export default function Sidebar() {
 	};
 
 	return (
-		<aside className="h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
+		<aside className="desktop-navigation h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
 			{/* Back + identity */}
-			<div className="px-4 pt-4 pb-1">
+			<div className="desktop-navigation-identity px-4 pt-4 pb-1">
 				<button
 					type="button"
 					onClick={() => {
 						navigate("/");
 						closeSidebar();
 					}}
-					className="flex items-center gap-1.5 text-kumo-subtle text-sm hover:text-kumo-default transition-colors mb-2.5 cursor-pointer bg-transparent border-0 p-0"
+					aria-label="Back to mailboxes"
+					title="Mailboxes"
+					className="desktop-navigation-back flex items-center gap-1.5 text-kumo-subtle text-sm hover:text-kumo-default transition-colors mb-2.5 cursor-pointer bg-transparent border-0 p-0"
 				>
 					<CaretLeftIcon size={14} />
-					<span>Mailboxes</span>
+					<span className="desktop-nav-label">Mailboxes</span>
 				</button>
-				<div className="px-1">
+				<div className="desktop-navigation-account px-1">
 					<div className="text-base font-semibold text-kumo-default truncate">
 						{displayName}
 					</div>
@@ -149,19 +154,21 @@ export default function Sidebar() {
 			</div>
 
 			{/* Compose */}
-			<div className="px-3 py-3">
+			<div className="desktop-compose-wrapper px-3 py-3">
 				<Button
 					variant="primary"
 					icon={<PencilSimpleIcon size={16} />}
 					onClick={() => startCompose()}
-					className="w-full"
+					className="desktop-compose w-full"
+					aria-label="Compose"
+					title="Compose"
 				>
-					Compose
+					<span className="desktop-compose-label">Compose</span>
 				</Button>
 			</div>
 
 			{/* Navigation */}
-			<nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
+			<nav aria-label="Mailbox folders" className="desktop-navigation-folders flex-1 overflow-y-auto px-2 space-y-0.5">
 				{SYSTEM_FOLDER_LINKS.map((folder) => (
 					<FolderLink
 						key={folder.id}
@@ -176,8 +183,8 @@ export default function Sidebar() {
 				{/* Custom folders */}
 				{customFolders.length > 0 && (
 					<div className="pt-5">
-						<div className="flex items-center justify-between px-3 mb-1.5">
-							<span className="text-xs uppercase tracking-wider font-semibold text-kumo-subtle">
+						<div className="desktop-folder-heading flex items-center justify-between px-3 mb-1.5">
+							<span className="desktop-nav-label text-xs uppercase tracking-wider font-semibold text-kumo-subtle">
 								Folders
 							</span>
 							<Tooltip content="New folder" asChild>
@@ -207,8 +214,8 @@ export default function Sidebar() {
 				{/* Add folder button when no custom folders */}
 				{customFolders.length === 0 && (
 					<div className="pt-5">
-						<div className="flex items-center justify-between px-3 mb-1.5">
-							<span className="text-xs uppercase tracking-wider font-semibold text-kumo-subtle">
+						<div className="desktop-folder-heading flex items-center justify-between px-3 mb-1.5">
+							<span className="desktop-nav-label text-xs uppercase tracking-wider font-semibold text-kumo-subtle">
 								Folders
 							</span>
 							<Tooltip content="New folder" asChild>
@@ -225,20 +232,23 @@ export default function Sidebar() {
 					</div>
 				)}
 
-				<NavLink
-					to={`/mailbox/${mailboxId}/settings`}
-					onClick={handleNavClick}
-					className={({ isActive }) =>
-						`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${
-							isActive
-								? "bg-kumo-fill font-semibold text-kumo-default"
-								: "text-kumo-strong hover:bg-kumo-tint"
-						}`
-					}
-				>
-					<span className="shrink-0"><GearSixIcon size={18} /></span>
-					<span className="truncate flex-1">Settings</span>
-				</NavLink>
+				<Tooltip content="Settings" side="right" asChild>
+					<NavLink
+						to={`/mailbox/${mailboxId}/settings`}
+						aria-label="Settings"
+						onClick={handleNavClick}
+						className={({ isActive }) =>
+							`desktop-nav-item flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors ${
+								isActive
+									? "bg-kumo-fill font-semibold text-kumo-default"
+									: "text-kumo-strong hover:bg-kumo-tint"
+							}`
+						}
+					>
+						<span className="shrink-0"><GearSixIcon size={18} /></span>
+						<span className="desktop-nav-label truncate flex-1">Settings</span>
+					</NavLink>
+				</Tooltip>
 			</nav>
 
 			{/* Create folder dialog */}
@@ -246,7 +256,7 @@ export default function Sidebar() {
 				open={isCreateFolderOpen}
 				onOpenChange={setIsCreateFolderOpen}
 			>
-				<Dialog size="sm" className="p-6">
+				<Dialog size="sm" className="desktop-dialog p-6">
 					<Dialog.Title className="text-base font-semibold mb-4">
 						Create folder
 					</Dialog.Title>

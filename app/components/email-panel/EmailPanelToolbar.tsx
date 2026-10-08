@@ -78,7 +78,7 @@ export default function EmailPanelToolbar({
 	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
 	const archiveLabel = isArchive || isTrash ? "Move to Inbox" : "Archive";
 	return (
-		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
+		<div className="desktop-detail-toolbar flex flex-wrap items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-2 lg:px-3">
 			<Button
 				variant="ghost"
 				shape="square"

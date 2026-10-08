@@ -154,7 +154,7 @@ without introducing a separate mobile client or new persistence.
 - Email deletion is available as a touch-friendly list action and uses the shared undoable Trash behavior: regular messages skip the pre-delete confirmation and the success toast offers `キャンセル` to move the message back to its own folder, while permanent Trash deletion keeps its confirmation.
 - The web app declares a Japanese standalone manifest with raster install icons derived from the repository's favicon.
 - No service worker or offline mailbox support is added.
-- At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar at `md` and above; the split view starts at `xl` (1280px) and above, with a single-pane layout at `md`–`lg`.
+- At phone widths, the mailbox uses a safe-area-aware bottom navigation for Inbox, Folders, Search, and Settings while retaining the desktop sidebar at `md` and above; the split view starts at `md` (768px) and above, with an 80px icon rail at 768–1023px to leave room for both panes.
 - Mobile inbox and search rows use real email data, server-side search, deterministic `needs_reply`/draft/OTP signals, and pointer gestures for archive/read actions. Long press exposes only real quick actions.
 - Mobile detail reuses the existing thread, body, attachment, reply, move, star, delete, and structured tag/disposition flows; it does not add mock summaries, Snoozed, Mute, or Pin state.
 - Opening a message records its ID in the URL so browser Back returns to the same loaded list and preserves its local filters and scroll position. Previous/next controls follow the loaded list order without adding history entries; opening another message marks it read and resets detail scrolling to the top. Opening or refreshing a URL-selected unread message marks it read after its email and thread data load, using the thread-aware read mutation. A successful archive advances only when the archived message is still selected at completion: the current viewport determines whether mobile advances to the next lower message or desktop closes the detail. A failed archive leaves the detail open. Async moves, deletions, and draft sends close detail only while their original email remains selected.
@@ -498,9 +498,9 @@ Issue #52。「設定画面付き Web アプリ」感を減らし PC で scan �
 ### Behavior
 
 - 全幅 top bar（search が主役、`/` で focus、gear 無し）と、Settings を常設して active 表示する左 nav rail を使う。`/` は detail の sandboxed iframe 内に focus がある場合も bridge 経由で伝播する（無修飾 `/` のみ、編集中フィールドは対象外）。
-- 並置は `xl`（1280px）以上で、`md`〜`lg` は single-pane（detail が list を置換し、toolbar に Back）。list 幅は `xl` で 448px、`2xl` で 480px。
+- #65 のユーザー指示により、並置は `md`（768px）以上。iPad の縦向きでも一覧を左、本文を右に残す。list 幅は `md` 280px、`lg` 320px、`xl` 400px、`2xl` 440px。768〜1023px の nav は 80px のアイコン rail、1024px 以上は 232px の drawer。767px 以下だけ single-pane。
 - agent panel は layout 幅を消費しない右 overlay で、初期 closed。
-- 一覧行は 2 行・実測 45px。sender のみ truncate し、tag chip は最大 2 + `+N`。hover/focus で Archive/Read/Delete を overlay 表示する。行からの Archive 成功時、アーカイブ対象メールが完了時点でも選択中なら detail も閉じる。
+- 一覧行は sender/date と subject/snippet を分け、tag がある場合だけ小さな chip 行を添える。tag chip は最大 2 + `+N`。hover/focus で Archive/Read/Delete を overlay 表示する。行からの Archive 成功時、アーカイブ対象メールが完了時点でも選択中なら detail も閉じる。
 - pagination は上部 compact pager に集約（desktop 下部バー削除、mobile は維持）。detail toolbar に Archive を配線し、Escape で close。detail toolbar の Archive は一覧行と同じ規則で folder 依存（Archive/Trash では Inbox へ戻す）。
 - 新規 store・route・URL param・依存関係は追加していない。
 
@@ -528,7 +528,41 @@ None（表示層のみ。schema・migration・API 不変）。
 
 ### Removal / replacement condition
 
-upstream が同等の desktop 情報設計（全幅 search / xl reading pane / 行 hover action）を提供したら本 entry を縮小または Retired にし、`EmailListRow.tsx` の upstream 行への統合を検討する。
+upstream が同等の desktop 情報設計（全幅 search / tablet reading pane / 行 hover action）を提供したら本 entry を縮小または Retired にし、`EmailListRow.tsx` の upstream 行への統合を検討する。
+
+---
+
+## Desktop Material 3 visual layer (#65)
+
+**Status:** Implemented; visual QA pending.
+
+### Why
+
+Use a consistent Material 3-inspired visual hierarchy while honoring the user’s explicit priority: keep the mail list on the left and the selected message on the right at iPad/desktop widths, overriding the former 1280px single-pane threshold.
+
+### Behavior
+
+- Shared fixed-light purple `--m3-*` roles cover color, type, shape, spacing, elevation, and state layers; mobile aliases retain their existing values.
+- Tonal search, pill navigation states, compact chips, and a stronger subject heading distinguish app chrome from the sandboxed white email body. Read/unread state also uses weight and an unread dot; selection also uses a leading border and `aria-current`.
+- At 768–1023px the icon rail keeps Compose, folders, and Settings accessible by labels/tooltips. The list and detail retain independent scrolling. Detail toolbar controls wrap so their folder dropdown remains visible.
+- Agent/MCP remains an overlay, now accessible from 768px, with a dedicated close action that preserves the selected email.
+- Search results share the list visual language and split view. Existing mutation, compose, keyboard/Escape, URL history, and phone workflows are retained.
+
+### Main affected areas
+
+`app/index.css`, desktop shell/navigation/Agent components, `MailboxSplitView`, `EmailListRow`, `EmailTagFilter`, `EmailPanel`, `email-panel/*`, and mailbox/list/search routes.
+
+### Configuration and migration
+
+None. No backend, schema, API, binding, dependency, or deployment changes.
+
+### Upstream synchronization risk
+
+High for shared shell/detail styles. Preserve the user-directed 768px split threshold and mobile behavior when integrating upstream updates; retire this visual layer if upstream provides equivalent behavior.
+
+### Verification boundary
+
+See [Issue #65 QA notes](qa/issue-65/README.md). Browser screenshots and viewport/state interaction checks remain pending; build and static review do not substitute for visual QA.
 
 ---
 
