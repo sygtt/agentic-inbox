@@ -51,7 +51,7 @@ export default function MailboxRoute() {
 	}, [mailboxId, closeComposeModal, closePanel, closeSidebar]);
 
 	return (
-		<div className="mobile-shell flex h-[100dvh] flex-col overflow-hidden">
+		<div className="desktop-shell mobile-shell flex h-[100dvh] flex-col overflow-hidden">
 			<Header />
 			<div className="relative flex flex-1 min-h-0 overflow-hidden">
 				{/* Mobile sidebar overlay backdrop */}
@@ -68,7 +68,7 @@ export default function MailboxRoute() {
 
 				{/* Sidebar: hidden on mobile by default, shown as overlay when open */}
 				<div
-					className={`hidden md:block fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
+					className={`desktop-navigation-wrapper hidden md:block fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
 						isSidebarOpen ? "translate-x-0" : "-translate-x-full"
 					}`}
 				>
@@ -76,7 +76,7 @@ export default function MailboxRoute() {
 				</div>
 
 				{/* Main content */}
-				<div className="flex-1 flex flex-col min-w-0 bg-kumo-base">
+				<div className="desktop-main flex-1 flex flex-col min-w-0 bg-kumo-base">
 					<div className="mobile-account-bar mobile-safe-top flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-4 py-3 md:hidden">
 						<Link to="/" className="mobile-icon-button text-sm text-kumo-subtle" aria-label="Back to mailboxes">
 							<ArrowLeftIcon size={24} />
@@ -102,7 +102,7 @@ export default function MailboxRoute() {
 
 				{/* Agent + MCP sidebar -- togglable on desktop */}
 				{isAgentPanelOpen && (
-					<div className="absolute inset-y-0 right-0 z-30 hidden w-[380px] flex-col overflow-hidden border-l border-kumo-line bg-kumo-base shadow-lg lg:flex">
+					<div id="desktop-agent-panel" className="desktop-agent-overlay absolute inset-y-0 right-0 z-30 hidden w-[380px] flex-col overflow-hidden border-l border-kumo-line bg-kumo-base shadow-lg md:flex">
 						<AgentSidebar />
 					</div>
 				)}

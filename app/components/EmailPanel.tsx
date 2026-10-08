@@ -338,7 +338,7 @@ export default function EmailPanel({
 					onPreviewImage={(url, filename) => setPreviewImage({ url, filename })}
 				/>
 			</div>
-			<div ref={desktopPanelRef} className="hidden h-full flex-col md:flex">
+			<div ref={desktopPanelRef} className="desktop-detail-content hidden h-full flex-col md:flex">
 				<EmailPanelToolbar
 					email={email}
 					mailboxId={mailboxId}
@@ -379,7 +379,7 @@ export default function EmailPanel({
 				emailId={email.id}
 			/>
 
-			<div className="flex-1 overflow-y-auto">
+			<div className="desktop-detail-scroll flex-1 overflow-y-auto">
 				{hasThread ? (
 					allMessages.map((msg, idx) => {
 						const isDraft = draftMessageIds.has(msg.id);

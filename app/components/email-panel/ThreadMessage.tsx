@@ -88,7 +88,7 @@ export default function ThreadMessage({
 
 	if (!isExpanded) {
 		return (
-			<div className={containerClassName}>
+			<div className={`desktop-detail-thread-summary ${containerClassName}`}>
 				<button
 					type="button"
 					onClick={onToggleExpand}
@@ -116,8 +116,8 @@ export default function ThreadMessage({
 	}
 
 	return (
-		<div className={`group/thread-msg ${containerClassName}`}>
-			<div className="px-4 py-4 md:px-6">
+		<div className={`desktop-detail-thread-message group/thread-msg ${containerClassName}`}>
+			<div className="desktop-detail-thread-header px-4 py-4 md:px-5 lg:px-6">
 				<div className="flex items-center justify-between gap-3 mb-3">
 					<div className="flex items-center gap-2.5 min-w-0">
 						<button
@@ -175,7 +175,7 @@ export default function ThreadMessage({
 					</div>
 				</div>
 
-				<div className="md:ml-[42px]">
+				<div className="desktop-detail-thread-body md:ml-[42px]">
 					<VerificationCodeAction
 						messageId={email.id}
 						mailboxId={mailboxId}

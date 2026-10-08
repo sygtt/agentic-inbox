@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -343,9 +345,9 @@ function AgentChatConnected({
 	];
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="desktop-agent-chat flex flex-col h-full">
 			{/* Header */}
-			<div className="flex items-center justify-between px-3 py-1.5 border-b border-kumo-line shrink-0">
+			<div className="desktop-agent-chat-header flex items-center justify-between px-3 py-1.5 border-b border-kumo-line shrink-0">
 				<div className="flex items-center gap-2">
 					<Badge variant="beta">AI</Badge>
 					<span className="text-xs text-kumo-subtle">
@@ -374,7 +376,7 @@ function AgentChatConnected({
 			</div>
 
 			{/* Messages */}
-			<div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4">
+			<div ref={scrollRef} className="desktop-agent-messages flex-1 overflow-y-auto px-3 py-4">
 				{messages.length === 0 ? (
 					<div className="flex flex-col items-center justify-center h-full gap-4">
 						<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-kumo-brand/10">
@@ -471,7 +473,7 @@ function AgentChatConnected({
 			</div>
 
 			{/* Input */}
-			<div className="shrink-0 border-t border-kumo-line px-3 py-2">
+			<div className="desktop-agent-input shrink-0 border-t border-kumo-line px-3 py-2">
 				{isStreaming ? (
 					<div className="flex justify-center">
 						<Button

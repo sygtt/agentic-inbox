@@ -75,7 +75,7 @@ export default function Header() {
 	};
 
 	return (
-		<header className="hidden md:flex items-center gap-2 px-3 py-2.5 bg-kumo-base border-b border-kumo-line sticky top-0 z-10 md:px-5 md:gap-4">
+		<header className="desktop-header hidden md:flex items-center gap-2 px-3 py-2.5 bg-kumo-base border-b border-kumo-line sticky top-0 z-10 md:px-5 md:gap-4">
 			{/* Hamburger menu - mobile only */}
 			<Button
 				variant="ghost"
@@ -89,14 +89,14 @@ export default function Header() {
 
 			{/* Search - full on desktop, collapsible on mobile */}
 			<div
-				className={`flex-1 max-w-2xl transition-all flex items-center gap-1 ${
+				className={`desktop-search flex-1 max-w-2xl transition-all flex items-center gap-1 ${
 					isSearchExpanded ? "flex" : "hidden md:flex"
 				}`}
 			>
 				<div className="flex-1 relative flex items-center">
 					<Input
 						ref={searchInputRef}
-						className="w-full"
+						className="desktop-search-input w-full"
 						aria-label="Search emails"
 						placeholder="Search mail — try from:name, is:unread, has:attachment"
 						value={searchQuery}
@@ -146,7 +146,9 @@ export default function Header() {
 						icon={<RobotIcon size={20} />}
 						onClick={toggleAgentPanel}
 						aria-label="Toggle agent panel"
-						className="hidden lg:inline-flex"
+						className="desktop-agent-toggle hidden md:inline-flex"
+						aria-expanded={isAgentPanelOpen}
+						aria-controls="desktop-agent-panel"
 					/>
 				</Tooltip>
 			</div>

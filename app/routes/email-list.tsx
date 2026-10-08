@@ -585,19 +585,19 @@ export default function EmailListRoute() {
 					</div>
 					{totalCount > PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
-				<div className="hidden h-full flex-col md:flex">
+				<div className="desktop-list hidden h-full min-w-0 flex-col md:flex">
 				{/* Folder header */}
-				<div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kumo-line bg-kumo-base px-4 py-2.5 shrink-0 md:px-5">
-					<h1 className="truncate text-base font-semibold text-kumo-default">{folderName}</h1>
+				<div className="desktop-list-toolbar flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-kumo-line bg-kumo-base px-4 py-2.5 shrink-0 md:px-5">
+					<h1 className="desktop-list-title truncate text-base font-semibold text-kumo-default">{folderName}</h1>
 					{totalCount > 0 && (
-						<span className="text-xs text-kumo-subtle">
+						<span className="desktop-list-count text-xs text-kumo-subtle">
 							{getDesktopListCountLabel(totalCount, folders.find((item) => item.id === folder)?.unreadCount ?? 0, selectedTag)}
 						</span>
 					)}
-					<div className="min-w-0">
+					<div className="desktop-list-filter min-w-0">
 						<EmailTagFilter availableTags={availableTags} selectedTag={selectedTag} isLoading={availableTagsQuery.isPending} isError={availableTagsQuery.isError} onSelect={handleTagSelect} onRetry={() => void availableTagsQuery.refetch()} />
 					</div>
-					<div className="ml-auto flex shrink-0 items-center gap-1">
+					<div className="desktop-list-actions ml-auto flex shrink-0 items-center gap-1">
 						<Tooltip
 							content={isRefreshing ? "Refreshing..." : "Refresh"}
 							side="bottom"
@@ -647,7 +647,7 @@ export default function EmailListRoute() {
 				</div>
 
 				{/* Email rows */}
-				<div className="flex-1 overflow-y-auto" aria-busy={isRefreshing}>
+				<div className="desktop-list-scroll min-h-0 flex-1 overflow-y-auto" aria-busy={isRefreshing}>
 					{isRefreshing && <span className="sr-only" role="status">Loading emails</span>}
 					{isRefreshing && emails.length === 0 ? (
 						<EmailListSkeleton />

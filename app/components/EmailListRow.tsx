@@ -87,14 +87,14 @@ export default function EmailListRow({
 					onOpen(email);
 				}
 			}}
-			className={`group relative flex w-full cursor-pointer items-center gap-2 border-b border-kumo-line border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kumo-brand ${isSelected ? "border-l-kumo-brand bg-kumo-tint" : "border-l-transparent hover:bg-kumo-tint"}`}
+			className={`desktop-email-row group relative flex w-full cursor-pointer items-center gap-2 border-b border-kumo-line border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kumo-brand ${isSelected ? "border-l-kumo-brand bg-kumo-tint" : "border-l-transparent hover:bg-kumo-tint"}`}
 		>
-			<div className="flex w-2 shrink-0 justify-center">
-				{unread && <><span className="h-2 w-2 rounded-full bg-kumo-brand" aria-hidden="true" /><span className="sr-only">Unread</span></>}
+			<div className="desktop-row-unread flex w-2 shrink-0 justify-center">
+				{unread && <><span className="desktop-row-unread-dot h-2 w-2 rounded-full bg-kumo-brand" aria-hidden="true" /><span className="sr-only">Unread</span></>}
 			</div>
 			<button
 				type="button"
-				className="shrink-0 cursor-pointer rounded border-0 bg-transparent p-0.5 focus-visible:outline-2 focus-visible:outline-kumo-brand"
+				className="desktop-row-star shrink-0 cursor-pointer rounded border-0 bg-transparent p-0.5 focus-visible:outline-2 focus-visible:outline-kumo-brand"
 				aria-label={email.starred ? "Unstar" : "Star"}
 				onClick={(event) => {
 					event.preventDefault();
@@ -104,9 +104,9 @@ export default function EmailListRow({
 			>
 				<StarIcon size={16} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-kumo-warning" : "text-kumo-subtle hover:text-kumo-warning"} />
 			</button>
-			<div className="min-w-0 flex-1">
-				<div className="flex min-w-0 items-center gap-2 leading-none">
-					<span title={participants} className={`min-w-0 truncate text-sm leading-none ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{participants}</span>
+			<div className="desktop-row-content min-w-0 flex-1">
+				<div className="desktop-row-heading flex min-w-0 items-center gap-2 leading-none">
+					<span title={participants} className={`desktop-row-participants min-w-0 truncate text-sm leading-none ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{participants}</span>
 					{(email.thread_count ?? 1) > 1 && <span className="shrink-0 rounded-full bg-kumo-fill px-1.5 text-xs font-medium leading-none text-kumo-subtle">{email.thread_count}</span>}
 					{email.has_draft && <span className="shrink-0 text-xs font-medium leading-none text-kumo-destructive">Draft</span>}
 					{email.needs_reply && !email.has_draft && (
@@ -115,27 +115,27 @@ export default function EmailListRow({
 						</Tooltip>
 					)}
 					{(email.has_attachment || !!email.attachments?.length) && <PaperclipIcon size={14} className="shrink-0 text-kumo-subtle" aria-label="Has attachment" />}
-					{tagBadges.length > 0 && (
-						<div className="flex shrink-0 items-center gap-1">
-							{tagBadges.map((badge, index) => {
-								if (badge.kind === "triage-error") {
-									return <span key="triage-error" className="max-w-[5rem] shrink-0 overflow-hidden"><TriageErrorBadge tags={email.tags} threadHasTriageError={email.thread_has_triage_error} className="whitespace-nowrap" /></span>;
-								}
-								if (badge.kind === "overflow") {
-									return <span key="tag-overflow" title={`${badge.count} more tags`} aria-label={`${badge.count} more tags`} className="shrink-0 rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] leading-none text-kumo-subtle">+{badge.count}</span>;
-								}
-								return <span key={`${badge.tag}:${index}`} title={badge.label} className={`max-w-[5rem] shrink-0 truncate rounded px-1.5 py-0.5 text-[10px] leading-none ${badge.kind === "disposition" ? "bg-kumo-brand/10 font-medium text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>{badge.label}</span>;
-							})}
-						</div>
-					)}
-					<span className="ml-auto shrink-0 text-xs leading-none tabular-nums text-kumo-subtle transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">{date}</span>
+					<span className="desktop-row-date ml-auto shrink-0 text-xs leading-none tabular-nums text-kumo-subtle transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">{date}</span>
 				</div>
-				<div className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs leading-none">
-					<span title={subject} className={`max-w-[55%] shrink-0 truncate ${unread ? "font-medium text-kumo-default" : "text-kumo-strong"}`}>{subject}</span>
-					{snippet && <span className="min-w-0 flex-1 truncate text-xs leading-none text-kumo-subtle">— {snippet}</span>}
+				<div className="desktop-row-preview mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs leading-none">
+					<span title={subject} className={`desktop-row-subject max-w-[55%] shrink-0 truncate ${unread ? "font-medium text-kumo-default" : "text-kumo-strong"}`}>{subject}</span>
+					{snippet && <span className="desktop-row-snippet min-w-0 flex-1 truncate text-xs leading-none text-kumo-subtle">— {snippet}</span>}
 				</div>
+				{tagBadges.length > 0 && (
+					<div className="desktop-row-tags mt-1 flex min-w-0 items-center gap-1">
+						{tagBadges.map((badge, index) => {
+							if (badge.kind === "triage-error") {
+								return <span key="triage-error" className="desktop-row-chip desktop-row-tag-error max-w-[5rem] shrink-0 overflow-hidden"><TriageErrorBadge tags={email.tags} threadHasTriageError={email.thread_has_triage_error} className="whitespace-nowrap" /></span>;
+							}
+							if (badge.kind === "overflow") {
+								return <span key="tag-overflow" title={`${badge.count} more tags`} aria-label={`${badge.count} more tags`} className="desktop-row-chip shrink-0 rounded bg-kumo-fill px-1.5 py-0.5 text-[10px] leading-none text-kumo-subtle">+{badge.count}</span>;
+							}
+							return <span key={`${badge.tag}:${index}`} title={badge.label} data-kind={badge.kind} className={`desktop-row-chip max-w-[5rem] shrink-0 truncate rounded px-1.5 py-0.5 text-[10px] leading-none ${badge.kind === "disposition" ? "bg-kumo-brand/10 font-medium text-kumo-brand" : "bg-kumo-fill text-kumo-subtle"}`}>{badge.label}</span>;
+						})}
+					</div>
+				)}
 			</div>
-			<div className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-kumo-tint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+			<div className="desktop-row-actions pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-kumo-tint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
 				<Tooltip content={archiveLabel} asChild>
 					<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={14} />} disabled={isBusy} aria-label={archiveLabel} onClick={(event) => {
 						event.preventDefault();
