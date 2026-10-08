@@ -2,13 +2,16 @@
 
 # Issue #65 validation
 
-## Implemented layout
+## Layout and browser evidence
 
 The user's explicit instruction overrides Issue #65's older 1280px threshold:
 opening an email keeps its list on the left and its reading pane on the right
 from 768px, including iPad portrait widths. Only phone widths use a single pane.
 
-| Viewport | Navigation | Selected list width | Approximate remaining detail width |
+The following widths were measured in the rendered React application using
+browser DOM geometry after selecting a mail row. The viewport height was 860px.
+
+| Viewport | Navigation | Selected list width | Detail width |
 | --- | --- | --- | --- |
 | 768px | 80px rail | 280px | 408px |
 | 820px | 80px rail | 280px | 460px |
@@ -16,54 +19,101 @@ from 768px, including iPad portrait widths. Only phone widths use a single pane.
 | 1280px | 232px drawer | 400px | 648px |
 | 1440px | 232px drawer | 400px | 808px |
 | 1536px | 232px drawer | 440px | 864px |
+| 767px | Mobile navigation | Hidden | 767px |
 
-These widths follow the CSS rules, not browser measurements. Borders may
-consume a pixel. With no selected message, the list fills the content area.
+With no selected message, the list fills the content area. At 390px the mobile
+mail reader also retains its single-pane layout.
+
+![Matched before and after views](comparison.png)
+
+The comparison uses baseline `24652d4eb578a8214cee430bc2bb8689b1773d32` and
+this branch, with identical synthetic mail. At 1024px the baseline hides the
+list, while the updated layout keeps both panes visible. At 1440px both versions
+split, with updated Material 3 chrome and compact tag placement in this branch.
+
+![Tablet reading pane, folder menu and Agent overlay](tablet.png)
+
+![Empty, loading, folder error, detail error, thread and search states](states.png)
+
+[390px mobile reading pane](phone.png)
+
+## Browser verification method
+
+The direct Worker development server was unreachable from the cloud browser,
+and opening a local fixture as a file was rejected by browser URL policy.
+A supervised HTTP preview subsequently made visual QA possible. The browser
+service also timed out once; it recovered before these checks were performed.
+No file-policy workaround or production deployment was used.
+
+A disposable React fixture imported the actual Mailbox, EmailList, Search,
+Sidebar, MailboxSplitView, EmailPanel, ComposePanel and Agent presentation
+components. It used each source tree's built production CSS. A MemoryRouter
+mounted the mailbox routes. The fixture replaced API methods with synthetic
+mailbox/folder/mail/tag/thread responses and disabled real agent connections.
+React Query errors and indefinitely pending promises produced the failure and
+loading states. A plain HTTP server served only the fixture's static files.
+
+The data consisted of 40 fictional emails at example.com/example.net addresses,
+read/unread and starred rows, ordinary/disposition tags, Japanese subjects,
+long repeated HTML body paragraphs, and a two-message conversation. No real
+mail, credentials, or production services were accessed.
+
+Viewport width was controlled by the fixture iframe, which supplies the actual
+CSS viewport for the application. Mail was opened by clicking a row, rather
+than substituting a hand-built visual mockup. Screenshots were captured from
+Chromium, cropped to the application frame and assembled with Pillow; image
+composition added only labels and spacing. The images retain their rendered
+content. Screenshot cursors and hover actions are present in some captures.
 
 ## Completed checks
 
-- The existing 154 deterministic tests passed.
-- Type checking and production compilation passed.
-- Static peer review caught a clipped Move to folder menu caused by horizontal
-  toolbar overflow. The final toolbar wraps controls instead, preserving the
-  dropdown's placement.
-- Shared mobile token aliases retain the previous literal colors, shapes,
-  typography, and elevation values. Mobile component files and email sandbox
-  rules were not changed.
-- No backend, schema, API, binding, or dependency changes. No production deploy.
+- Both panes remain visible at 768, 820, 1024, 1280, 1440 and 1536px; the measured
+  widths are listed above. 767px and 390px retain single-pane mail reading.
+- List and sandboxed body scrolling are independent: keyboard PageDown moved
+  the list to 620px; body scrolling then moved its own scroll position while
+  leaving the list at 620px.
+- Selected row border/background, unread dot/weight, stars, tags and row hover
+  actions were observed in the real render.
+- The Move to folder menu opens without clipping at 768px; Escape dismisses it
+  without closing the message.
+- Agent/MCP tabs render at 768px. Closing the overlay preserves the selected
+  message. Agent network behavior was deliberately mocked.
+- Search result selection preserves the list beside the reader. Reply and new
+  compose panels open, and closing compose returns to the prior view.
+- Tag selection filters rows; pagination advances from 1–25 to 26–40 of 40.
+- `/` focuses the search field; Escape from the selected row closes the reader.
+- Empty, loading, folder-error, detail-error and two-message thread views render.
+  A detail failure leaves the email list available.
+- At 390px, next/previous controls change the displayed subject and Back to list
+  restores the list.
+- Browser QA found two defects: Kumo's primary Compose variant forced white
+  text on a pale tonal background, and a 56px tablet navigation item exceeded
+  its available width by 1px. Compose now uses the secondary variant; rail items
+  have max-width: 100%. The updated tablet nav was measured at clientWidth =
+  scrollWidth = 79px, eliminating its horizontal scrollbar.
+- Static peer review previously caught a clipped folder menu caused by toolbar
+  horizontal overflow. Controls wrap instead.
+- All 154 deterministic tests passed. Type checking, production compilation,
+  license checking and diff whitespace checking passed.
 
-## Visual QA remains pending
+## Scope and limits
 
-No before/after screenshots are included because no application render was
-successfully observed in a browser in this environment. The development server
-was unreachable from the available browser; local Chromium installation failed
-because its download did not contain a valid archive. The cloud browser then
-rejected opening the disposable local React fixture under its URL security
-policy. No policy workaround was attempted. This is an environment limitation,
-not evidence that the application works visually.
+This confirms the actual frontend render with synthetic API data, not a full
+Worker/Cloudflare integration test. Real sending, saving drafts, MCP/agent
+requests, mutation persistence, browser-history navigation and physical iPad
+Safari/touch/safe-area behavior were not tested here. Compose preservation
+through a live resize was not checked because changing fixture width remounts
+its iframe. The inspected browser error logs contained extension metadata
+errors; this is not an assertion of error-free production network behavior.
 
-Keep the PR in draft and keep the issue open until the following checks are
-completed in an environment with a working local browser. Use synthetic mail
-and redact any account identity before publishing screenshots.
-
-1. Run `npm run dev`; seed or use a non-production mailbox with read/unread mail,
-   stars, ordinary/disposition/error tags, long subjects/addresses, and a thread.
-2. Compare the base commit `24652d4` with this branch at 1024px and 1440px using
-   matched data; attach before/after screenshots to the PR.
-3. Check 768, 820, 1024, 1280, 1440, and 1536px: select mail and confirm both
-   panes remain visible; scroll each independently; verify selected border and
-   unread dot/weight, row hover actions, keyboard focus, and wrapped toolbar.
-4. Open Move to folder, Reply/Compose, tag filtering, pagination, and search;
-   check empty, loading, list error, detail error, and multi-message thread states.
-5. Check Agent/MCP overlay open/close at 768px and above; closing it must retain
-   the selected message. Verify `/` focuses search and Escape closes detail while
-   preserving existing compose and overlay safeguards.
-6. Check 767px and 390px: phone rows/navigation, message opening and browser Back,
-   previous/next, safe-area spacing, archive advancement, and compose persistence
-   during resize. Confirm sandboxed email body rendering remains unchanged.
-7. Confirm console/network behavior and then rerun the repository validation
-   commands before marking the PR ready and changing its reference to `Closes #65`.
+Shared mobile token aliases retain their previous literal values. Mobile
+component files and email sandbox rules were not changed. There are no backend,
+schema, API, binding or dependency changes, and no migration is required.
+Upstream synchronization must preserve the 768px split and existing mobile
+navigation/state behavior. No production deployment was performed.
 
 This implementation was assisted by Codex and GPT-6-Luna. No Gmail/Outlook
-source, branded assets, proprietary fonts, or third-party prototype code were
-imported. Human provenance/licensing review is still required before merge.
+source, branded assets, proprietary fonts or external prototype code was
+imported. Screenshot images are generated/derived evidence (class E); rendered
+dependency elements still require human rights review. Human code and
+provenance/licensing review remains required before merge.

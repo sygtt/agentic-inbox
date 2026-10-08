@@ -344,7 +344,7 @@ body {
   .desktop-compose-wrapper { padding: 12px 14px; }
   .desktop-compose { width: 52px; padding: 0; }
   .desktop-navigation-folders { padding: 0 12px 12px; }
-  .desktop-nav-item { width: 56px; min-height: 44px; padding: 10px; justify-content: center; }
+  .desktop-nav-item { width: 56px; max-width: 100%; min-height: 44px; padding: 10px; justify-content: center; }
   .desktop-nav-badge { position: absolute; right: 0; top: 0; border-radius: var(--m3-shape-full); background: var(--m3-primary); color: var(--m3-on-primary); font-size: 9px; line-height: 14px; min-width: 16px; padding: 0 3px; }
   .desktop-folder-heading { justify-content: center; padding: 0; }
 }

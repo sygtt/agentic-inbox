@@ -156,7 +156,7 @@ export default function Sidebar() {
 			{/* Compose */}
 			<div className="desktop-compose-wrapper px-3 py-3">
 				<Button
-					variant="primary"
+					variant="secondary"
 					icon={<PencilSimpleIcon size={16} />}
 					onClick={() => startCompose()}
 					className="desktop-compose w-full"
