@@ -102,6 +102,11 @@ export default function EmailPanel({
 	const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 	const [previewImage, setPreviewImage] = useState<{ url: string; filename: string } | null>(null);
 	const desktopPanelRef = useRef<HTMLDivElement>(null);
+	const desktopScrollRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		// Opening another message should always begin at its subject.
+		if (desktopScrollRef.current) desktopScrollRef.current.scrollTop = 0;
+	}, [emailId]);
 	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
 
 	useEffect(() => {
@@ -371,7 +376,7 @@ export default function EmailPanel({
 					onDelete={handleDelete}
 				/>
 
-				<div className="desktop-detail-scroll min-h-0 flex-1 overflow-y-auto">
+				<div ref={desktopScrollRef} className="desktop-detail-scroll min-h-0 flex-1 overflow-y-auto">
 					<EmailPanelHeader
 						subject={email.subject}
 						messageCount={allMessages.length}
