@@ -568,6 +568,54 @@ Real sending, draft persistence, Worker/MCP/Agent integration, browser-history n
 
 ---
 
+## Desktop reading and search ergonomics (2026-11-02)
+
+**Status:** Active
+
+### Why
+
+A large always-visible search field dominated the desktop header, and the
+single-message iframe scrolled independently below an immovable subject and
+AI analysis section. This fragmented long-message reading.
+
+### Behavior
+
+- At desktop/tablet widths (768px and above), the app chrome uses cool
+  neutral surfaces with a muted blue-green accent; mobile Material 3
+  colors stay unchanged and sandboxed email content remains white.
+- The desktop header is compact. Search opens on demand from the icon and
+  from the existing `/` keyboard shortcut. Existing server-side search
+  operators and search results routes are retained.
+- The toolbar stays outside the reading scroller; subject, AI判定詳細,
+  sender, verification code action, body, and attachments scroll together.
+- The single-message sandboxed iframe uses content-height sizing (matching
+  existing thread rendering). Delayed image or width changes trigger new
+  height reports without changing sandbox, DOMPurify, or CSP protections.
+
+### Main affected areas
+
+`app/index.css`, `app/components/Header.tsx`,
+`app/components/EmailPanel.tsx`,
+`app/components/email-panel/SingleMessageView.tsx`,
+and `app/components/EmailIframe.tsx`.
+
+### Configuration and persistence
+
+None. No API, schema, email routing, dependency, or Cloudflare binding changes.
+
+### Upstream synchronization risk
+
+Medium. The header and reader pane are shared with upstream. Preserve
+the existing mobile breakpoint and sandbox security settings.
+
+### Verification boundary
+
+Browser confirmation remains necessary for long HTML mail, expanding AI
+details, delayed images, pane resize, keyboard shortcuts, and tablet widths
+before deploying to production.
+
+---
+
 # Recently implemented customizations
 
 ## Catch-all mailbox aggregation
