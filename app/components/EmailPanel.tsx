@@ -371,15 +371,14 @@ export default function EmailPanel({
 					onDelete={handleDelete}
 				/>
 
-			<EmailPanelHeader
-				subject={email.subject}
-				messageCount={allMessages.length}
-				showThreadCount={hasThread}
-				mailboxId={mailboxId}
-				emailId={email.id}
-			/>
-
-			<div className="desktop-detail-scroll flex-1 overflow-y-auto">
+			<div className="desktop-detail-scroll min-h-0 flex-1 overflow-y-auto">
+				<EmailPanelHeader
+						subject={email.subject}
+						messageCount={allMessages.length}
+						showThreadCount={hasThread}
+						mailboxId={mailboxId}
+						emailId={email.id}
+					/>
 				{hasThread ? (
 					allMessages.map((msg, idx) => {
 						const isDraft = draftMessageIds.has(msg.id);
