@@ -371,8 +371,8 @@ export default function EmailPanel({
 					onDelete={handleDelete}
 				/>
 
-			<div className="desktop-detail-scroll min-h-0 flex-1 overflow-y-auto">
-				<EmailPanelHeader
+				<div className="desktop-detail-scroll min-h-0 flex-1 overflow-y-auto">
+					<EmailPanelHeader
 						subject={email.subject}
 						messageCount={allMessages.length}
 						showThreadCount={hasThread}
