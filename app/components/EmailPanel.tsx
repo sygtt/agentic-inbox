@@ -412,7 +412,8 @@ export default function EmailPanel({
 						onPreviewImage={(url, filename) =>
 							setPreviewImage({ url, filename })
 						}
-					/>
+					autoSizeBody
+				/>
 				)}
 			</div>
 
