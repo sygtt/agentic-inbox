@@ -99,7 +99,7 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 		// has zero access to the parent page — it can only postMessage.
 		const heightBridge = autoSize
 			? `function reportHeight() {
-					var h = document.body.scrollHeight;
+					var h = document.body.scrollHeight + (window.innerHeight - document.documentElement.clientHeight);
 					if (h > 0) parent.postMessage({ __emailIframeHeight: true, height: h }, "*");
 				}
 				reportHeight();
@@ -149,7 +149,7 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 html {
 	background: #ffffff;
 	color-scheme: light;
-	${autoSize ? "overflow: hidden;" : ""}
+	${autoSize ? "overflow-x: auto; overflow-y: hidden;" : ""}
 }
 body {
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -161,7 +161,6 @@ body {
 	margin: 0;
 	word-wrap: break-word;
 	overflow-wrap: break-word;
-	${autoSize ? "overflow: hidden;" : ""}
 }
 [style*="position: fixed"], [style*="position:fixed"], [style*="position: absolute"], [style*="position:absolute"] {
 	position: relative !important;

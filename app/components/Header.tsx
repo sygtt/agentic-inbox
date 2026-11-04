@@ -76,7 +76,7 @@ export default function Header() {
 	};
 
 	return (
-		<header ref={headerRef} className="desktop-header hidden md:flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-5">
+		<header ref={headerRef} className="desktop-header relative z-40 hidden md:flex items-center gap-3 border-b border-kumo-line bg-kumo-base px-5">
 			<div className="desktop-brand flex items-center gap-2 text-sm font-semibold tracking-tight text-kumo-default">
 				<span className="desktop-brand-mark" aria-hidden="true" />
 				Agentic Inbox
