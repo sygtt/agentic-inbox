@@ -226,6 +226,19 @@ body {
    layout/density rules outside the phone tree and the sandboxed email body. */
 @media (min-width: 768px) {
   .desktop-shell, .desktop-dialog {
+    /* Desktop-only cool-neutral palette, retaining the established mobile colors. */
+    --m3-surface: #fcfdfe;
+    --m3-surface-container-low: #f4f7f8;
+    --m3-surface-container: #edf2f4;
+    --m3-surface-container-high: #e5ecef;
+    --m3-on-surface: #1e2b33;
+    --m3-on-surface-variant: #52636b;
+    --m3-primary: #356d78;
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: #dbecef;
+    --m3-on-primary-container: #204c56;
+    --m3-outline: #798b94;
+    --m3-outline-variant: #d6e0e4;
     color-scheme: light;
     --color-kumo-base: var(--m3-surface);
     --color-kumo-recessed: var(--m3-surface-container-low);
@@ -258,10 +271,15 @@ body {
   .desktop-shell :is(button, a, input, select, textarea, [role="button"]):focus-visible,
   .desktop-dialog :is(button, input):focus-visible { outline: 2px solid var(--m3-primary); outline-offset: -2px; }
   .desktop-shell :is(button, input, select, textarea):disabled { opacity: .38; cursor: not-allowed; }
-  .desktop-header { min-height: 64px; padding: 8px 20px; background: var(--m3-surface-container); border-color: var(--m3-outline-variant); }
-  .desktop-search { max-width: 720px; gap: 8px; }
-  .desktop-search-input { min-height: 44px; border: 0; border-radius: var(--m3-shape-full); background: var(--m3-surface-container-high); color: var(--m3-on-surface); box-shadow: none; font: var(--m3-type-body); padding-inline: 18px 32px; }
-  .desktop-search-input:focus { outline: 2px solid var(--m3-primary); }
+  .desktop-header { min-height: 52px; padding: 8px 20px; background: var(--m3-surface-container-low); border-color: var(--m3-outline-variant); }
+  .desktop-brand { color: var(--m3-on-surface); letter-spacing: -.01em; }
+  .desktop-brand-mark { width: 9px; height: 9px; border-radius: 3px; background: var(--m3-primary); }
+  .desktop-search-popover { width: min(26rem, calc(100vw - 2rem)); background: var(--m3-surface); box-shadow: var(--m3-elevation-3); }
+  .desktop-search-form { background: var(--m3-surface-container-low); }
+  .desktop-search-form:focus-within { outline: 2px solid var(--m3-primary); outline-offset: 1px; }
+  .desktop-search-input { min-height: 38px; border: 0; outline: none; background: transparent; color: var(--m3-on-surface); box-shadow: none; font: var(--m3-type-body); }
+  .desktop-search-input:focus { outline: none; }
+  .desktop-search-submit { background: var(--m3-primary); color: var(--m3-on-primary) !important; }
   .desktop-header button { border-radius: var(--m3-shape-full); color: var(--m3-on-surface-variant); }
   .desktop-agent-toggle[aria-expanded="true"] { background: var(--m3-primary-container); color: var(--m3-on-primary-container); }
   .desktop-navigation-wrapper { width: 232px; flex-shrink: 0; }

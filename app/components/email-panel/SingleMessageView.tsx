@@ -15,6 +15,7 @@ interface SingleMessageViewProps {
 	mailboxId?: string;
 	onPreviewImage: (url: string, filename: string) => void;
 	showHeader?: boolean;
+	autoSizeBody?: boolean;
 }
 
 export default function SingleMessageView({
@@ -22,9 +23,10 @@ export default function SingleMessageView({
 	mailboxId,
 	onPreviewImage,
 	showHeader = true,
+	autoSizeBody = false,
 }: SingleMessageViewProps) {
 	return (
-		<div className="desktop-detail-message flex flex-col h-full">
+		<div className={`desktop-detail-message flex flex-col ${autoSizeBody ? "" : "h-full"}`}>
 			{showHeader && <div className="desktop-detail-message-header px-4 py-4 border-b border-kumo-line md:px-5 lg:px-6">
 				<div className="flex items-center justify-between gap-3">
 					<div className="flex items-center gap-2.5 min-w-0">
@@ -54,7 +56,7 @@ export default function SingleMessageView({
 				body={email.body}
 			/>
 
-			<div className="desktop-detail-message-body flex-1 min-h-0">
+			<div className={`desktop-detail-message-body ${autoSizeBody ? "w-full" : "flex-1 min-h-0"}`}>
 				<EmailIframe
 					body={rewriteInlineImages(
 						email.body || "",
@@ -62,6 +64,7 @@ export default function SingleMessageView({
 						email.id,
 						email.attachments,
 					)}
+					autoSize={autoSizeBody}
 				/>
 			</div>
 
