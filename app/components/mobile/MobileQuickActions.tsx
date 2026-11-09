@@ -56,7 +56,7 @@ export default function MobileQuickActions({
 	onDelete,
 }: {
 	open: boolean;
-	email: { read: boolean; starred: boolean; thread_unread_count?: number };
+	email: { read: boolean; starred: boolean; is_draft?: number | boolean; thread_unread_count?: number };
 	unread?: boolean;
 	isArchived: boolean;
 	isTrash?: boolean;
@@ -73,12 +73,12 @@ export default function MobileQuickActions({
 	return (
 		<MobileBottomSheet open={open} title="Quick actions" onClose={onClose}>
 			<div className="space-y-1">
-				<ActionButton
+				{!email.is_draft && <ActionButton
 					label={isTrash ? "Restore to Inbox" : isArchived ? "Move to Inbox" : "Archive"}
 					icon={isTrash || isArchived ? <FolderSimpleIcon size={20} /> : <ArchiveIcon size={20} />}
 					onClick={isTrash || isArchived ? onMoveToInbox : onArchive}
 					disabled={threadActionsDisabled}
-				/>
+				/>}
 				<ActionButton
 					label={unread ? "Mark read" : "Mark unread"}
 					icon={unread ? <EnvelopeOpenIcon size={20} /> : <EnvelopeSimpleIcon size={20} />}

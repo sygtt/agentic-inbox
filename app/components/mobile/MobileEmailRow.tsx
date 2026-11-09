@@ -82,7 +82,7 @@ export default function MobileEmailRow({
 			horizontal.current = true;
 			clearLongPress();
 			suppressClick.current = true;
-			setOffset(clampMobileSwipe(dx));
+			setOffset(email.is_draft ? Math.max(0, clampMobileSwipe(dx)) : clampMobileSwipe(dx));
 		}
 	};
 

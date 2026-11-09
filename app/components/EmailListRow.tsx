@@ -136,13 +136,13 @@ export default function EmailListRow({
 				)}
 			</div>
 			<div className="desktop-row-actions pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md bg-kumo-tint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-				<Tooltip content={archiveLabel} asChild>
+				{!email.is_draft && <Tooltip content={archiveLabel} asChild>
 					<Button variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={14} />} disabled={isBusy} aria-label={archiveLabel} onClick={(event) => {
 						event.preventDefault();
 						event.stopPropagation();
 						onArchive(email);
 					}} />
-				</Tooltip>
+				</Tooltip>}
 				<Tooltip content={readLabel} asChild>
 					<Button variant="ghost" shape="square" size="sm" icon={unread ? <EnvelopeOpenIcon size={14} /> : <EnvelopeSimpleIcon size={14} />} disabled={isBusy} aria-label={readLabel} onClick={(event) => {
 						event.preventDefault();
