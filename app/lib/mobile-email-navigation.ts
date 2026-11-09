@@ -7,10 +7,16 @@ export interface MobileEmailNeighborIds {
 export type MobileArchiveSuccessAction =
 	| { type: "none" }
 	| { type: "close" }
+	| { type: "empty" }
 	| { type: "navigate"; emailId: string };
 
 export function isEmailStillSelected(selectedEmailId: string | null, emailId: string): boolean {
 	return selectedEmailId === emailId;
+}
+
+export function getArchiveListIdentity(mailboxId: string | undefined, params: Record<string, string>, manualPageVersion: number): string {
+	const { page: _page, ...filters } = params;
+	return JSON.stringify([mailboxId, filters, manualPageVersion]);
 }
 
 /** Keep archive completion behavior scoped to the still-selected email. */
@@ -19,15 +25,18 @@ export function getMobileArchiveSuccessAction({
 	selectedEmailId,
 	archivedEmailId,
 	nextEmailId,
+	previousEmailId = null,
 }: {
 	isMobileViewport: boolean;
 	selectedEmailId: string | null;
 	archivedEmailId: string;
 	nextEmailId: string | null;
+	previousEmailId?: string | null;
 }): MobileArchiveSuccessAction {
 	if (!isEmailStillSelected(selectedEmailId, archivedEmailId)) return { type: "none" };
-	if (!isMobileViewport || !nextEmailId) return { type: "close" };
-	return { type: "navigate", emailId: nextEmailId };
+	if (nextEmailId) return { type: "navigate", emailId: nextEmailId };
+	if (isMobileViewport) return { type: "close" };
+	return previousEmailId ? { type: "navigate", emailId: previousEmailId } : { type: "empty" };
 }
 
 export function shouldMarkUrlSelectedEmailRead({

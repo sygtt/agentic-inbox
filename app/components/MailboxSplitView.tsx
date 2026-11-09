@@ -14,12 +14,13 @@ interface MailboxSplitViewProps {
 	selectedEmailId: string | null;
 	isComposing: boolean;
 	onCloseEmail?: () => void;
+	showEmptyDetail?: boolean;
 	mobileEmailNavigation?: {
 		previousEmailId: string | null;
 		nextEmailId: string | null;
 		onNavigate: (emailId: string) => void;
 		onUrlEmailLoaded: (email: Email) => void;
-		onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null) => void;
+		onArchiveSuccess: (archivedEmailId: string, nextEmailId: string | null, previousEmailId: string | null) => void;
 	};
 	children: ReactNode;
 }
@@ -28,6 +29,7 @@ export default function MailboxSplitView({
 	selectedEmailId,
 	isComposing,
 	onCloseEmail,
+	showEmptyDetail = false,
 	mobileEmailNavigation,
 	children,
 }: MailboxSplitViewProps) {
@@ -40,21 +42,21 @@ export default function MailboxSplitView({
 		onUrlEmailLoaded: () => {},
 		onArchiveSuccess: () => closePanel(),
 	};
-	const isPanelOpen = selectedEmailId !== null || isComposing;
+	const isPanelOpen = selectedEmailId !== null || isComposing || showEmptyDetail;
 
 	return (
 		<div className="flex h-full">
 			<div
 				className={`flex flex-col min-w-0 shrink-0 ${
 					isPanelOpen
-						? "hidden md:flex md:w-[280px] md:border-r md:border-kumo-line lg:w-[320px] xl:w-[400px] 2xl:w-[440px] md:shrink-0"
+						? `${showEmptyDetail && !selectedEmailId && !isComposing ? "flex" : "hidden"} md:flex md:w-[280px] md:border-r md:border-kumo-line lg:w-[320px] xl:w-[400px] 2xl:w-[440px] md:shrink-0`
 						: "w-full"
 				}`}
 			>
 				{children}
 			</div>
 			{isPanelOpen && (
-				<div className="desktop-detail flex-1 flex flex-col min-w-0 overflow-hidden w-full md:w-auto">
+				<div className={`desktop-detail flex-1 flex-col min-w-0 overflow-hidden w-full md:w-auto ${showEmptyDetail && !selectedEmailId && !isComposing ? "hidden md:flex" : "flex"}`}>
 					{isComposing && !selectedEmailId ? (
 						<ComposePanel onSendSuccess={closeEmail} />
 					) : isComposing && selectedEmailId ? (
@@ -66,7 +68,7 @@ export default function MailboxSplitView({
 						</div>
 					) : selectedEmailId ? (
 						<EmailPanel emailId={selectedEmailId} onClose={closeEmail} mobileEmailNavigation={navigation} />
-					) : null}
+					) : <p className="m-auto p-6 text-sm text-kumo-subtle">表示するメールがありません</p>}
 				</div>
 			)}
 		</div>

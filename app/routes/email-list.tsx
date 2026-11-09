@@ -39,6 +39,7 @@ import MobileEmailRow from "~/components/mobile/MobileEmailRow";
 import MobileQuickActions from "~/components/mobile/MobileQuickActions";
 import MobileTagSheet from "~/components/mobile/MobileTagSheet";
 import {
+	getArchiveListIdentity,
 	getMobileArchiveSuccessAction,
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
@@ -195,6 +196,7 @@ export default function EmailListRoute() {
 	const [page, setPage] = useState(1);
 	const [mobileFilter, setMobileFilter] = useState<"all" | "needs">("all");
 	const [selectedTag, setSelectedTag] = useState<string>();
+	const [showEmptyDetail, setShowEmptyDetail] = useState(false);
 	const [isMobileViewport, setIsMobileViewport] = useState(false);
 	const isMobileViewportRef = useRef(false);
 	const [quickActionEmail, setQuickActionEmail] = useState<Email | null>(null);
@@ -265,6 +267,17 @@ export default function EmailListRoute() {
 	} = useEmails(mailboxId, params, { refetchInterval: 30_000 });
 
 	const emails = emailData?.emails ?? [];
+	const manualPageVersionRef = useRef(0);
+	const manualPageVersion = manualPageVersionRef.current;
+	const listIdentity = getArchiveListIdentity(mailboxId, params, manualPageVersion);
+	const listIdentityRef = useRef(listIdentity);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => { mountedRef.current = false; };
+	}, []);
+	listIdentityRef.current = listIdentity;
+	useEffect(() => setShowEmptyDetail(false), [listIdentity]);
 	const totalCount = emailData?.totalCount ?? 0;
 	const pageCount = getListPageCount(totalCount, PAGE_SIZE);
 	const { start: pageStart, end: pageEnd } = getListPageRange(Math.min(page, pageCount), PAGE_SIZE, totalCount);
@@ -504,6 +517,7 @@ export default function EmailListRoute() {
 	}, [emails, handleUrlEmailLoaded, urlSelectedEmailId]);
 
 	const handleRowClick = (email: Email) => {
+		setShowEmptyDetail(false);
 		if (isMobileViewport) setUrlSelectedEmailId(email.id, false, true);
 		else if (searchParams.has("email")) setUrlSelectedEmailId(null, true);
 		selectEmail(email.id);
@@ -517,12 +531,45 @@ export default function EmailListRoute() {
 		if (email) markEmailReadOnce(email);
 	};
 
-	const handleArchiveSuccess = (archivedEmailId: string, nextEmailId: string | null) => {
+	const handleArchiveSuccess = async (archivedEmailId: string, nextEmailId: string | null, previousEmailId: string | null) => {
+		if (!mountedRef.current || listIdentityRef.current !== listIdentity || manualPageVersionRef.current !== manualPageVersion || !isEmailStillSelected(useUIStore.getState().selectedEmailId, archivedEmailId) || useUIStore.getState().isComposing) return;
+		const identity = listIdentity;
+		if (!isMobileViewportRef.current) {
+			const refreshed = await refetch();
+			if (!mountedRef.current || listIdentityRef.current !== identity || manualPageVersionRef.current !== manualPageVersion || !isEmailStillSelected(useUIStore.getState().selectedEmailId, archivedEmailId) || useUIStore.getState().isComposing) return;
+			const remaining = refreshed.isError ? [] : refreshed.data?.emails ?? [];
+			const action = getMobileArchiveSuccessAction({
+				isMobileViewport: isMobileViewportRef.current,
+				selectedEmailId: useUIStore.getState().selectedEmailId,
+				archivedEmailId,
+				nextEmailId: remaining.some((email) => email.id === nextEmailId) ? nextEmailId : null,
+				previousEmailId: remaining.some((email) => email.id === previousEmailId) ? previousEmailId : null,
+			});
+			const candidate = action.type === "navigate" ? remaining.find((email) => email.id === action.emailId) : undefined;
+			if (candidate && isMobileViewportRef.current) navigateMobileEmail(candidate.id);
+			else if (candidate) {
+				setShowEmptyDetail(false);
+				setUrlSelectedEmailId(null, true);
+				selectEmail(candidate.id);
+				markEmailReadOnce(candidate);
+			}
+			else if (action.type === "close") {
+				setUrlSelectedEmailId(null, true);
+				closePanel();
+			}
+			else {
+				selectEmail(null);
+				setUrlSelectedEmailId(null, true);
+				setShowEmptyDetail(true);
+			}
+			return;
+		}
 		const action = getMobileArchiveSuccessAction({
 			isMobileViewport: isMobileViewportRef.current,
 			selectedEmailId: useUIStore.getState().selectedEmailId,
 			archivedEmailId,
 			nextEmailId,
+			previousEmailId,
 		});
 		if (action.type === "navigate") navigateMobileEmail(action.emailId);
 		else if (action.type === "close") closeEmailPanel();
@@ -538,6 +585,11 @@ export default function EmailListRoute() {
 	};
 
 	const needsReplyCount = needsReplyData?.totalCount ?? 0;
+	const changePage: typeof setPage = (nextPage) => {
+		manualPageVersionRef.current += 1;
+		setShowEmptyDetail(false);
+		setPage(nextPage);
+	};
 	const allFolderCount = allFolderData?.totalCount ?? totalCount;
 	const mobileEmails = emails;
 	const handleTagSelect = (tag?: string) => {
@@ -554,6 +606,7 @@ export default function EmailListRoute() {
 		<MailboxSplitView
 			selectedEmailId={selectedEmailId}
 			isComposing={isComposing}
+			showEmptyDetail={showEmptyDetail}
 			onCloseEmail={closeEmailPanel}
 			mobileEmailNavigation={{
 				...mobileEmailNeighbors,
@@ -583,7 +636,7 @@ export default function EmailListRoute() {
 					<div className="mobile-scroll min-h-0 flex-1 overflow-y-auto pb-20" aria-busy={isRefreshing}>
 						{isRefreshing && emails.length === 0 ? <EmailListSkeleton /> : isError ? <p className="m-4 rounded-lg bg-kumo-destructive/10 p-3 text-sm text-kumo-destructive" role="alert">Could not load this folder.</p> : mobileEmails.length > 0 ? mobileEmails.map((email) => <MobileEmailRow key={email.id} email={email} selected={selectedEmailId === email.id} onOpen={() => handleRowClick(email)} onArchive={() => handleArchive(email)} onToggleRead={() => handleToggleRead(email)} onToggleStar={() => updateEmail.mutate({ mailboxId: mailboxId!, id: email.id, data: { starred: !email.starred } })} onLongPress={() => setQuickActionEmail(email)} />) : selectedTag ? <TagFilterEmptyState tag={selectedTag} onClear={() => handleTagSelect(undefined)} /> : <FolderEmptyState folder={folder} onCompose={() => startCompose()} />}
 					</div>
-					{totalCount > PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={setPage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
+					{totalCount > PAGE_SIZE && <div className="mobile-pager mb-20 flex justify-center border-t border-kumo-line bg-kumo-base py-3"><Pagination page={page} setPage={changePage} perPage={PAGE_SIZE} totalCount={totalCount} /></div>}
 				</div>
 				<div className="desktop-list hidden h-full min-w-0 flex-col md:flex">
 				{/* Folder header */}
@@ -627,7 +680,7 @@ export default function EmailListRoute() {
 									icon={<CaretLeftIcon size={18} />}
 									disabled={page <= 1}
 									aria-label="Previous page"
-									onClick={() => setPage((current) => current - 1)}
+									onClick={() => changePage((current) => current - 1)}
 								/>
 								<span className="whitespace-nowrap text-xs text-kumo-subtle tabular-nums">
 									{pageStart}–{pageEnd} of {totalCount}
@@ -639,7 +692,7 @@ export default function EmailListRoute() {
 									icon={<CaretRightIcon size={18} />}
 									disabled={pageEnd >= totalCount}
 									aria-label="Next page"
-									onClick={() => setPage((current) => current + 1)}
+									onClick={() => changePage((current) => current + 1)}
 								/>
 							</>
 						)}
@@ -671,8 +724,9 @@ export default function EmailListRoute() {
 									onToggleStar={toggleStar}
 									onToggleRead={handleToggleRead}
 									onArchive={async (archivedEmail) => {
+										const { nextEmailId, previousEmailId } = getMobileEmailNeighborIds(emails, archivedEmail.id);
 										const moved = await handleArchive(archivedEmail);
-										if (moved && useUIStore.getState().selectedEmailId === archivedEmail.id) closeEmailPanel();
+										if (moved) void handleArchiveSuccess(archivedEmail.id, nextEmailId, previousEmailId);
 									}}
 									onDelete={handleDelete}
 								/>

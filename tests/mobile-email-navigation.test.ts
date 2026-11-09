@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	getArchiveListIdentity,
 	getMobileArchiveSuccessAction,
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
@@ -13,6 +14,15 @@ import {
 } from "../app/lib/mobile-email-navigation.ts";
 
 const emails = [{ id: "newest" }, { id: "middle" }, { id: "oldest" }];
+
+test("automatic page correction preserves archive identity while user navigation and filters change it", () => {
+	const params = { folder: "inbox", page: "2", limit: "25" };
+	const identity = getArchiveListIdentity("mailbox", params, 0);
+	assert.equal(getArchiveListIdentity("mailbox", { ...params, page: "1" }, 0), identity);
+	assert.notEqual(getArchiveListIdentity("mailbox", { ...params, page: "1" }, 1), identity);
+	assert.notEqual(getArchiveListIdentity("mailbox", { ...params, folder: "archive" }, 0), identity);
+	assert.notEqual(getArchiveListIdentity("other", params, 0), identity);
+});
 
 test("finds neighboring emails in the currently loaded list order", () => {
 	assert.deepEqual(getMobileEmailNeighborIds(emails, "middle"), {
@@ -36,7 +46,7 @@ test("disables navigation at either list edge and for an email outside the loade
 	});
 });
 
-test("advances only mobile archive completion and closes the desktop detail", () => {
+test("advances archive completion while respecting viewport and current selection", () => {
 	const selectedArchive = {
 		isMobileViewport: true,
 		selectedEmailId: "archived",
@@ -44,7 +54,9 @@ test("advances only mobile archive completion and closes the desktop detail", ()
 		nextEmailId: "next",
 	};
 	assert.deepEqual(getMobileArchiveSuccessAction(selectedArchive), { type: "navigate", emailId: "next" });
-	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, isMobileViewport: false }), { type: "close" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, isMobileViewport: false }), { type: "navigate", emailId: "next" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, isMobileViewport: false, nextEmailId: null, previousEmailId: "previous" }), { type: "navigate", emailId: "previous" });
+	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, isMobileViewport: false, nextEmailId: null }), { type: "empty" });
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, nextEmailId: null }), { type: "close" });
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: "another-email" }), { type: "none" });
 	assert.deepEqual(getMobileArchiveSuccessAction({ ...selectedArchive, selectedEmailId: null }), { type: "none" });
