@@ -176,7 +176,7 @@ body {
   .mobile-detail-header .text-kumo-default { color: var(--mobile-on-surface); }
   .mobile-detail-header .text-kumo-subtle { color: var(--mobile-on-variant); }
   .mobile-detail-body { background: var(--mobile-surface); }
-  .mobile-detail-body > .flex.h-full { height: 60dvh; min-height: 360px; }
+  .mobile-detail-body .desktop-detail-message-body { padding: 16px; }
   .mobile-detail-body :is(button, summary) { min-height: 48px; }
   .mobile-detail-body button { border-radius: var(--mobile-shape-medium); }
   .mobile-detail-body [aria-label="Collapse message"] { min-width: 48px; }

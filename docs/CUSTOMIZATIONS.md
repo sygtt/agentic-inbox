@@ -211,9 +211,10 @@ visual treatment without replacing their behavior.
 - Uses shared Material 3 tokens in `app/index.css` and restyles existing screens
   with the existing Kumo components/styles, Phosphor icons, and Tailwind, using
   a fixed light color scheme; no dark-mode feature is added.
-- Existing mailbox routes and action handlers are preserved. The `EmailIframe`
-  component and sandboxed email rendering are unchanged; the surrounding mobile
-  email container height is controlled by CSS.
+- Existing mailbox routes and action handlers are preserved. Single-message
+  bodies use the existing sandboxed iframe's content-height sizing so the
+  subject, analysis, body, and attachments scroll together; the toolbar and
+  bottom actions remain fixed. Thread bodies already use content-height sizing.
 - No configuration, persistence, or migration changes.
 
 ### Files modified in this branch
