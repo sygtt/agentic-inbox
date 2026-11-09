@@ -209,6 +209,7 @@ Stores message metadata and body content, including:
 - original Message-ID
 - raw parsed headers
 - `trashed_at`, set when a message enters Trash and cleared when restored
+- `is_draft`, set when a draft is created and used to protect its identity
 
 ### `attachments`
 
@@ -260,6 +261,8 @@ The migration runner keeps a `d1_migrations` compatibility table and applies mis
 Current migrations include initial tables, threading fields, Drafts folder, Message-ID/raw-header storage, sent-mail read state, cc/bcc columns, query indexes, the nullable SMTP envelope-recipient column, the additive email-tags table, the nullable Trash timestamp with existing Trash backfill, structured inbound email triage analysis, append-only manual triage feedback, and a separate triage-failure table that preserves pre-existing tags.
 
 Schema changes are production-sensitive. Existing Durable Objects may already contain real data, so prefer additive migrations and test migration from an existing schema.
+
+Migration `17_add_draft_identity` marks only messages currently in Drafts as drafts; it does not infer older drafts from other folders. New drafts are marked on creation. MailboxDO rejects moving drafts out or ordinary mail into Drafts, including thread moves; sending and discarding retain their existing paths. Rolling back to an older Worker after migration can create unmarked drafts and must be avoided without a reconciliation plan.
 
 ## R2 layout
 

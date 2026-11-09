@@ -15,6 +15,7 @@ import { applyMigrations, mailboxMigrations } from "./migrations";
 import { createEmailSnippet } from "../lib/email-content";
 import { AVAILABLE_EMAIL_TAGS_SQL, emailTagExistsSql } from "../lib/email-tag-filter";
 import { canPermanentlyDelete, getTrashTimestamp, TRASH_PURGE_BATCH_SIZE } from "../lib/trash";
+import { canMoveEmail, canMoveThread } from "./draft-move";
 import { decideDisposition, TRIAGE_POLICY_VERSION, type TriagePolicy, type PersistedEmailTriageResult } from "../lib/email-triage";
 import { readTriagePolicy, updateTriagePolicy, compareTriageEmails, reapplyTriagePolicy } from "./triage-policy";
 import { TRIAGE_ERROR_TAG } from "../lib/email-tags";
@@ -243,6 +244,7 @@ export class MailboxDO extends DurableObject<Env> {
 				email_references: schema.emails.email_references,
 				thread_id: schema.emails.thread_id,
 				folder_id: schema.emails.folder_id,
+				is_draft: schema.emails.is_draft,
 				has_attachment: sql<number>`EXISTS (SELECT 1 FROM attachments WHERE email_id = ${schema.emails.id})`,
 			})
 			.from(schema.emails)
@@ -334,7 +336,7 @@ export class MailboxDO extends DurableObject<Env> {
 				`WITH
 				folder_emails AS (
 					SELECT id, subject, sender, recipient, date, read, starred,
-						thread_id, folder_id, in_reply_to, email_references,
+						thread_id, folder_id, is_draft, in_reply_to, email_references,
 						EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = emails.id) as has_attachment,
 						CASE WHEN ?4 IS NULL THEN 0 ELSE ${emailTagExistsSql("emails.id", "?4")} END as tag_match,
 						COALESCE(in_reply_to, id) as draft_group_key
@@ -363,7 +365,7 @@ export class MailboxDO extends DurableObject<Env> {
 				)
 				SELECT
 					lp.id, lp.subject, lp.sender, lp.recipient, lp.date,
-					lp.read, lp.starred, lp.thread_id, lp.folder_id,
+					lp.read, lp.starred, lp.thread_id, lp.folder_id, lp.is_draft,
 					lp.in_reply_to, lp.email_references,
 					ds.thread_count, ds.thread_unread_count, ds.participants, ds.has_attachment
 				FROM latest_per_group lp
@@ -394,7 +396,7 @@ export class MailboxDO extends DurableObject<Env> {
 			`WITH
 			folder_emails AS (
 				SELECT id, subject, sender, recipient, date, read, starred,
-					thread_id, folder_id, in_reply_to, email_references,
+					thread_id, folder_id, is_draft, in_reply_to, email_references,
 					COALESCE(thread_id, id) as raw_thread_id,
 					${NORMALIZED_SUBJECT_SQL} as normalized_subject,
 					${PARTICIPANT_KEY_SQL} as participant_key
@@ -474,7 +476,7 @@ export class MailboxDO extends DurableObject<Env> {
 			)
 			SELECT
 				lif.id, lif.subject, lif.sender, lif.recipient, lif.date,
-				lif.read, lif.starred, lif.thread_id, lif.folder_id,
+				lif.read, lif.starred, lif.thread_id, lif.folder_id, lif.is_draft,
 				lif.in_reply_to, lif.email_references,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
 				cs.has_attachment,
@@ -1103,11 +1105,12 @@ export class MailboxDO extends DurableObject<Env> {
 
 		if (!folder) return false;
 		const email = this.db
-			.select({ folder_id: schema.emails.folder_id, trashed_at: schema.emails.trashed_at })
+			.select({ folder_id: schema.emails.folder_id, is_draft: schema.emails.is_draft, trashed_at: schema.emails.trashed_at })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, id))
 			.get();
 		if (!email) return false;
+		if (!canMoveEmail(email.is_draft, folder.id)) return false;
 
 		this.db
 			.update(schema.emails)
@@ -1149,6 +1152,7 @@ export class MailboxDO extends DurableObject<Env> {
 		])];
 		if (!target && memberIds.length === 0) return false;
 		if (memberIds.some((id) => this.purgingTrashIds.has(id))) return false;
+		if (!canMoveThread(this.ctx.storage.sql, target?.folder_id === sourceFolderId ? [...memberIds, target.id] : memberIds, sourceFolderId, folder.id)) return false;
 		const preserveTrashTimestamp = sourceFolderId === Folders.TRASH && folder.id === Folders.TRASH;
 		const trashedAt = getTrashTimestamp(sourceFolderId, folder.id, null);
 
@@ -1246,7 +1250,7 @@ export class MailboxDO extends DurableObject<Env> {
 			SELECT e.id, e.subject, e.sender, e.recipient, e.cc, e.bcc, e.date,
 				e.envelope_recipient,
 				e.read, e.starred, e.in_reply_to, e.email_references,
-				e.thread_id, e.folder_id,
+				e.thread_id, e.folder_id, e.is_draft,
 				EXISTS (SELECT 1 FROM attachments a WHERE a.email_id = e.id) as has_attachment,
 				f.name as folder_name
 			FROM emails e
@@ -1388,6 +1392,7 @@ export class MailboxDO extends DurableObject<Env> {
 			.values({
 				id: email.id,
 				folder_id: folderId,
+				is_draft: folderId === Folders.DRAFT ? 1 : 0,
 				subject: email.subject,
 				sender: email.sender,
 				recipient: email.recipient,

@@ -107,7 +107,7 @@ export default function EmailPanel({
 		// Opening another message should always begin at its subject.
 		if (desktopScrollRef.current) desktopScrollRef.current.scrollTop = 0;
 	}, [emailId]);
-	const isDraftFolder = folder === Folders.DRAFT || email?.folder_id === Folders.DRAFT;
+	const isDraftFolder = !!email?.is_draft;
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -157,7 +157,7 @@ export default function EmailPanel({
 
 	const draftMessageIds = useMemo(() => {
 		const ids = new Set<string>();
-		for (const msg of allMessages) { if (msg.folder_id === Folders.DRAFT) ids.add(msg.id); else if (isDraftFolder && msg.id === emailId) ids.add(msg.id); }
+		for (const msg of allMessages) { if (msg.is_draft) ids.add(msg.id); else if (isDraftFolder && msg.id === emailId) ids.add(msg.id); }
 		return ids;
 	}, [allMessages, isDraftFolder, emailId]);
 
@@ -169,7 +169,7 @@ export default function EmailPanel({
 		return nonDrafts.length > 0 ? nonDrafts[0] : email;
 	}, [allMessages, draftMessageIds, currentMailbox?.email, email]);
 
-	const moveToFolders = useMemo(() => { const cur = folder || email?.folder_id; return folders.filter((f) => f.id !== cur); }, [folders, folder, email?.folder_id]);
+	const moveToFolders = useMemo(() => { const cur = folder || email?.folder_id; return folders.filter((f) => f.id !== cur && f.id !== Folders.DRAFT); }, [folders, folder, email?.folder_id]);
 
 	if (!email) {
 		if (isEmailError || !mailboxId) return <EmailPanelLoadError onClose={onClose} />;
@@ -369,7 +369,7 @@ export default function EmailPanel({
 						})
 					}
 					onForward={() => startCompose({ mode: "forward", originalEmail: email })}
-					onArchive={handleArchive}
+					onArchive={isDraftFolder ? undefined : handleArchive}
 					onToggleStar={toggleStar}
 					onToggleRead={handleToggleRead}
 					onMove={handleMove}

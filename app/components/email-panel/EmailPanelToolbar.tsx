@@ -194,7 +194,7 @@ export default function EmailPanelToolbar({
 				/>
 			</Tooltip>
 
-			<MoveToFolderMenu folders={moveToFolders} onMove={onMove} disabled={threadActionsDisabled} />
+			{!isDraftFolder && <MoveToFolderMenu folders={moveToFolders} onMove={onMove} disabled={threadActionsDisabled} />}
 
 			<div className="ml-auto flex items-center gap-0.5">
 				<Tooltip content="View source" side="bottom" asChild>

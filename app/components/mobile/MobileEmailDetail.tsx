@@ -111,7 +111,7 @@ export default function MobileEmailDetail({
 				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowUpIcon size={24} />} onClick={() => previousEmailId && onNavigate(previousEmailId)} disabled={!previousEmailId} aria-label="Email above" />
 				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArrowDownIcon size={24} />} onClick={() => nextEmailId && onNavigate(nextEmailId)} disabled={!nextEmailId} aria-label="Email below" />
 				<div className="min-w-0 flex-1" />
-				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={24} />} onClick={isTrash ? () => onMove(Folders.INBOX) : onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isTrash ? "Restore to Inbox" : isArchived ? "Move to inbox" : "Archive"} />
+				{!isDraftFolder && <Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<ArchiveIcon size={24} />} onClick={isTrash ? () => onMove(Folders.INBOX) : onArchive} disabled={isDeleting || threadActionsDisabled} aria-label={isTrash ? "Restore to Inbox" : isArchived ? "Move to inbox" : "Archive"} />}
 				<Button className="mobile-icon-button" variant="ghost" shape="square" size="sm" icon={<DotsThreeIcon size={24} />} onClick={() => setQuickActionsOpen(true)} aria-label="More actions" />
 			</div>
 
@@ -144,7 +144,7 @@ export default function MobileEmailDetail({
 				</div>
 				<div className="mobile-detail-body">
 				{hasThread ? allMessages.map((message, index) => {
-					const isDraft = message.folder_id === Folders.DRAFT || (isDraftFolder && message.id === email.id);
+					const isDraft = !!message.is_draft || (isDraftFolder && message.id === email.id);
 					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} showTriageErrorBadge={message.id !== email.id} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
 				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} />}
 				</div>

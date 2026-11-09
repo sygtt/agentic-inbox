@@ -232,6 +232,20 @@ rules scoped to the mobile breakpoint.
 Reduce or remove this layer if upstream provides an equivalent mobile visual
 treatment while preserving these routes and actions.
 
+## Draft identity and folder protection
+
+**Status:** Active
+
+Drafts stay in Drafts until sent or discarded. Migration `17_add_draft_identity`
+marks only existing messages currently in Drafts; messages in other folders
+are not inferred to be drafts. New drafts are marked on creation. The mailbox
+rejects moving drafts out and ordinary mail into Drafts, including thread and
+MCP moves; desktop and mobile hide the corresponding controls. A rollback to
+older Worker code can create unmarked drafts and needs a reconciliation plan.
+The additive migration runs on mailbox initialization; no configuration changes
+are required. Upstream changes to email creation, folder moves, or the mailbox
+migration sequence may require reconciliation.
+
 ## Trash-first deletion and 30-day retention
 
 **Status:** Active

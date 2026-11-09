@@ -296,4 +296,11 @@ export const mailboxMigrations: Migration[] = [
  created_at TEXT NOT NULL
  );`),
  },
+	{
+		name: "17_add_draft_identity",
+		sql: txn(`
+			ALTER TABLE emails ADD COLUMN is_draft INTEGER NOT NULL DEFAULT 0 CHECK (is_draft IN (0, 1));
+			UPDATE emails SET is_draft = 1 WHERE folder_id = 'draft';
+		`),
+	},
 ];
