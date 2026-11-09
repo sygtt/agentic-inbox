@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	getArchiveListIdentity,
 	getMobileArchiveSuccessAction,
 	getMobileEmailNeighborIds,
 	getMobileEmailPanelCloseAction,
@@ -13,6 +14,15 @@ import {
 } from "../app/lib/mobile-email-navigation.ts";
 
 const emails = [{ id: "newest" }, { id: "middle" }, { id: "oldest" }];
+
+test("automatic page correction preserves archive identity while user navigation and filters change it", () => {
+	const params = { folder: "inbox", page: "2", limit: "25" };
+	const identity = getArchiveListIdentity("mailbox", params, 0);
+	assert.equal(getArchiveListIdentity("mailbox", { ...params, page: "1" }, 0), identity);
+	assert.notEqual(getArchiveListIdentity("mailbox", { ...params, page: "1" }, 1), identity);
+	assert.notEqual(getArchiveListIdentity("mailbox", { ...params, folder: "archive" }, 0), identity);
+	assert.notEqual(getArchiveListIdentity("other", params, 0), identity);
+});
 
 test("finds neighboring emails in the currently loaded list order", () => {
 	assert.deepEqual(getMobileEmailNeighborIds(emails, "middle"), {

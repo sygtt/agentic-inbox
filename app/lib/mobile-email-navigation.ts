@@ -14,6 +14,11 @@ export function isEmailStillSelected(selectedEmailId: string | null, emailId: st
 	return selectedEmailId === emailId;
 }
 
+export function getArchiveListIdentity(mailboxId: string | undefined, params: Record<string, string>, manualPageVersion: number): string {
+	const { page: _page, ...filters } = params;
+	return JSON.stringify([mailboxId, filters, manualPageVersion]);
+}
+
 /** Keep archive completion behavior scoped to the still-selected email. */
 export function getMobileArchiveSuccessAction({
 	isMobileViewport,
