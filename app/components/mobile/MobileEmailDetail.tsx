@@ -146,7 +146,7 @@ export default function MobileEmailDetail({
 				{hasThread ? allMessages.map((message, index) => {
 					const isDraft = !!message.is_draft || (isDraftFolder && message.id === email.id);
 					return <ThreadMessage key={message.id} email={message} mailboxId={mailboxId} mailboxEmail={mailboxEmail} isLast={index === allMessages.length - 1} isDraft={isDraft} isSending={isDraft ? isSending : false} isDeleting={isDeleting} isExpanded={expandedMessages.has(message.id)} showTriageErrorBadge={message.id !== email.id} onToggleExpand={() => onToggleExpand(message.id)} onSendDraft={isDraft ? () => onSendDraft(message) : undefined} onEditDraft={isDraft ? () => onEditDraft(message) : undefined} onDeleteDraft={isDraft ? () => onDeleteDraft(message) : undefined} onPreviewImage={onPreviewImage} />;
-				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} />}
+				}) : <SingleMessageView email={email} mailboxId={mailboxId} onPreviewImage={onPreviewImage} showHeader={false} autoSizeBody />}
 				</div>
 			</div>
 
