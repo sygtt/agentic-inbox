@@ -4,7 +4,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Input, Loader, useKumoToastManager } from "@cloudflare/kumo";
+import { Badge, Button, Input, Checkbox, Loader, useKumoToastManager } from "@cloudflare/kumo";
 import { RobotIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
@@ -17,17 +17,19 @@ const PROMPT_PLACEHOLDER = `You are an email assistant that helps manage this in
 export default function SettingsRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	const toastManager = useKumoToastManager();
-	const { data: mailbox } = useMailbox(mailboxId);
+	const { data: mailbox, isError, refetch } = useMailbox(mailboxId);
 	const updateMailboxMutation = useUpdateMailbox();
 
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
+	const [showSendingActions, setShowSendingActions] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		if (mailbox) {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
+			setShowSendingActions(mailbox.settings?.showSendingActions !== false);
 		}
 	}, [mailbox]);
 
@@ -37,6 +39,7 @@ export default function SettingsRoute() {
 		const settings = {
 			...mailbox.settings,
 			fromName: displayName,
+			showSendingActions,
 			agentSystemPrompt: agentPrompt.trim() || undefined,
 		};
 		try {
@@ -55,6 +58,8 @@ export default function SettingsRoute() {
 	const handleResetPrompt = () => {
 		setAgentPrompt("");
 	};
+
+	if (isError && !mailbox) return <div role="alert" className="p-6">Could not load settings. <Button onClick={() => refetch()}>Retry</Button></div>;
 
 	if (!mailbox) {
 		return (
@@ -84,6 +89,11 @@ export default function SettingsRoute() {
 						/>
 						<Input label="Email" type="email" value={mailbox.email} disabled />
 					</div>
+				</div>
+
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+					<Checkbox label="Show sending actions" checked={showSendingActions} onCheckedChange={(checked) => setShowSendingActions(checked === true)} disabled={isSaving} />
+					<p className="mt-2 text-xs text-kumo-subtle">Show compose, reply, forward and draft editing actions for this mailbox. Drafts remain readable. This does not disable sending APIs.</p>
 				</div>
 
 				{/* Agent System Prompt */}

@@ -179,7 +179,7 @@ Creating a mailbox performs two distinct operations:
 
 The R2 settings object acts as the current mailbox registry. A mailbox can have a Durable Object identity even if no registry object exists, so application code explicitly checks R2 when deciding whether a mailbox exists.
 
-Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, and optional per-mailbox agent system prompt.
+Mailbox settings currently include values such as display/from name, forwarding settings, signatures, auto-reply settings, optional per-mailbox agent system prompt, and optional `showSendingActions`. The latter defaults to true for existing mailboxes and controls browser UI only; sending APIs and authorization are unchanged. It uses the existing R2 settings JSON without a schema migration.
 
 ## Mailbox storage
 

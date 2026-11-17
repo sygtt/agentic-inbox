@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Button, Pagination, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
@@ -129,6 +131,8 @@ function FolderEmptyState({
 	folder?: string;
 	onCompose: () => void;
 }) {
+	const { mailboxId } = useParams<{ mailboxId: string }>();
+	const showSendingActions = useSendingActions(mailboxId);
 	const config = (folder && FOLDER_EMPTY_STATES[folder]) || {
 		icon: (
 			<EnvelopeSimpleIcon size={48} weight="thin" className="text-kumo-subtle" />
@@ -146,7 +150,7 @@ function FolderEmptyState({
 			<p className="text-sm text-kumo-subtle max-w-xs mb-5">
 				{config.description}
 			</p>
-			{"showCompose" in config && config.showCompose && (
+			{showSendingActions && "showCompose" in config && config.showCompose && (
 				<Button
 					variant="primary"
 					size="sm"

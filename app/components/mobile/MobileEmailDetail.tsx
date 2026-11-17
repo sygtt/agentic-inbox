@@ -3,6 +3,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Button } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
@@ -83,6 +85,7 @@ export default function MobileEmailDetail({
 	onPreviewImage: (url: string, filename: string) => void;
 }) {
 	const [isQuickActionsOpen, setQuickActionsOpen] = useState(false);
+	const showSendingActions = useSendingActions(mailboxId);
 	const [isTagsOpen, setTagsOpen] = useState(false);
 	const [isMobileViewport, setIsMobileViewport] = useState(false);
 	useEffect(() => {
@@ -151,7 +154,7 @@ export default function MobileEmailDetail({
 			</div>
 
 			<div className="mobile-detail-actions mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t border-kumo-line bg-kumo-base/95 px-4 pb-2 pt-2 backdrop-blur md:hidden">
-				{isDraftFolder ? <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<PencilSimpleIcon size={20} />} onClick={() => onEditDraft(email)} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<ArrowBendUpLeftIcon size={20} />} onClick={onReply} disabled={isDeleting}>Reply</Button>}
+				{showSendingActions && (isDraftFolder ? <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<PencilSimpleIcon size={20} />} onClick={() => onEditDraft(email)} disabled={isDeleting}>Edit draft</Button> : <Button variant="primary" className="mobile-button mobile-button-primary flex-1" icon={<ArrowBendUpLeftIcon size={20} />} onClick={onReply} disabled={isDeleting}>Reply</Button>)}
 				<Button className="mobile-icon-button" variant="ghost" shape="square" icon={<StarIcon size={24} weight={email.starred ? "fill" : "regular"} />} onClick={onToggleStar} aria-pressed={email.starred} aria-label={email.starred ? "Unstar" : "Star"} />
 			</div>
 

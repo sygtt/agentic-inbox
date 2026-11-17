@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Badge, Button, Tooltip } from "@cloudflare/kumo";
 import {
 	CaretDownIcon,
@@ -77,6 +79,7 @@ export default function ThreadMessage({
 	onViewSource,
 	onPreviewImage,
 }: ThreadMessageProps) {
+	const showSendingActions = useSendingActions(mailboxId);
 	const { data: currentTags } = useEmailTags(mailboxId, email.id, {
 		enabled: !isDraft,
 		refreshWhileTriagePending: !isDraft,
@@ -193,9 +196,9 @@ export default function ThreadMessage({
 					/>
 				</div>
 
-				{isDraft && (onSendDraft || onEditDraft || onDeleteDraft) && (
+				{isDraft && ((showSendingActions && (onSendDraft || onEditDraft)) || onDeleteDraft) && (
 					<div className="flex gap-2 mt-3 md:ml-[42px]">
-						{onSendDraft && (
+						{showSendingActions && onSendDraft && (
 							<Button
 								variant="primary"
 								size="sm"
@@ -207,7 +210,7 @@ export default function ThreadMessage({
 								{isSending ? "Sending..." : "Send"}
 							</Button>
 						)}
-						{onEditDraft && (
+						{showSendingActions && onEditDraft && (
 							<Button
 								variant="secondary"
 								size="sm"

@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
 import {
 	ArchiveIcon,
@@ -85,6 +87,7 @@ export default function Sidebar() {
 	const { data: folders = [] } = useFolders(mailboxId);
 	const createFolderMutation = useCreateFolder();
 	const { startCompose, closeSidebar } = useUIStore();
+	const showSendingActions = useSendingActions(mailboxId);
 	const { data: currentMailbox } = useMailbox(mailboxId);
 	const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
 	const [newFolderName, setNewFolderName] = useState("");
@@ -154,7 +157,7 @@ export default function Sidebar() {
 			</div>
 
 			{/* Compose */}
-			<div className="desktop-compose-wrapper px-3 py-3">
+			{showSendingActions && <div className="desktop-compose-wrapper px-3 py-3">
 				<Button
 					variant="secondary"
 					icon={<PencilSimpleIcon size={16} />}
@@ -165,7 +168,7 @@ export default function Sidebar() {
 				>
 					<span className="desktop-compose-label">Compose</span>
 				</Button>
-			</div>
+			</div>}
 
 			{/* Navigation */}
 			<nav aria-label="Mailbox folders" className="desktop-navigation-folders flex-1 overflow-y-auto px-2 space-y-0.5">

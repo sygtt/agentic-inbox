@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Button, Tooltip } from "@cloudflare/kumo";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -75,6 +77,7 @@ export default function EmailPanelToolbar({
 	onDelete,
 }: EmailPanelToolbarProps) {
 	const unread = hasUnread ?? !email.read;
+	const showSendingActions = useSendingActions(mailboxId);
 	const deleteLabel = isDraftFolder || isTrash ? "Delete permanently" : "Delete";
 	const archiveLabel = isArchive || isTrash ? "Move to Inbox" : "Archive";
 	return (
@@ -89,7 +92,7 @@ export default function EmailPanelToolbar({
 				className="xl:hidden shrink-0"
 			/>
 
-			{isDraftFolder ? (
+			{showSendingActions && (isDraftFolder ? (
 				<>
 					<Button
 						variant="primary"
@@ -147,9 +150,9 @@ export default function EmailPanelToolbar({
 						/>
 					</Tooltip>
 				</>
-			)}
+			))}
 
-			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
+			{showSendingActions && <div className="h-5 w-px bg-kumo-fill mx-0.5" />}
 
 			{onArchive && (
 				<Tooltip content={archiveLabel} side="bottom" asChild>
