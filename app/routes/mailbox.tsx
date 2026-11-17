@@ -11,6 +11,7 @@ import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
 import Header from "~/components/Header";
 import Sidebar from "~/components/Sidebar";
+import { useSendingActions } from "~/hooks/useSendingActions";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
 import MobileBottomNav from "~/components/mobile/MobileBottomNav";
@@ -18,19 +19,25 @@ import MobileBottomNav from "~/components/mobile/MobileBottomNav";
 export default function MailboxRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	const navigate = useNavigate();
+	const showSendingActions = useSendingActions(mailboxId);
 	// Prefetch mailbox data for child components
 	const { data: currentMailbox } = useMailbox(mailboxId);
 	const prevMailboxIdRef = useRef<string | undefined>(undefined);
 	const {
 		selectedEmailId,
-		isComposing,
+		isComposing: composeRequested,
 		isSidebarOpen,
 		closeSidebar,
 		isAgentPanelOpen,
 		closePanel,
 		closeComposeModal,
+		closeCompose,
 		startCompose,
 	} = useUIStore();
+	const isComposing = composeRequested && showSendingActions;
+	useEffect(() => {
+		if (currentMailbox?.settings?.showSendingActions === false && composeRequested) closeCompose();
+	}, [currentMailbox, composeRequested, closeCompose]);
 	const openCompose = () => {
 		if (mailboxId) navigate(`/mailbox/${mailboxId}/emails/inbox`);
 		startCompose();

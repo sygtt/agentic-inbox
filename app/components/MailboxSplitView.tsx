@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useParams } from "react-router";
+import { useSendingActions } from "~/hooks/useSendingActions";
 import type { ReactNode } from "react";
 import ComposePanel from "~/components/ComposePanel";
 import EmailPanel from "~/components/EmailPanel";
@@ -27,12 +29,15 @@ interface MailboxSplitViewProps {
 
 export default function MailboxSplitView({
 	selectedEmailId,
-	isComposing,
+	isComposing: composeRequested,
 	onCloseEmail,
 	showEmptyDetail = false,
 	mobileEmailNavigation,
 	children,
 }: MailboxSplitViewProps) {
+	const { mailboxId } = useParams<{ mailboxId: string }>();
+	const showSendingActions = useSendingActions(mailboxId);
+	const isComposing = composeRequested && showSendingActions;
 	const closePanel = useUIStore((state) => state.closePanel);
 	const closeEmail = onCloseEmail ?? closePanel;
 	const navigation = mobileEmailNavigation ?? {

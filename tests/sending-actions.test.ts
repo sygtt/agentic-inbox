@@ -112,3 +112,25 @@ test("thread draft hides send/edit but preserves body, expansion and discard", (
 		assert.match(html, /Collapse message/);
 	}
 });
+
+const SplitView = load("app/components/MailboxSplitView.tsx", {
+	...mocks,
+	"react-router": { useParams: () => ({ mailboxId: "a" }) },
+	"~/components/ComposePanel": () => React.createElement("button", null, "Compose panel Send"),
+	"~/components/EmailPanel": () => React.createElement("div", null, "Read selected email"),
+	"~/hooks/useUIStore": { useUIStore: (select: any) => select({ closePanel() {} }) },
+}).default;
+test("stale compose state after Settings OFF cannot reopen panel in list or search", () => {
+	for (const loaded of [false, true]) {
+		mailbox = loaded ? { id: "a", settings: { showSendingActions: false } } : undefined;
+		for (const selectedEmailId of [null, "one"]) {
+			const html = renderToStaticMarkup(React.createElement(SplitView, { isComposing: true, selectedEmailId }, "Mailbox list"));
+			assert.doesNotMatch(html, /Compose panel Send/);
+			assert.match(html, /Mailbox list/);
+			if (selectedEmailId) assert.match(html, /Read selected email/);
+			else assert.match(html, /w-full/);
+		}
+	}
+	mailbox = { id: "a", settings: {} };
+	assert.match(renderToStaticMarkup(React.createElement(SplitView, { isComposing: true, selectedEmailId: null }, "Mailbox list")), /Compose panel Send/);
+});

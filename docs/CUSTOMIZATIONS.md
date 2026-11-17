@@ -1116,7 +1116,9 @@ invalidation so screens react without a reload. Failed saves retain cached state
 and the existing toast error. Settings spreads existing fields on save.
 
 Affected areas: Settings, mailbox query/types, Sidebar, empty list state, composer,
-AgentPanel, desktop toolbar, ThreadMessage and mobile detail/navigation. No new
+AgentPanel, split-view composition, mailbox shell, desktop toolbar, ThreadMessage
+and mobile detail/navigation. A loaded OFF setting also closes stale compose
+state; split views guard rendering immediately, including search results. No new
 dependency, environment variable, binding, migration, or backend behavior change.
 No existing production object is rewritten by implementation or validation.
 Rollback: revert the implementation commit; old clients ignore the extra JSON key.
