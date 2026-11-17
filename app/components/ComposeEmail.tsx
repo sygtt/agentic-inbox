@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
+
+import { useSendingActions } from "~/hooks/useSendingActions";
 
 import { Banner, Button, Dialog, Input, Text } from "@cloudflare/kumo";
 import { FloppyDiskIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
@@ -16,6 +20,7 @@ export default function ComposeEmail() {
 	}>();
 	
 	const { isComposeModalOpen, closeComposeModal } = useUIStore();
+	const showSendingActions = useSendingActions(mailboxId);
 
 	const {
 		to,
@@ -40,7 +45,7 @@ export default function ComposeEmail() {
 
 	return (
 		<Dialog.Root
-			open={isComposeModalOpen}
+			open={isComposeModalOpen && showSendingActions}
 			onOpenChange={(open) => !open && !isSending && closeComposeModal()}
 		>
 			<Dialog size="lg" className="p-6 max-h-[85vh] overflow-y-auto">

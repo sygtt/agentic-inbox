@@ -1097,3 +1097,31 @@ MailboxDO, migrations, MCP, and `app/components/MCPPanel.tsx`.
 Upstream conflict risk: medium around MailboxDO/MCP; threshold storage is isolated.
 Prefer an upstream equivalent if it preserves comparison and manual-tag protection.
 Deployment is separate; the additive migration runs on mailbox initialization.
+
+## Sending action visibility (Issue #77)
+
+**Status:** Active
+
+Settings exposes **Show sending actions**, persisted as `showSendingActions` in
+existing mailbox settings JSON. Missing values retain the previous ON behavior.
+OFF hides desktop/mobile Compose (including empty-folder CTAs), Reply/Reply all,
+Forward, draft Send/Edit and Agent's draft-edit action and suggested draft prompt.
+Draft folders, message bodies and non-sending organization actions remain usable.
+This is a presentation preference, not a sending permission or an API restriction.
+
+The shared `useSendingActions` hook reads the mailbox-specific query. Before data
+loads (or on a first-load error), actions stay hidden; cached settings remain
+usable during refetch failures. Successful saves update the detail cache before
+invalidation so screens react without a reload. Failed saves retain cached state
+and the existing toast error. Settings spreads existing fields on save.
+
+Affected areas: Settings, mailbox query/types, Sidebar, empty list state, composer,
+AgentPanel, split-view composition, mailbox shell, desktop toolbar, ThreadMessage
+and mobile detail/navigation. A loaded OFF setting also closes stale compose
+state; split views guard rendering immediately, including search results. No new
+dependency, environment variable, binding, migration, or backend behavior change.
+No existing production object is rewritten by implementation or validation.
+Rollback: revert the implementation commit; old clients ignore the extra JSON key.
+Upstream conflict risk is limited to these UI surfaces and settings caching.
+Prefer an equivalent upstream setting if introduced; upstream parity was not
+re-audited for this focused issue.

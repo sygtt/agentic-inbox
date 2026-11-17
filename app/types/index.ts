@@ -11,6 +11,7 @@ export interface SignatureSettings {
 }
 
 export interface MailboxSettings {
+	showSendingActions?: boolean;
 	fromName?: string;
 	forwarding?: { enabled: boolean; email: string };
 	signature?: SignatureSettings;

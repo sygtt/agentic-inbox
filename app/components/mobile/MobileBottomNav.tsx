@@ -3,6 +3,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import {
 	GearSixIcon,
 	MagnifyingGlassIcon,
@@ -24,6 +26,7 @@ export default function MobileBottomNav({
 	onCompose: () => void;
 }) {
 	const { data: folders = [] } = useFolders(mailboxId);
+	const showSendingActions = useSendingActions(mailboxId);
 	if (!visible || !mailboxId) return null;
 
 	const inboxUnread = folders.find((folder) => folder.id === Folders.INBOX)?.unreadCount ?? 0;
@@ -35,7 +38,7 @@ export default function MobileBottomNav({
 	];
 
 	return (
-		<nav className="mobile-bottom-nav mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden" aria-label="Mailbox navigation">
+		<nav className={`mobile-bottom-nav mobile-safe-bottom fixed inset-x-0 bottom-0 z-20 grid ${showSendingActions ? "grid-cols-5" : "grid-cols-4"} border-t border-kumo-line bg-kumo-base/95 px-2 pt-2 backdrop-blur md:hidden`} aria-label="Mailbox navigation">
 			{links.map(({ to, label, icon: Icon, end }) => (
 				<NavLink
 					key={to}
@@ -54,14 +57,14 @@ export default function MobileBottomNav({
 					<span>{label}</span>
 				</NavLink>
 			))}
-			<button
+			{showSendingActions && <button
 				type="button"
 				onClick={onCompose}
 				className="mobile-nav-item mobile-nav-compose relative flex min-h-12 flex-col items-center gap-1 rounded-lg py-1 text-[11px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default"
 			>
 				<span className="mobile-nav-indicator"><PencilSimpleIcon size={24} weight="regular" /></span>
 				<span>Compose</span>
-			</button>
+			</button>}
 		</nav>
 	);
 }

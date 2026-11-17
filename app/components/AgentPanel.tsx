@@ -4,6 +4,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import { useSendingActions } from "~/hooks/useSendingActions";
+
 import { Badge, Button, Loader, Tooltip } from "@cloudflare/kumo";
 import {
 	ArrowUpIcon,
@@ -308,6 +310,7 @@ function AgentChatConnected({
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const [inputValue, setInputValue] = useState("");
 	const { startCompose } = useUIStore();
+	const showSendingActions = useSendingActions(mailboxId);
 
 	const agent = useAgent({ agent: "EmailAgent", name: mailboxId });
 	const { messages, sendMessage, status, setMessages, stop } =
@@ -341,7 +344,7 @@ function AgentChatConnected({
 	const suggestedPrompts = [
 		"Show me the latest inbox emails",
 		"Any unread emails?",
-		"Draft a response to the latest email",
+		...(showSendingActions ? ["Draft a response to the latest email"] : []),
 	];
 
 	return (
@@ -412,7 +415,7 @@ function AgentChatConnected({
 								key={msg.id}
 								message={msg}
 								isStreaming={isStreaming}
-							onAction={(action) => {
+							onAction={showSendingActions ? (action) => {
 								if (action === "edit") {
 										// Extract draft data from the draft_reply tool result
 										let draftData: {
@@ -452,7 +455,7 @@ function AgentChatConnected({
 											});
 										}
 									}
-								}}
+								} : undefined}
 							/>
 						))}
 						{isStreaming && (

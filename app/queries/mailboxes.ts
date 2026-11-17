@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Modified in the sygtt/agentic-inbox fork; see Git history.
 // Copyright (c) 2026 Cloudflare, Inc.
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
@@ -43,7 +45,8 @@ export function useUpdateMailbox() {
 			settings,
 		}: { mailboxId: string; settings: unknown }) =>
 			api.updateMailbox(mailboxId, settings),
-		onSuccess: (_data, { mailboxId }) => {
+		onSuccess: (data, { mailboxId }) => {
+			qc.setQueryData(queryKeys.mailboxes.detail(mailboxId), data);
 			qc.invalidateQueries({ queryKey: queryKeys.mailboxes.detail(mailboxId) });
 			qc.invalidateQueries({ queryKey: queryKeys.mailboxes.all });
 		},
