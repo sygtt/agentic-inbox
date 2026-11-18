@@ -7,6 +7,7 @@
 import { Badge, Button, Input, Checkbox, Loader, useKumoToastManager } from "@cloudflare/kumo";
 import { RobotIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { useParams } from "react-router";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 
@@ -74,6 +75,7 @@ export default function SettingsRoute() {
 	return (
 		<div className="max-w-2xl px-4 pb-24 pt-4 md:px-8 md:py-6 h-full overflow-y-auto">
 			<h1 className="text-lg font-semibold text-kumo-default mb-6">Settings</h1>
+ <p className="mb-6"><Link to="/appearance" className="text-kumo-link underline">アプリ共通の外観設定</Link></p>
 
 			<div className="space-y-6">
 				{/* Account */}

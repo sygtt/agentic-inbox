@@ -1,0 +1,322 @@
+[
+  {
+    "theme": "amethyst-light",
+    "device": "pc",
+    "screen": "list",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-light-pc-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "pc",
+    "screen": "detail",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-light-pc-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "pc",
+    "screen": "settings",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-light-pc-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "pc",
+    "screen": "dialog",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-light-pc-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "pc",
+    "screen": "list",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-dark-pc-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "pc",
+    "screen": "detail",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-dark-pc-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "pc",
+    "screen": "settings",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-dark-pc-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "pc",
+    "screen": "dialog",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "amethyst-dark-pc-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "pc",
+    "screen": "list",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-light-pc-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "pc",
+    "screen": "detail",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-light-pc-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "pc",
+    "screen": "settings",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-light-pc-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "pc",
+    "screen": "dialog",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-light-pc-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "pc",
+    "screen": "list",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-dark-pc-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "pc",
+    "screen": "detail",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-dark-pc-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "pc",
+    "screen": "settings",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-dark-pc-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "pc",
+    "screen": "dialog",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "image": "sakura-dark-pc-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "mobile",
+    "screen": "settings",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-light-mobile-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "mobile",
+    "screen": "dialog",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-light-mobile-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "mobile",
+    "screen": "list",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-light-mobile-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-light",
+    "device": "mobile",
+    "screen": "detail",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-light-mobile-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": "dev fixture body blank; unchanged renderer"
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "mobile",
+    "screen": "settings",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-dark-mobile-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "mobile",
+    "screen": "dialog",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-dark-mobile-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "mobile",
+    "screen": "list",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-dark-mobile-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "device": "mobile",
+    "screen": "detail",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "amethyst-dark-mobile-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": "dev fixture body blank; unchanged renderer"
+  },
+  {
+    "theme": "sakura-light",
+    "device": "mobile",
+    "screen": "settings",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-light-mobile-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "mobile",
+    "screen": "dialog",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-light-mobile-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "mobile",
+    "screen": "list",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-light-mobile-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-light",
+    "device": "mobile",
+    "screen": "detail",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-light-mobile-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": "dev fixture body blank; unchanged renderer"
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "mobile",
+    "screen": "settings",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-dark-mobile-settings.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "mobile",
+    "screen": "dialog",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-dark-mobile-dialog.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "mobile",
+    "screen": "list",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-dark-mobile-list.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": null
+  },
+  {
+    "theme": "sakura-dark",
+    "device": "mobile",
+    "screen": "detail",
+    "width": 390,
+    "scrollWidth": 375,
+    "image": "sakura-dark-mobile-detail.png",
+    "result": "chrome palette visible; no horizontal overflow",
+    "iframe": "dev fixture body blank; unchanged renderer"
+  }
+]

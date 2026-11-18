@@ -1,0 +1,30 @@
+[
+  {
+    "theme": "amethyst-light",
+    "ssr": true,
+    "mode": "light",
+    "themeColor": "#f5f2fa",
+    "cacheControl": "private, no-store"
+  },
+  {
+    "theme": "amethyst-dark",
+    "ssr": true,
+    "mode": "dark",
+    "themeColor": "#15121c",
+    "cacheControl": "private, no-store"
+  },
+  {
+    "theme": "sakura-light",
+    "ssr": true,
+    "mode": "light",
+    "themeColor": "#fcf1f3",
+    "cacheControl": "private, no-store"
+  },
+  {
+    "theme": "sakura-dark",
+    "ssr": true,
+    "mode": "dark",
+    "themeColor": "#1d1218",
+    "cacheControl": "private, no-store"
+  }
+]

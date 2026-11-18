@@ -154,8 +154,9 @@ export default function HomeRoute() {
 		<div className="min-h-screen bg-kumo-recessed">
 			<div className="mx-auto max-w-2xl px-4 py-8 md:px-6 md:py-16">
 				<div className="mb-8">
-					<div className="flex items-center justify-between">
+					<div className="flex flex-wrap items-center justify-between gap-3">
 						<h1 className="text-2xl font-bold text-kumo-default">Mailboxes</h1>
+ <RouterLink to="/appearance" className="text-kumo-link underline">外観設定</RouterLink>
 						{!isConfigured && (
 							<Button
 								variant="primary"

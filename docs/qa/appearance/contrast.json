@@ -1,0 +1,1318 @@
+[
+  {
+    "theme": "amethyst-light",
+    "minText": 5.3621035897286955,
+    "minBoundary": 3.5704153966427654,
+    "text": [
+      {
+        "fg": "onSurface",
+        "bg": "canvas",
+        "ratio": 15.361621740131833
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "canvas",
+        "ratio": 8.48472360039339
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surface",
+        "ratio": 16.148979954300614
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surface",
+        "ratio": 8.919607165080365
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceContainer",
+        "ratio": 14.711988864260606
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceContainer",
+        "ratio": 8.125910222044398
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceElevated",
+        "ratio": 13.72439032060844
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceElevated",
+        "ratio": 7.580427406961896
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailUnread",
+        "ratio": 14.132326060512385
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailUnread",
+        "ratio": 7.805743591565283
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailSelected",
+        "ratio": 13.137196267012682
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailSelected",
+        "ratio": 7.256101022102492
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailHover",
+        "ratio": 13.72439032060844
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailHover",
+        "ratio": 7.580427406961896
+      },
+      {
+        "fg": "onSurface",
+        "bg": "navActive",
+        "ratio": 13.137196267012682
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "navActive",
+        "ratio": 7.256101022102492
+      },
+      {
+        "fg": "onSurface",
+        "bg": "tagNeutral",
+        "ratio": 13.72439032060844
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "tagNeutral",
+        "ratio": 7.580427406961896
+      },
+      {
+        "fg": "onPrimary",
+        "bg": "primary",
+        "ratio": 7.781003364951963
+      },
+      {
+        "fg": "onPrimaryContainer",
+        "bg": "primaryContainer",
+        "ratio": 10.464056844932845
+      },
+      {
+        "fg": "danger",
+        "bg": "dangerContainer",
+        "ratio": 5.679169491823994
+      },
+      {
+        "fg": "onDanger",
+        "bg": "danger",
+        "ratio": 7.33852568532806
+      },
+      {
+        "fg": "danger",
+        "bg": "canvas",
+        "ratio": 6.62695891503634
+      },
+      {
+        "fg": "success",
+        "bg": "canvas",
+        "ratio": 6.478614549518919
+      },
+      {
+        "fg": "warning",
+        "bg": "canvas",
+        "ratio": 6.270029418959563
+      },
+      {
+        "fg": "mailStar",
+        "bg": "canvas",
+        "ratio": 6.270029418959563
+      },
+      {
+        "fg": "danger",
+        "bg": "surface",
+        "ratio": 6.966622957347808
+      },
+      {
+        "fg": "success",
+        "bg": "surface",
+        "ratio": 6.810675217870809
+      },
+      {
+        "fg": "warning",
+        "bg": "surface",
+        "ratio": 6.591399079638069
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surface",
+        "ratio": 6.591399079638069
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceContainer",
+        "ratio": 6.346709182873715
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceContainer",
+        "ratio": 6.204638202967567
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceContainer",
+        "ratio": 6.004874000336364
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceContainer",
+        "ratio": 6.004874000336364
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceElevated",
+        "ratio": 5.920662045139905
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceElevated",
+        "ratio": 5.788128123353166
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceElevated",
+        "ratio": 5.6017738571630975
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceElevated",
+        "ratio": 5.6017738571630975
+      },
+      {
+        "fg": "danger",
+        "bg": "mailSelected",
+        "ratio": 5.667348239204508
+      },
+      {
+        "fg": "success",
+        "bg": "mailSelected",
+        "ratio": 5.540484742766722
+      },
+      {
+        "fg": "warning",
+        "bg": "mailSelected",
+        "ratio": 5.3621035897286955
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailSelected",
+        "ratio": 5.3621035897286955
+      },
+      {
+        "fg": "danger",
+        "bg": "mailUnread",
+        "ratio": 6.0966443362059515
+      },
+      {
+        "fg": "success",
+        "bg": "mailUnread",
+        "ratio": 5.96017105374938
+      },
+      {
+        "fg": "warning",
+        "bg": "mailUnread",
+        "ratio": 5.7682777024934815
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailUnread",
+        "ratio": 5.7682777024934815
+      }
+    ],
+    "boundary": [
+      {
+        "fg": "outline",
+        "bg": "canvas",
+        "ratio": 4.174967752905536
+      },
+      {
+        "fg": "focus",
+        "bg": "canvas",
+        "ratio": 7.026532552769971
+      },
+      {
+        "fg": "primary",
+        "bg": "canvas",
+        "ratio": 7.026532552769971
+      },
+      {
+        "fg": "outline",
+        "bg": "surface",
+        "ratio": 4.388955260848935
+      },
+      {
+        "fg": "focus",
+        "bg": "surface",
+        "ratio": 7.386676697453245
+      },
+      {
+        "fg": "primary",
+        "bg": "surface",
+        "ratio": 7.386676697453245
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceContainer",
+        "ratio": 3.998411113647578
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceContainer",
+        "ratio": 6.729385114375907
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceContainer",
+        "ratio": 6.729385114375907
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceElevated",
+        "ratio": 3.7300024688888977
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceElevated",
+        "ratio": 6.277649390542063
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceElevated",
+        "ratio": 6.277649390542063
+      },
+      {
+        "fg": "outline",
+        "bg": "mailSelected",
+        "ratio": 3.5704153966427654
+      },
+      {
+        "fg": "focus",
+        "bg": "mailSelected",
+        "ratio": 6.009061984721189
+      },
+      {
+        "fg": "primary",
+        "bg": "mailSelected",
+        "ratio": 6.009061984721189
+      },
+      {
+        "fg": "outline",
+        "bg": "mailUnread",
+        "ratio": 3.8408708777175877
+      },
+      {
+        "fg": "focus",
+        "bg": "mailUnread",
+        "ratio": 6.464242564385489
+      },
+      {
+        "fg": "primary",
+        "bg": "mailUnread",
+        "ratio": 6.464242564385489
+      }
+    ]
+  },
+  {
+    "theme": "amethyst-dark",
+    "minText": 6.302127610016726,
+    "minBoundary": 3.832376965580221,
+    "text": [
+      {
+        "fg": "onSurface",
+        "bg": "canvas",
+        "ratio": 15.74838178324936
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "canvas",
+        "ratio": 11.189398286916584
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surface",
+        "ratio": 14.507666214991142
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surface",
+        "ratio": 10.307856243734367
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceContainer",
+        "ratio": 13.095960857673186
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceContainer",
+        "ratio": 9.304824076733823
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceElevated",
+        "ratio": 11.061195932711328
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceElevated",
+        "ratio": 7.859101241269995
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailUnread",
+        "ratio": 12.122618872710161
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailUnread",
+        "ratio": 8.61325390215795
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailSelected",
+        "ratio": 9.026825474582235
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailSelected",
+        "ratio": 6.413658678824915
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailHover",
+        "ratio": 11.061195932711328
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailHover",
+        "ratio": 7.859101241269995
+      },
+      {
+        "fg": "onSurface",
+        "bg": "navActive",
+        "ratio": 9.026825474582235
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "navActive",
+        "ratio": 6.413658678824915
+      },
+      {
+        "fg": "onSurface",
+        "bg": "tagNeutral",
+        "ratio": 11.061195932711328
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "tagNeutral",
+        "ratio": 7.859101241269995
+      },
+      {
+        "fg": "onPrimary",
+        "bg": "primary",
+        "ratio": 9.129310687588502
+      },
+      {
+        "fg": "onPrimaryContainer",
+        "bg": "primaryContainer",
+        "ratio": 8.764049602844935
+      },
+      {
+        "fg": "danger",
+        "bg": "dangerContainer",
+        "ratio": 7.819692037014596
+      },
+      {
+        "fg": "onDanger",
+        "bg": "danger",
+        "ratio": 8.880163432609608
+      },
+      {
+        "fg": "danger",
+        "bg": "canvas",
+        "ratio": 10.994818934825311
+      },
+      {
+        "fg": "success",
+        "bg": "canvas",
+        "ratio": 11.6208335537944
+      },
+      {
+        "fg": "warning",
+        "bg": "canvas",
+        "ratio": 12.263262954460062
+      },
+      {
+        "fg": "mailStar",
+        "bg": "canvas",
+        "ratio": 12.263262954460062
+      },
+      {
+        "fg": "danger",
+        "bg": "surface",
+        "ratio": 10.128606570255409
+      },
+      {
+        "fg": "success",
+        "bg": "surface",
+        "ratio": 10.705301449939391
+      },
+      {
+        "fg": "warning",
+        "bg": "surface",
+        "ratio": 11.297117894310047
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surface",
+        "ratio": 11.297117894310047
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceContainer",
+        "ratio": 9.143016748605094
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceContainer",
+        "ratio": 9.66359486635624
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceContainer",
+        "ratio": 10.197823106484671
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceContainer",
+        "ratio": 10.197823106484671
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceElevated",
+        "ratio": 7.72243447972178
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceElevated",
+        "ratio": 8.162128567181856
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceElevated",
+        "ratio": 8.613351910094172
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceElevated",
+        "ratio": 8.613351910094172
+      },
+      {
+        "fg": "danger",
+        "bg": "mailSelected",
+        "ratio": 6.302127610016726
+      },
+      {
+        "fg": "success",
+        "bg": "mailSelected",
+        "ratio": 6.660953347654203
+      },
+      {
+        "fg": "warning",
+        "bg": "mailSelected",
+        "ratio": 7.02918788497775
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailSelected",
+        "ratio": 7.02918788497775
+      },
+      {
+        "fg": "danger",
+        "bg": "mailUnread",
+        "ratio": 8.463472714581565
+      },
+      {
+        "fg": "success",
+        "bg": "mailUnread",
+        "ratio": 8.945359472151734
+      },
+      {
+        "fg": "warning",
+        "bg": "mailUnread",
+        "ratio": 9.439881822706951
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailUnread",
+        "ratio": 9.439881822706951
+      }
+    ],
+    "boundary": [
+      {
+        "fg": "outline",
+        "bg": "canvas",
+        "ratio": 6.686042148619385
+      },
+      {
+        "fg": "focus",
+        "bg": "canvas",
+        "ratio": 11.707707235342795
+      },
+      {
+        "fg": "primary",
+        "bg": "canvas",
+        "ratio": 10.728397236053954
+      },
+      {
+        "fg": "outline",
+        "bg": "surface",
+        "ratio": 6.159291102194659
+      },
+      {
+        "fg": "focus",
+        "bg": "surface",
+        "ratio": 10.785330902623356
+      },
+      {
+        "fg": "primary",
+        "bg": "surface",
+        "ratio": 9.883174554991664
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceContainer",
+        "ratio": 5.559945617028744
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceContainer",
+        "ratio": 9.735836849613838
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceContainer",
+        "ratio": 8.921467119775574
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceElevated",
+        "ratio": 4.696077555022673
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceElevated",
+        "ratio": 8.223146062580962
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceElevated",
+        "ratio": 7.535307786236977
+      },
+      {
+        "fg": "outline",
+        "bg": "mailSelected",
+        "ratio": 3.832376965580221
+      },
+      {
+        "fg": "focus",
+        "bg": "mailSelected",
+        "ratio": 6.710748531214327
+      },
+      {
+        "fg": "primary",
+        "bg": "mailSelected",
+        "ratio": 6.149417178522822
+      },
+      {
+        "fg": "outline",
+        "bg": "mailUnread",
+        "ratio": 5.146709157178271
+      },
+      {
+        "fg": "focus",
+        "bg": "mailUnread",
+        "ratio": 9.012232154435862
+      },
+      {
+        "fg": "primary",
+        "bg": "mailUnread",
+        "ratio": 8.258389502980714
+      }
+    ]
+  },
+  {
+    "theme": "sakura-light",
+    "minText": 5.430468546909801,
+    "minBoundary": 3.5945254907863426,
+    "text": [
+      {
+        "fg": "onSurface",
+        "bg": "canvas",
+        "ratio": 13.840887593511082
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "canvas",
+        "ratio": 7.732720372827942
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surface",
+        "ratio": 14.582595538432136
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surface",
+        "ratio": 8.147102766849281
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceContainer",
+        "ratio": 12.889757001525314
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceContainer",
+        "ratio": 7.201336322767717
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceElevated",
+        "ratio": 11.931033678620377
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceElevated",
+        "ratio": 6.665710314620093
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailUnread",
+        "ratio": 12.662707999602699
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailUnread",
+        "ratio": 7.074487055989453
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailSelected",
+        "ratio": 11.962269622481145
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailSelected",
+        "ratio": 6.68316142227665
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailHover",
+        "ratio": 11.931033678620377
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailHover",
+        "ratio": 6.665710314620093
+      },
+      {
+        "fg": "onSurface",
+        "bg": "navActive",
+        "ratio": 11.962269622481145
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "navActive",
+        "ratio": 6.68316142227665
+      },
+      {
+        "fg": "onSurface",
+        "bg": "tagNeutral",
+        "ratio": 11.931033678620377
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "tagNeutral",
+        "ratio": 6.665710314620093
+      },
+      {
+        "fg": "onPrimary",
+        "bg": "primary",
+        "ratio": 6.923134767318387
+      },
+      {
+        "fg": "onPrimaryContainer",
+        "bg": "primaryContainer",
+        "ratio": 10.026831942910391
+      },
+      {
+        "fg": "danger",
+        "bg": "dangerContainer",
+        "ratio": 5.709063884065031
+      },
+      {
+        "fg": "onDanger",
+        "bg": "danger",
+        "ratio": 7.353676479115862
+      },
+      {
+        "fg": "danger",
+        "bg": "canvas",
+        "ratio": 6.658726418169439
+      },
+      {
+        "fg": "success",
+        "bg": "canvas",
+        "ratio": 6.453046258747709
+      },
+      {
+        "fg": "warning",
+        "bg": "canvas",
+        "ratio": 6.2997479315276985
+      },
+      {
+        "fg": "mailStar",
+        "bg": "canvas",
+        "ratio": 6.2997479315276985
+      },
+      {
+        "fg": "danger",
+        "bg": "surface",
+        "ratio": 7.015555433219559
+      },
+      {
+        "fg": "success",
+        "bg": "surface",
+        "ratio": 6.798853248850004
+      },
+      {
+        "fg": "warning",
+        "bg": "surface",
+        "ratio": 6.637339943618359
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surface",
+        "ratio": 6.637339943618359
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceContainer",
+        "ratio": 6.201146052951101
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceContainer",
+        "ratio": 6.00960000815669
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceContainer",
+        "ratio": 5.866836173593606
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceContainer",
+        "ratio": 5.866836173593606
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceElevated",
+        "ratio": 5.739912893241373
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceElevated",
+        "ratio": 5.562613793562596
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceElevated",
+        "ratio": 5.430468546909801
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceElevated",
+        "ratio": 5.430468546909801
+      },
+      {
+        "fg": "danger",
+        "bg": "mailSelected",
+        "ratio": 5.754940224630124
+      },
+      {
+        "fg": "success",
+        "bg": "mailSelected",
+        "ratio": 5.577176948512548
+      },
+      {
+        "fg": "warning",
+        "bg": "mailSelected",
+        "ratio": 5.444685740091722
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailSelected",
+        "ratio": 5.444685740091722
+      },
+      {
+        "fg": "danger",
+        "bg": "mailUnread",
+        "ratio": 6.0919148221426145
+      },
+      {
+        "fg": "success",
+        "bg": "mailUnread",
+        "ratio": 5.903742800480497
+      },
+      {
+        "fg": "warning",
+        "bg": "mailUnread",
+        "ratio": 5.7634937058108315
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailUnread",
+        "ratio": 5.7634937058108315
+      }
+    ],
+    "boundary": [
+      {
+        "fg": "outline",
+        "bg": "canvas",
+        "ratio": 4.16991726032383
+      },
+      {
+        "fg": "focus",
+        "bg": "canvas",
+        "ratio": 6.268872516027905
+      },
+      {
+        "fg": "primary",
+        "bg": "canvas",
+        "ratio": 6.268872516027905
+      },
+      {
+        "fg": "outline",
+        "bg": "surface",
+        "ratio": 4.393375527775956
+      },
+      {
+        "fg": "focus",
+        "bg": "surface",
+        "ratio": 6.604809970863894
+      },
+      {
+        "fg": "primary",
+        "bg": "surface",
+        "ratio": 6.604809970863894
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceContainer",
+        "ratio": 3.8833651266150864
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceContainer",
+        "ratio": 5.838082482732042
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceContainer",
+        "ratio": 5.838082482732042
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceElevated",
+        "ratio": 3.5945254907863426
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceElevated",
+        "ratio": 5.403853518091697
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceElevated",
+        "ratio": 5.403853518091697
+      },
+      {
+        "fg": "outline",
+        "bg": "mailSelected",
+        "ratio": 3.6039361084629564
+      },
+      {
+        "fg": "focus",
+        "bg": "mailSelected",
+        "ratio": 5.418001032017955
+      },
+      {
+        "fg": "primary",
+        "bg": "mailSelected",
+        "ratio": 5.418001032017955
+      },
+      {
+        "fg": "outline",
+        "bg": "mailUnread",
+        "ratio": 3.8149608753949344
+      },
+      {
+        "fg": "focus",
+        "bg": "mailUnread",
+        "ratio": 5.735246502139906
+      },
+      {
+        "fg": "primary",
+        "bg": "mailUnread",
+        "ratio": 5.735246502139906
+      }
+    ]
+  },
+  {
+    "theme": "sakura-dark",
+    "minText": 5.9096196133721355,
+    "minBoundary": 3.487817418795372,
+    "text": [
+      {
+        "fg": "onSurface",
+        "bg": "canvas",
+        "ratio": 15.888902378323275
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "canvas",
+        "ratio": 10.881844250786777
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surface",
+        "ratio": 14.410959404559492
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surface",
+        "ratio": 9.869644360001162
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceContainer",
+        "ratio": 12.6826211649236
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceContainer",
+        "ratio": 8.685956079427717
+      },
+      {
+        "fg": "onSurface",
+        "bg": "surfaceElevated",
+        "ratio": 10.41370292577228
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "surfaceElevated",
+        "ratio": 7.132040377239388
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailUnread",
+        "ratio": 11.884975529856186
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailUnread",
+        "ratio": 8.139671927039371
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailSelected",
+        "ratio": 8.695280644938341
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailSelected",
+        "ratio": 5.955143246659244
+      },
+      {
+        "fg": "onSurface",
+        "bg": "mailHover",
+        "ratio": 10.41370292577228
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "mailHover",
+        "ratio": 7.132040377239388
+      },
+      {
+        "fg": "onSurface",
+        "bg": "navActive",
+        "ratio": 8.695280644938341
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "navActive",
+        "ratio": 5.955143246659244
+      },
+      {
+        "fg": "onSurface",
+        "bg": "tagNeutral",
+        "ratio": 10.41370292577228
+      },
+      {
+        "fg": "onSurfaceMuted",
+        "bg": "tagNeutral",
+        "ratio": 7.132040377239388
+      },
+      {
+        "fg": "onPrimary",
+        "bg": "primary",
+        "ratio": 7.901355326509405
+      },
+      {
+        "fg": "onPrimaryContainer",
+        "bg": "primaryContainer",
+        "ratio": 8.411587592418028
+      },
+      {
+        "fg": "danger",
+        "bg": "dangerContainer",
+        "ratio": 6.999435831071876
+      },
+      {
+        "fg": "onDanger",
+        "bg": "danger",
+        "ratio": 8.229533585122615
+      },
+      {
+        "fg": "danger",
+        "bg": "canvas",
+        "ratio": 10.798658831621898
+      },
+      {
+        "fg": "success",
+        "bg": "canvas",
+        "ratio": 11.93273418529448
+      },
+      {
+        "fg": "warning",
+        "bg": "canvas",
+        "ratio": 12.41073004282116
+      },
+      {
+        "fg": "mailStar",
+        "bg": "canvas",
+        "ratio": 12.41073004282116
+      },
+      {
+        "fg": "danger",
+        "bg": "surface",
+        "ratio": 9.794196624840312
+      },
+      {
+        "fg": "success",
+        "bg": "surface",
+        "ratio": 10.822783338657839
+      },
+      {
+        "fg": "warning",
+        "bg": "surface",
+        "ratio": 11.256317306854546
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surface",
+        "ratio": 11.256317306854546
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceContainer",
+        "ratio": 8.619556958041407
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceContainer",
+        "ratio": 9.524782991950989
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceContainer",
+        "ratio": 9.906322272328481
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceContainer",
+        "ratio": 9.906322272328481
+      },
+      {
+        "fg": "danger",
+        "bg": "surfaceElevated",
+        "ratio": 7.07752004460013
+      },
+      {
+        "fg": "success",
+        "bg": "surfaceElevated",
+        "ratio": 7.820801332846843
+      },
+      {
+        "fg": "warning",
+        "bg": "surfaceElevated",
+        "ratio": 8.134083316807141
+      },
+      {
+        "fg": "mailStar",
+        "bg": "surfaceElevated",
+        "ratio": 8.134083316807141
+      },
+      {
+        "fg": "danger",
+        "bg": "mailSelected",
+        "ratio": 5.9096196133721355
+      },
+      {
+        "fg": "success",
+        "bg": "mailSelected",
+        "ratio": 6.5302479763573595
+      },
+      {
+        "fg": "warning",
+        "bg": "mailSelected",
+        "ratio": 6.791833580532432
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailSelected",
+        "ratio": 6.791833580532432
+      },
+      {
+        "fg": "danger",
+        "bg": "mailUnread",
+        "ratio": 8.077448832726438
+      },
+      {
+        "fg": "success",
+        "bg": "mailUnread",
+        "ratio": 8.925742661115734
+      },
+      {
+        "fg": "warning",
+        "bg": "mailUnread",
+        "ratio": 9.283285865473738
+      },
+      {
+        "fg": "mailStar",
+        "bg": "mailUnread",
+        "ratio": 9.283285865473738
+      }
+    ],
+    "boundary": [
+      {
+        "fg": "outline",
+        "bg": "canvas",
+        "ratio": 6.373295209616329
+      },
+      {
+        "fg": "focus",
+        "bg": "canvas",
+        "ratio": 12.059833950769704
+      },
+      {
+        "fg": "primary",
+        "bg": "canvas",
+        "ratio": 10.656009368567235
+      },
+      {
+        "fg": "outline",
+        "bg": "surface",
+        "ratio": 5.780468427092613
+      },
+      {
+        "fg": "focus",
+        "bg": "surface",
+        "ratio": 10.938060625721501
+      },
+      {
+        "fg": "primary",
+        "bg": "surface",
+        "ratio": 9.664816031252707
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceContainer",
+        "ratio": 5.087204061751942
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceContainer",
+        "ratio": 9.626234818974108
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceContainer",
+        "ratio": 8.505693265243453
+      },
+      {
+        "fg": "outline",
+        "bg": "surfaceElevated",
+        "ratio": 4.177104333005279
+      },
+      {
+        "fg": "focus",
+        "bg": "surfaceElevated",
+        "ratio": 7.904103449511618
+      },
+      {
+        "fg": "primary",
+        "bg": "surfaceElevated",
+        "ratio": 6.984026542317753
+      },
+      {
+        "fg": "outline",
+        "bg": "mailSelected",
+        "ratio": 3.487817418795372
+      },
+      {
+        "fg": "focus",
+        "bg": "mailSelected",
+        "ratio": 6.5998039535040665
+      },
+      {
+        "fg": "primary",
+        "bg": "mailSelected",
+        "ratio": 5.831553987089335
+      },
+      {
+        "fg": "outline",
+        "bg": "mailUnread",
+        "ratio": 4.767255522582745
+      },
+      {
+        "fg": "focus",
+        "bg": "mailUnread",
+        "ratio": 9.020813898042983
+      },
+      {
+        "fg": "primary",
+        "bg": "mailUnread",
+        "ratio": 7.970746347093146
+      }
+    ]
+  }
+]

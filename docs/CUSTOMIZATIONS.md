@@ -39,6 +39,33 @@ A useful entry should include:
 
 # Active customizations
 
+## App-wide appearance themes
+
+**Status:** Active (production deployment requires separate approval).
+
+Four explicit palettes (Amethyst Light/Dark, Sakura Light/Dark) unify desktop,
+mobile, Kumo portals and M3 roles while retaining the existing layout and email
+operations. `/appearance` provides immediate local preview and explicit Save /
+Cancel, with links from Home and mailbox Settings. Saved settings are app-wide,
+not per user or per mailbox. New document loads reflect another device's last
+successful write; no live synchronization is added.
+
+Main areas: shared palette/allowlist, workers appearance storage/API, root SSR
+loader/Layout state, separate appearance route, CSS semantic bridge. No new
+package, binding, database, authentication scheme or email HTML change. The
+optional R2 object `app-settings/appearance.json` is created only on Save;
+missing means Amethyst Light. Corruption/read errors remain distinguishable,
+are logged without content, and block saving until successfully read. PUT is
+same-origin and rejects unknown IDs and unexpected fields.
+
+Rollback to the prior Worker/UI simply ignores this additive object; no data
+cleanup is necessary. Future upstream root loader, Kumo theme/important-layer,
+app-settings, or global CSS changes need review against this bridge. Remove or
+adapt it if upstream provides equivalent app-wide semantics. Source, tests and
+QA details: `shared/appearance.ts`, `tests/appearance.test.ts`,
+[`qa/appearance/README.md`](qa/appearance/README.md). Final human approval and
+production rollout are separate from AI review.
+
 ## Structured email tags with provenance
 
 **Status:** Active

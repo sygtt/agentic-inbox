@@ -266,7 +266,36 @@ Migration `17_add_draft_identity` marks only messages currently in Drafts as dra
 
 ## R2 layout
 
-R2 currently has two important responsibilities.
+R2 stores app appearance, mailbox settings, and attachments.
+
+### App appearance
+
+`app-settings/appearance.json` stores `{ "themeId": "amethyst-light" }` for
+all Access-authorized users/mailboxes/devices together. `shared/appearance.ts`
+is the allowlist and semantic palette source. `workers/lib/appearance.ts`
+separates absent configuration (default, no write) from corrupt/read failures
+(default plus explicit error and a log with no stored contents). The app-wide
+GET/PUT `/api/v1/appearance` routes inherit Access, are not mailbox-scoped,
+and disable caching. PUT requires the exact same-origin Origin, JSON, a bounded
+body, and one valid themeId; a current failed read blocks overwriting. R2 writes
+are awaited, with the last successful write winning; there is no CAS, polling,
+WebSocket, mailbox/schema migration, or new binding.
+
+The root React Router server loader awaits the setting before rendering HTML.
+Layout emits inline semantic values, data-app-theme/data-mode, color-scheme
+and theme-color consistently in SSR and hydration. React state in Layout owns
+an optional local preview plus the confirmed saved value. Root loader data does
+not revalidate on client navigation: new document loads/reloads get other-device
+changes. `/appearance` can explicitly retry a failed GET. Selection previews
+without a write, Cancel/unmount restores the saved value, and only successful
+PUT confirms a selection. Read errors disable Save; write errors keep a retryable
+unsaved preview. A save already in flight can complete after navigation, in
+which case its confirmed value is retained without restoring abandoned preview.
+Home and mailbox Settings link to the separate app-wide page, including when
+no mailbox exists. Kumo portals inherit the same root palette. The M3/mobile
+aliases have no desktop teal override; a first CSS layer handles Kumo's
+important literal-white button text. Email HTML and sandbox rendering are
+unchanged. Static manifest/OS launch colors are separate; see DEVELOPMENT.
 
 ### Mailbox settings
 
@@ -492,7 +521,7 @@ app/routes.ts     route configuration
 
 The React application and API are served from the same Worker/origin.
 
-`app/routes/mailbox.tsx` composes a full-width top bar (`Header`, with prominent search and the `/` shortcut), a left navigation rail (`Sidebar`, with folders and permanently available Settings), and the content area. `MailboxSplitView` keeps the list beside detail from `md` (768px), including iPad portrait widths: the list is 280px at `md`, 320px at `lg`, 400px at `xl`, and 440px at `2xl`. The navigation shrinks to an 80px icon rail at 768–1023px and uses a 232px drawer above that; only widths below 768px replace the list with detail. Narrow detail toolbars wrap rather than clip their folder menu. Shared `--m3-*` tokens in `app/index.css` define tonal surfaces, typography, shape, spacing, elevation, and interactive states; the established mobile tokens alias the same values. The Agent/MCP panel is a right-side overlay that consumes no layout width; `useUIStore.isAgentPanelOpen` defaults to `false`. Fork-created `app/components/EmailListRow.tsx` is presentational and independent of stores and queries, while `app/routes/email-list.tsx` owns list state and handlers; `app/components/mobile/MobileEmailRow.tsx` and the desktop row share the viewport-independent `getMobileEmailTagBadges` helper, with `maxBadges` controlling the displayed chips. No new store, route, URL parameter, or dependency was added.
+`app/routes/mailbox.tsx` composes a full-width top bar (`Header`, with prominent search and the `/` shortcut), a left navigation rail (`Sidebar`, with folders and permanently available Settings), and the content area. `MailboxSplitView` keeps the list beside detail from `md` (768px), including iPad portrait widths: the list is 280px at `md`, 320px at `lg`, 400px at `xl`, and 440px at `2xl`. The navigation shrinks to an 80px icon rail at 768–1023px and uses a 232px drawer above that; only widths below 768px replace the list with detail. Narrow detail toolbars wrap rather than clip their folder menu. Shared `--m3-*` tokens in `app/index.css` define tonal surfaces, typography, shape, spacing, elevation, and interactive states; the established mobile tokens alias the same values. The Agent/MCP panel is a right-side overlay that consumes no layout width; `useUIStore.isAgentPanelOpen` defaults to `false`. Fork-created `app/components/EmailListRow.tsx` is presentational and independent of stores and queries, while `app/routes/email-list.tsx` owns list state and handlers; `app/components/mobile/MobileEmailRow.tsx` and the desktop row share the viewport-independent `getMobileEmailTagBadges` helper, with `maxBadges` controlling the displayed chips. The split-view customization itself added no store, route, URL parameter, or dependency.
 
 At viewport widths below `md`, `app/routes/mailbox.tsx` supplies the mailbox
 identity bar and safe-area-aware bottom navigation. The mobile layer under
