@@ -24,8 +24,21 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import type { Route } from "./+types/root";
+import { readAppearance } from "./appearance/load.server";
+import { AppearanceContext } from "./appearance/context";
+import { DEFAULT_THEME, themes, themeVariables, type Appearance, type ThemeId } from "../shared/appearance";
+import { useRouteLoaderData } from "react-router";
 import { ApiError } from "~/services/api";
 import "./index.css";
+
+export async function loader({ context }: Route.LoaderArgs) {
+ return { appearance: await readAppearance(context.cloudflare.env.BUCKET) };
+}
+// Settings are fetched on document loads, not by navigation/polling. Explicit
+// retry in /appearance can recover a failed read without writing a default.
+export function shouldRevalidate() { return false; }
+export function headers() { return { "Cache-Control": "private, no-store" }; }
 
 function makeQueryClient() {
 	return new QueryClient({
@@ -78,8 +91,13 @@ const KumoLink = forwardRef<
 });
 
 export function Layout({ children }: { children: React.ReactNode }) {
-	return (
-		<html lang="ja">
+ const data = useRouteLoaderData<typeof loader>("root");
+ const [saved, setSaved] = useState<Appearance>(data?.appearance ?? { themeId: DEFAULT_THEME, error: "read-failed" });
+ const [preview, setPreview] = useState<ThemeId | null>(null);
+ const themeId = preview ?? saved.themeId;
+ return (
+  <AppearanceContext.Provider value={{ saved, setSaved, preview, setPreview }}>
+  <html lang="ja" data-app-theme={themeId} data-mode={themes[themeId].mode} style={themeVariables(themeId)}>
 			<head>
 				<meta charSet="UTF-8" />
 				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -89,7 +107,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 					crossOrigin="use-credentials"
 				/>
 				<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
-				<meta name="theme-color" content="#ffffff" />
+				<meta name="theme-color" content={themes[themeId].colors.canvas} />
 				<meta name="mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<link
@@ -109,6 +127,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Scripts />
 			</body>
 		</html>
+  </AppearanceContext.Provider>
 	);
 }
 

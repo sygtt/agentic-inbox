@@ -562,3 +562,34 @@ Update this file when any of the following changes:
 - deployment procedure
 
 Do not let this document become a historical log. Historical rationale for fork-specific features belongs in `docs/CUSTOMIZATIONS.md`.
+
+## Appearance verification (local only)
+
+Run `npm test`, `npm run typecheck`, `npm run build`, and
+`npm run license:check`. `tests/appearance.test.ts` exercises an in-memory R2
+boundary, including missing/corrupt/read/write failures, rejected mutations and
+concurrent clients, and checks explicit theme contrast pairs. No real email or
+production resources are needed. Do not run AI/email delivery for theme QA.
+
+In `npm run dev`, `/appearance` works even with no mailbox. Preview a different
+theme, cancel/navigate away, save, reload, and check another browser tab's new
+load. A CLI PUT also needs `Origin: http://localhost:5173` (matching its target)
+and `Content-Type: application/json`. Test malformed local objects only with
+Wrangler's explicit `--local --persist-to .wrangler/state`; never use production
+R2 to induce a failure. Restore the local object afterward.
+
+The source of color values is `shared/appearance.ts`; generic M3/Kumo bridges
+are in `app/index.css`. Foregrounds for mail/neutral states reuse onSurface /
+onSurfaceMuted; selected/navigation containers also use onPrimaryContainer.
+Normal text pairs must pass 4.5:1 and meaningful borders/focus/state markers
+3:1. Do not recolor the sandboxed email document. Capture all four themes at
+mobile and desktop, plus 767/768px, tablets, Popover/Dialog, keyboard focus,
+hover, unread/selected/tags, empty/error states. See the QA record for actual
+coverage and limitations, including the local development iframe anomaly.
+
+Root SSR disables document caching and emits theme-color for the active theme.
+The static `public/manifest.webmanifest` theme/background colors and installed
+PWA/iOS splash screens remain static: the manifest is fetched independently of
+SSR, OS/browser installation caches differ, and there is no app-wide reliable
+live splash recoloring. This patch does not promise platform launch-screen or
+OS chrome updates; verify installed PWAs separately when a release is approved.

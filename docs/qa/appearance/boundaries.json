@@ -1,0 +1,66 @@
+[
+  {
+    "theme": "amethyst-light",
+    "width": 767,
+    "scrollWidth": 752,
+    "desktop": false,
+    "primary": "#59478b",
+    "detailWidth": null
+  },
+  {
+    "theme": "amethyst-dark",
+    "width": 767,
+    "scrollWidth": 752,
+    "desktop": false,
+    "primary": "#d1baff",
+    "detailWidth": null
+  },
+  {
+    "theme": "sakura-light",
+    "width": 767,
+    "scrollWidth": 752,
+    "desktop": false,
+    "primary": "#943a60",
+    "detailWidth": null
+  },
+  {
+    "theme": "sakura-dark",
+    "width": 767,
+    "scrollWidth": 752,
+    "desktop": false,
+    "primary": "#ffafce",
+    "detailWidth": null
+  },
+  {
+    "theme": "amethyst-light",
+    "width": 768,
+    "scrollWidth": 753,
+    "desktop": true,
+    "primary": "#59478b",
+    "detailWidth": 393
+  },
+  {
+    "theme": "amethyst-dark",
+    "width": 768,
+    "scrollWidth": 753,
+    "desktop": true,
+    "primary": "#d1baff",
+    "detailWidth": 393
+  },
+  {
+    "theme": "sakura-light",
+    "width": 768,
+    "scrollWidth": 753,
+    "desktop": true,
+    "primary": "#943a60",
+    "detailWidth": 393
+  },
+  {
+    "theme": "sakura-dark",
+    "width": 768,
+    "scrollWidth": 753,
+    "desktop": true,
+    "primary": "#ffafce",
+    "detailWidth": 393
+  }
+]

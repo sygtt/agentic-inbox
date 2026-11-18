@@ -12,6 +12,7 @@ import {
 
 export default [
 	index("routes/home.tsx"),
+ route("appearance", "routes/appearance.tsx"),
 	route("mailbox/:mailboxId", "routes/mailbox.tsx", [
 		index("routes/mailbox-index.tsx"),
 		route("emails/:folder", "routes/email-list.tsx"),
